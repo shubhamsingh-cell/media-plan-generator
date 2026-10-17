@@ -798,7 +798,10 @@ class TestSlide8ProjectedCpaNeverFabricatesABeat:
             for shape in usd_row_shapes
             for para in shape.text_frame.paragraphs
             if "".join(r.text for r in para.runs).strip()
-            and "".join(r.text for r in para.runs).strip() != "Projected CPA"
+            # row labels: the plan's own, and the industry column's (relabelled
+            # "Industry CPA (benchmark)" -- it is a range, not a projection)
+            and "".join(r.text for r in para.runs).strip()
+            not in ("Projected CPA", "Industry CPA (benchmark)")
         ]
         assert value_texts, "no Projected CPA value text found on the USD slide 8"
         for text in value_texts:

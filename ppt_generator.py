@@ -2852,6 +2852,12 @@ def _joveo_total_active_publishers(data: Optional[Dict]) -> Optional[int]:
     return total if total > 0 else None
 
 
+# ``benchmarks["confidence"]`` when the CPA/CPC row comes from the hardcoded
+# ad-platform benchmark table (data_synthesizer._PLATFORM_BENCHMARKS) rather
+# than from anything observed for this plan. It must never read as "live".
+PLATFORM_BENCHMARK_CONFIDENCE = "platform_benchmark"
+
+
 def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str]:
     """Return benchmark data for the given industry.
 
@@ -3048,7 +3054,8 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 if live_cpcs and not _kb_has_cpc:
                     min_cpc = min(live_cpcs)
                     max_cpc = max(live_cpcs)
-                    # NOTE: despite the "live_api" label below, plat_data
+                    # NOTE: this layer used to be labelled "live_api" (and
+                    # so printed a green "Live Data" caption), but plat_data
                     # here (ad_platform_analysis) traces to the hardcoded
                     # static USD table _PLATFORM_BENCHMARKS
                     # (data_synthesizer.py, e.g. Google Ads cpc 2.90) via
@@ -3069,7 +3076,7 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                         if min_cpc != max_cpc
                         else _fmt_currency(min_cpc, currency="USD")
                     )
-                    result["confidence"] = "live_api"
+                    result["confidence"] = PLATFORM_BENCHMARK_CONFIDENCE
                     result["cpc_is_usd_benchmark"] = True
                     result["cpc_is_generic_platform_range"] = True
                 if live_cpas and not _kb_has_cpa:
@@ -3087,7 +3094,7 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                         if min_cpa != max_cpa
                         else _fmt_currency(round(min_cpa), currency="USD")
                     )
-                    result["confidence"] = "live_api"
+                    result["confidence"] = PLATFORM_BENCHMARK_CONFIDENCE
                     result["cpa_is_usd_benchmark"] = True
                     result["cpa_is_generic_platform_range"] = True
 
@@ -3843,8 +3850,13 @@ def _confidence_color(confidence: str) -> Tuple[RGBColor, str]:
     """Return (color, label) for a confidence level string.
 
     Green bold for live/high confidence, blue for curated, amber for fallback.
+    ``platform_benchmark`` (the hardcoded ad-platform benchmark table) is a
+    curated reference, never live: it takes the curated colour with its own
+    caption.
     """
     conf_lower = str(confidence).lower()
+    if conf_lower == PLATFORM_BENCHMARK_CONFIDENCE:
+        return (MEDIUM_BLUE, "Curated benchmark")
     if conf_lower in ("live_api", "high", "synthesized"):
         return (GREEN, "Live Data")
     elif conf_lower in ("trend_engine", "cached_api"):
@@ -4139,6 +4151,84 @@ def _first_one_line(
         if _fits_one_line(v, width_in, font_pt, bold):
             return v
     return variants[-1] if variants else ""
+
+
+def _posting_scope_phrase(primary: Dict[str, Any], data: Optional[Dict]) -> str:
+    """What the headline posting count covers: the queried place for a
+    location-scoped count, "US nationwide" / "nationwide" for a national one,
+    "" when the collector never said (never guessed)."""
+    scope = str(primary.get("scope") or "").strip().lower()
+    label = str(primary.get("scope_label") or "").strip()
+    if scope == "location" and label:
+        return label
+    if scope == "national":
+        if isinstance(data, dict) and _is_us_only_campaign(data):
+            return "US nationwide"
+        return "nationwide"
+    return ""
+
+
+def _observed_postings_cell(
+    jm_data: Dict[str, Any],
+    width_in: float,
+    data: Optional[Dict] = None,
+) -> Optional[Tuple[str, float, int]]:
+    """``(text, font_pt, n_lines)`` for the slide-5 "Live Postings" cell, read
+    from the role's structured ``posting_primary`` (count, provider, observed
+    dates, scope -- data_synthesizer.fuse_job_market_demand), never from a
+    pre-formatted string. ``None`` (the row is suppressed) when there is no
+    headline posting or it does not validate against the role's observed
+    market evidence: the provider label is the canonical one, and every
+    observation date must be one the evidence block backs.
+
+    One line whenever it fits, matching the data layer's ``posting_summary``
+    order -- ``"7,000 jobs · Adzuna · US nationwide · 2026-10-15"`` -- else the
+    count and scope on the first short line and the provider and date(s) below
+    it. The scope and the date are never the thing dropped."""
+    primary = jm_data.get("posting_primary")
+    if not isinstance(primary, dict):
+        return None
+    try:
+        count = int(primary.get("count"))
+    except (TypeError, ValueError):
+        return None
+    if count <= 0:
+        return None
+    details = validated_market_source_details(
+        jm_data, "job_postings", jm_data.get("posting_source_details")
+    )
+    provider_id = primary.get("provider_id")
+    backed = [d for d in details if d["provider_id"] == provider_id]
+    if not backed:
+        return None
+    raw_dates = primary.get("observed_dates") or [primary.get("observed_at")]
+    days = sorted({str(d) for d in raw_dates if d})
+    if not days or not set(days) <= {d["observed_at"] for d in backed}:
+        return None
+    provider = backed[0]["source"]
+    when = (
+        days[0]
+        if len(days) == 1
+        else f"{days[0]}\u2013{days[-1]}"
+    )
+    scope = _posting_scope_phrase(primary, data)
+    lead = f"{count:,} jobs"
+    parts = [lead, provider] + ([scope] if scope else []) + [when]
+    one_line = " \u00b7 ".join(parts)
+    for pt in (10.0, 9.0, 8.5, 8.0):
+        if _fits_one_line(one_line, width_in, pt, bold=True):
+            return one_line, pt, 1
+    first = f"{lead} \u00b7 {scope}" if scope else f"{lead} \u00b7 {provider}"
+    stacks = (
+        [[first, f"{provider} \u00b7 {when}"], [first, provider, when]]
+        if scope
+        else [[first, when]]
+    )
+    for lines in stacks:
+        for pt in (9.0, 8.5, 8.0):
+            if all(_fits_one_line(ln, width_in, pt, bold=True) for ln in lines):
+                return "\n".join(lines), pt, len(lines)
+    return "\n".join(stacks[-1]), 8.0, len(stacks[-1])
 
 
 _INDUSTRY_DETAIL_SPLIT_RE = re.compile(r"\s+[·•|—–-]\s+|\s+\(")
@@ -6444,17 +6534,45 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         _cpa_label = "Industry CPA (cross-industry ad platform range)"
     if benchmarks.get("cpc_is_generic_platform_range"):
         _cpc_label = "Industry CPC (cross-industry ad platform range)"
-    bench_rows = [
-        (_cpa_label, cpa_val),
-        (_cpc_label, cpc_val),
-        (_cph_label, _cph_val),
+    # Row priority (design-judge DJ2): when the table runs out of room the
+    # HIGHEST rank number goes first, so observed evidence is never evicted
+    # in favour of a curated/benchmark row. Rows display in rank order.
+    #   0 industry CPA / CPC / CPH   1 observed evidence (live postings,
+    #   market temperature)   2 average salary   3 apply-rate benchmark
+    #   4 curated ad-platform / LinkedIn rows
+    bench_rows: List[Tuple[str, str]] = []
+    bench_meta: List[Dict[str, Any]] = []
+
+    def _bench_add(
+        metric: str,
+        value: str,
+        rank: int,
+        *,
+        observed: bool = False,
+        fixed_cell: Optional[Tuple[float, int]] = None,
+    ) -> None:
+        """``fixed_cell`` = (font_pt, n_lines) for a value already fitted."""
+        bench_rows.append((metric, value))
+        bench_meta.append(
+            {"rank": rank, "observed": observed, "fixed_cell": fixed_cell}
+        )
+
+    def _bench_add_curated(row: Tuple[str, str]) -> None:
+        """Curated ad-platform / LinkedIn rows: first to be evicted."""
+        _bench_add(row[0], row[1], 4)
+
+    _bench_add(_cpa_label, cpa_val, 0)
+    _bench_add(_cpc_label, cpc_val, 0)
+    _bench_add(_cph_label, _cph_val, 0)
+    _bench_add(
+        "Apply Rate",
         (
-            "Apply Rate",
             benchmarks["apply_rate"]
             if _is_us_only_campaign(data)
-            else f"{benchmarks['apply_rate']} (US benchmark \u2014 no local data)",
+            else f"{benchmarks['apply_rate']} (US benchmark \u2014 no local data)"
         ),
-    ]
+        3,
+    )
 
     # Add real job market data -- prefer synthesized over raw enrichment
     job_market = (
@@ -6470,10 +6588,6 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             for role_name, jm_data in list(job_market.items())[:2]:
                 if not isinstance(jm_data, dict) or role_name.startswith("_"):
                     continue
-                # Handle both synthesized (total_postings) and raw enriched (posting_count) keys
-                posting_count = jm_data.get(
-                    "total_postings", jm_data.get("posting_count") or 0
-                )
                 # S4: fuse_job_market_demand() (data_synthesizer.py) fabricates
                 # a generic "job_postings": 75000 fallback when Adzuna/Jooble/
                 # search/talent-pool all returned nothing, tagging the source
@@ -6482,53 +6596,26 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 # Market Demand table for the same role can legitimately show
                 # 0/no data for this exact figure (no fabricated stats over
                 # empty data).
-                _posting_source_details = jm_data.get("posting_source_details") or []
                 avg_sal = jm_data.get("avg_salary") or 0
-                if (
-                    posting_count
-                    and posting_count > 0
-                    and market_metric_is_observed(jm_data, "job_postings")
-                    and _posting_source_details
-                ):
-                    # trust-and-proof#2: "N active jobs" carried no source or
-                    # as-of date -- attach both when the row's own data names
-                    # a real provider (Adzuna/Jooble/BLS), so the figure reads
-                    # as sourced and dated rather than an unattributed count.
-                    _postings_val = f"{posting_count:,} active jobs"
-                    _validated_details = validated_market_source_details(
-                        jm_data, "job_postings", _posting_source_details
+                if market_metric_is_observed(jm_data, "job_postings"):
+                    # trust-and-proof#2: the count carries its provider, scope
+                    # and observation date, formatted from the structured
+                    # ``posting_primary`` (never from a pre-built string) and
+                    # fitted to ONE line where it fits so the row survives
+                    # the row budget. No posting_primary -> no row.
+                    _postings_cell = _observed_postings_cell(
+                        jm_data, (Inches(2.5) / 914400) - 0.2, data
                     )
-                    _source_labels = []
-                    _provider_details = {}
-                    for _detail in _validated_details:
-                        _provider_id = _detail["provider_id"]
-                        _provider_entry = _provider_details.setdefault(
-                            _provider_id,
-                            {"source": _detail["source"], "dates": set()},
-                        )
-                        _provider_entry["dates"].add(_detail["observed_at"])
-                    for _provider_entry in _provider_details.values():
-                        _dates = sorted(_provider_entry["dates"])
-                        _date_label = (
-                            _dates[0]
-                            if len(_dates) == 1
-                            else f"{_dates[0]}–{_dates[-1]}; {len(_dates)} dates"
-                        )
-                        _source_labels.append(
-                            f"{_provider_entry['source']} ({_date_label})"
-                        )
-                    if _source_labels:
-                        _postings_val += f" ({'; '.join(_source_labels)})"
-                        bench_rows.append(
-                            (
-                                f"Live Postings: {role_name}",
-                                _postings_val,
-                            )
+                    if _postings_cell:
+                        _bench_add(
+                            f"Live Postings: {role_name}",
+                            _postings_cell[0],
+                            1,
+                            observed=True,
+                            fixed_cell=(_postings_cell[1], _postings_cell[2]),
                         )
                 if avg_sal and avg_sal > 0:
-                    bench_rows.append(
-                        (f"Avg Salary: {role_name}", _format_salary(avg_sal))
-                    )
+                    _bench_add(f"Avg Salary: {role_name}", _format_salary(avg_sal), 2)
                 # Synthesized data may have market_temperature. data_synthesizer.
                 # fuse_job_market_demand's Industry Benchmark fallback (the SAME
                 # branch that fabricates posting_count/talent_pool above) derives
@@ -6544,8 +6631,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                     and isinstance(market_temp, str)
                     and market_metric_is_observed(jm_data, "market_temperature")
                 ):
-                    bench_rows.append(
-                        (f"Market Temp: {role_name}", market_temp.title())
+                    _bench_add(
+                        f"Market Temp: {role_name}",
+                        market_temp.title(),
+                        1,
+                        observed=True,
                     )
         except (TypeError, AttributeError):
             pass
@@ -6563,13 +6653,13 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 plat_reach = plat_data.get("estimated_reach") or 0
                 fit_score = plat_data.get("fit_score") or 0
                 if plat_cpc and plat_cpc > 0:
-                    bench_rows.append((f"{plat_label} CPC", _fmt_currency(plat_cpc)))
+                    _bench_add_curated((f"{plat_label} CPC", _fmt_currency(plat_cpc)))
                 if plat_cpa and plat_cpa > 0:
-                    bench_rows.append((f"{plat_label} CPA", _fmt_currency(plat_cpa)))
+                    _bench_add_curated((f"{plat_label} CPA", _fmt_currency(plat_cpa)))
                 if plat_reach and plat_reach > 0:
-                    bench_rows.append((f"{plat_label} Est. Reach", f"{plat_reach:,}"))
+                    _bench_add_curated((f"{plat_label} Est. Reach", f"{plat_reach:,}"))
                 if fit_score and fit_score > 0:
-                    bench_rows.append(
+                    _bench_add_curated(
                         (f"{plat_label} Fit Score", _fmt_pct(fit_score, decimals=0))
                     )
                 # Deep intelligence data (91-platform KB enrichment)
@@ -6577,12 +6667,12 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 if isinstance(deep, dict) and deep:
                     visitors = deep.get("monthly_visitors")
                     if visitors:
-                        bench_rows.append(
+                        _bench_add_curated(
                             (f"{plat_label} Monthly Visitors", str(visitors))
                         )
                     best_for = deep.get("best_for") or []
                     if isinstance(best_for, list) and best_for:
-                        bench_rows.append(
+                        _bench_add_curated(
                             (
                                 f"{plat_label} Best For",
                                 ", ".join(str(b) for b in best_for[:3]),
@@ -6605,7 +6695,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                             )
                         else:
                             desc = str(bv)
-                        bench_rows.append((f"Bidding: {label}", str(desc)[:40]))
+                        _bench_add_curated((f"Bidding: {label}", str(desc)[:40]))
             except (TypeError, AttributeError):
                 pass
 
@@ -6619,7 +6709,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         li_country = li_intel.get("country", "")
         li_sample = li_intel.get("sample_size", 0)
         if country_ar.get("avg"):
-            bench_rows.append(
+            _bench_add_curated(
                 (
                     f"LinkedIn Apply Rate ({li_country})",
                     f"{country_ar['avg']:.1f}% avg ({li_sample:,} jobs)",
@@ -6627,7 +6717,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             )
         if ea_ats_data.get("easy_apply_rate") and ea_ats_data.get("ats_rate"):
             lift = ea_ats_data.get("lift_factor", 0)
-            bench_rows.append(
+            _bench_add_curated(
                 (
                     "LinkedIn Easy Apply vs ATS",
                     f"{ea_ats_data['easy_apply_rate']:.1f}% vs "
@@ -6636,25 +6726,20 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             )
         best_days = li_intel.get("best_posting_days", [])
         if best_days:
-            bench_rows.append(("LinkedIn Best Posting Days", ", ".join(best_days)))
+            _bench_add_curated(("LinkedIn Best Posting Days", ", ".join(best_days)))
 
     # Has ad platform data - use for 3-column table header
     has_ad_plat_data = bool(ad_plat)
 
-    # Cap rows so the table fits ABOVE the attribution band (attrib_top=4.85in)
-    # and never runs off the bottom / overlaps the category cards. The data-driven
-    # row list could reach 13+ rows (ad-platform + LinkedIn intel); the reference
-    # deck shows ~5 benchmark rows. The fuller breakdown lives in the workbook.
-    # max rows = floor((attrib_top - clearance - source - table_top)/row_h) - header
-    # O1: use the dynamically-computed attribution top (row-count aware) so the
-    # right-hand benchmark table is capped to stay above wherever the heading
-    # actually lands, not a stale fixed 4.85in.
-    _max_bench_rows = max(
-        4,
-        int((_attrib_top_in - 0.35 - (table_top + row_h) / 914400) / (row_h / 914400)),
-    )
-    if len(bench_rows) > _max_bench_rows:
-        bench_rows = bench_rows[:_max_bench_rows]
+    # Display in priority order (stable within a rank) so the trailing rows --
+    # the ones the caps below evict -- are always the lowest-priority ones.
+    _bench_order = sorted(range(len(bench_rows)), key=lambda k: bench_meta[k]["rank"])
+    bench_rows = [bench_rows[k] for k in _bench_order]
+    bench_meta = [bench_meta[k] for k in _bench_order]
+
+    # The rows are fitted to the vertical space below, in priority order (the
+    # row list can reach 13+ rows -- ad-platform + LinkedIn intel -- and the
+    # reference deck shows ~5; the fuller breakdown lives in the workbook).
 
     # Table header
     _add_filled_rect(slide, table_left, table_top, table_w, row_h, NAVY)
@@ -6736,25 +6821,56 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         n_lines = _estimate_lines(str(text), width_in, font_pt)
         return n_lines * (font_pt * 1.35) / 72.0 + 0.08, font_pt
 
-    _bench_row_h_in: list = []
+    _bench_cell_h_in: list = []  # (value_h, metric_h) per row, base-independent
     _bench_row_font_pt: list = []
-    for _metric, _value in bench_rows:
-        _val_h_in, _val_pt = _bench_col_h_in(str(_value), _bench_value_w_in, 10.0)
+    for _bi, (_metric, _value) in enumerate(bench_rows):
+        _fixed = bench_meta[_bi].get("fixed_cell")
+        if _fixed:
+            # pre-fitted (observed-evidence rows): font size and line count
+            _val_pt = float(_fixed[0])
+            _val_h_in = _fixed[1] * _val_pt * 1.35 / 72.0 + 0.08
+        else:
+            _val_h_in, _val_pt = _bench_col_h_in(str(_value), _bench_value_w_in, 10.0)
         _met_h_in, _met_pt = _bench_col_h_in(str(_metric), _bench_metric_w_in, 9.0)
-        _bench_row_h_in.append(max(_bench_base_row_h_in, _val_h_in, _met_h_in))
+        _bench_cell_h_in.append(max(_val_h_in, _met_h_in))
         _bench_row_font_pt.append(_val_pt)
 
-    # If the content-derived rows would still run past the attribution band,
-    # cap gracefully -- drop trailing rows (lowest-priority, added last)
-    # rather than let the table overflow its allotted vertical space.
-    _bench_avail_bottom_in = _attrib_top_in - 0.35
-    while len(bench_rows) > 1 and (
-        (table_top / 914400) + _bench_base_row_h_in + sum(_bench_row_h_in)
-        > _bench_avail_bottom_in
-    ):
-        bench_rows = bench_rows[:-1]
-        _bench_row_h_in = _bench_row_h_in[:-1]
-        _bench_row_font_pt = _bench_row_font_pt[:-1]
+    # Fit the rows above the attribution band. Rows are taken in priority
+    # order (observed evidence before curated benchmark rows); a row that does
+    # not fit is skipped and a later, shorter one may still take the space.
+    # The body rows first compact from 0.38in to 0.34in (a one-line 10pt cell
+    # needs ~0.27in) if that keeps a row that would otherwise be dropped.
+    # The sources line sits 0.05in under the last row and is 0.2in tall, so the
+    # table may end 0.30in above the attribution heading.
+    _bench_avail_bottom_in = _attrib_top_in - 0.30
+    _bench_head_bottom_in = table_top / 914400 + _bench_base_row_h_in
+
+    def _bench_fit(base_in: float) -> List[int]:
+        kept: List[int] = []
+        used = _bench_head_bottom_in
+        for k, cell_h in enumerate(_bench_cell_h_in):
+            h = max(base_in, cell_h)
+            if used + h <= _bench_avail_bottom_in or not kept:
+                kept.append(k)
+                used += h
+        return kept
+
+    _bench_body_base_in = _bench_base_row_h_in
+    _bench_kept = _bench_fit(_bench_body_base_in)
+    _bench_kept_compact = _bench_fit(min(_bench_base_row_h_in, 0.34))
+
+    def _bench_score(kept: List[int]) -> Tuple[int, int]:
+        """Prefer keeping more must-have/observed rows, then more rows."""
+        return (sum(1 for k in kept if bench_meta[k]["rank"] <= 1), len(kept))
+
+    if _bench_score(_bench_kept_compact) > _bench_score(_bench_kept):
+        _bench_body_base_in = min(_bench_base_row_h_in, 0.34)
+        _bench_kept = _bench_kept_compact
+    bench_rows = [bench_rows[k] for k in _bench_kept]
+    bench_meta = [bench_meta[k] for k in _bench_kept]
+    _bench_cell_h_in = [_bench_cell_h_in[k] for k in _bench_kept]
+    _bench_row_font_pt = [_bench_row_font_pt[k] for k in _bench_kept]
+    _bench_row_h_in = [max(_bench_body_base_in, h) for h in _bench_cell_h_in]
 
     _bench_row_top_in: list = []
     _bench_cur_top_in = table_top / 914400 + _bench_base_row_h_in
@@ -6791,21 +6907,38 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             color=DARK_TEXT,
             anchor=MSO_ANCHOR.MIDDLE,
         )
-        # Use confidence-colored text for industry benchmark rows (first 4)
-        # Live API rows use green, trend engine uses blue, curated uses navy
-        val_color = conf_value_color if i < 4 else NAVY
-        _add_textbox(
+        # Benchmark rows (industry CPA/CPC/CPH, apply rate) take the
+        # confidence colour of the benchmark source; green is reserved for
+        # rows whose values were OBSERVED for this plan (live postings,
+        # market temperature); everything else stays navy.
+        if bench_meta[i]["observed"]:
+            val_color = GREEN
+        elif bench_meta[i]["rank"] in (0, 3):
+            val_color = conf_value_color
+        else:
+            val_color = NAVY
+        # A stacked value (observed-evidence cells) is one real paragraph per
+        # line: a raw newline inside a run is whitespace to PowerPoint.
+        _val_lines = str(value).split("\n")
+        _, _val_tf = _add_textbox(
             slide,
             table_left + Inches(2.4),
             ry,
             Inches(2.5),
             this_row_h,
-            text=str(value),
+            text=_val_lines[0],
             font_size=val_pt,
             bold=True,
             color=val_color,
             anchor=MSO_ANCHOR.MIDDLE,
         )
+        for _extra in _val_lines[1:]:
+            _extra_p = _val_tf.add_paragraph()
+            _extra_p.space_before = Pt(0)
+            _extra_p.space_after = Pt(0)
+            _extra_run = _extra_p.add_run()
+            _extra_run.text = _extra
+            _set_font(_extra_run, size=val_pt, bold=True, color=val_color)
 
     # Source - positioned below the LAST content-derived row (not a fixed
     # row_h * count multiple, which is exactly what let the source line and
@@ -8619,6 +8752,9 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             all_comparison_rows.append(
                 {
                     "metric": "Projected CPA",
+                    # The industry column is a published benchmark range, not
+                    # a projection (design-judge DJ4): its own label says so.
+                    "industry_metric": "Industry CPA (benchmark)",
                     "client_val": _fmt_currency(proj_cpa),
                     "industry_val": _cpa_industry_val,
                     "status": _cpa_status,
@@ -8881,7 +9017,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             ry,
             Inches(2.8),
             row_h_comp,
-            text=row["metric"],
+            text=row.get("industry_metric") or row["metric"],
             font_size=9,
             bold=True,
             color=DARK_TEXT,

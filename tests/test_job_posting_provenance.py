@@ -396,9 +396,10 @@ def _deck_texts(job_market_demand: dict) -> list[str]:
         "campaign_start_month": 9,
         "hire_volume": "35 hires",
         "work_environment": "onsite",
-        # A US market: on a non-US plan slide 5's content-derived row cap drops
-        # the 5th benchmark row (this one) before the provenance wording is
-        # reachable, so the provenance assertions would test nothing there.
+        # A US market is kept for these cell-format assertions; the non-US and
+        # two-role cases (where the old trailing-row cap used to evict the
+        # observed row before the wording was reachable) are covered by
+        # tests/test_deck_roles_round2.py, which asserts the row IS present.
         "locations": [{"city": "Columbus", "state": "OH", "country": "United States"}],
         "roles": [{"title": "Warehouse Associate", "count": 20, "tier": "mid"}],
         "_synthesized": {"job_market_demand": job_market_demand},
@@ -413,21 +414,38 @@ def _deck_texts(job_market_demand: dict) -> list[str]:
 
 
 def test_deck_uses_collector_observation_date_not_render_date() -> None:
+    """The cell shows the HEADLINE provider's count and its own observation
+    date (``posting_primary``); a second provider's count is never added or
+    named beside it."""
     texts = _deck_texts(
         {
             "Warehouse Associate": {
                 "total_postings": 7_000,
-                "posting_sources": ["Adzuna", "Jooble API"],
+                "posting_primary": {
+                    "count": 7_000,
+                    "provider": "Adzuna",
+                    "provider_id": "adzuna",
+                    "observed_at": "2026-10-15",
+                    "observed_dates": ["2026-10-15"],
+                    "scope": "national",
+                    "scope_label": "",
+                },
+                "posting_other_providers": [
+                    {
+                        "count": 2_000,
+                        "provider": "Jooble API",
+                        "provider_id": "jooble",
+                        "observed_at": "2026-10-14",
+                        "observed_dates": ["2026-10-14"],
+                        "scope": "location",
+                        "scope_label": "Columbus, OH",
+                    }
+                ],
                 "posting_source_details": [
                     {
                         "source": "Adzuna",
                         "provider_id": "adzuna",
                         "observed_at": "2026-10-15",
-                    },
-                    {
-                        "source": "Jooble API",
-                        "provider_id": "jooble",
-                        "observed_at": "2026-10-14",
                     },
                 ],
                 "market_temperature": "warm",
@@ -436,8 +454,8 @@ def test_deck_uses_collector_observation_date_not_render_date() -> None:
                     "metrics": {
                         "job_postings": {
                             "status": "observed",
-                            "provider_ids": ["adzuna", "jooble"],
-                            "observed_at": ["2026-10-14", "2026-10-15"],
+                            "provider_ids": ["adzuna"],
+                            "observed_at": ["2026-10-15"],
                         },
                         "market_temperature": _observed_metric("adzuna", "2026-10-15"),
                     },
@@ -446,10 +464,11 @@ def test_deck_uses_collector_observation_date_not_render_date() -> None:
         }
     )
 
-    postings = [text for text in texts if "7,000 active jobs" in text]
+    postings = [text for text in texts if text.startswith("7,000 jobs")]
     assert postings
-    assert "Adzuna (2026-10-15)" in postings[0]
-    assert "Jooble API (2026-10-14)" in postings[0]
+    assert "Adzuna" in postings[0] and "2026-10-15" in postings[0]
+    assert "US nationwide" in postings[0]
+    assert "Jooble" not in postings[0] and "9,000" not in postings[0]
     assert "as of Oct 16" not in postings[0]
 
 
@@ -923,6 +942,15 @@ def test_live_posting_deck_row_requires_valid_dated_source_detail() -> None:
 def test_live_posting_deck_row_requires_complete_source_detail_coverage() -> None:
     role_data = {
         "total_postings": 6_300,
+        "posting_primary": {
+            "count": 6_300,
+            "provider": "Adzuna",
+            "provider_id": "adzuna",
+            "observed_at": "2026-10-15",
+            "observed_dates": ["2026-10-13", "2026-10-14", "2026-10-15"],
+            "scope": "national",
+            "scope_label": "",
+        },
         "posting_source_details": [
             {
                 "source": "Adzuna",
@@ -955,6 +983,15 @@ def test_live_posting_deck_row_requires_complete_source_detail_coverage() -> Non
 def test_live_posting_deck_row_summarizes_all_observed_dates() -> None:
     role_data = {
         "total_postings": 6_300,
+        "posting_primary": {
+            "count": 6_300,
+            "provider": "Adzuna",
+            "provider_id": "adzuna",
+            "observed_at": "2026-10-15",
+            "observed_dates": ["2026-10-13", "2026-10-14", "2026-10-15"],
+            "scope": "national",
+            "scope_label": "",
+        },
         "posting_source_details": [
             {
                 "source": "Adzuna",
@@ -981,9 +1018,9 @@ def test_live_posting_deck_row_summarizes_all_observed_dates() -> None:
     }
 
     rendered = "\n".join(_deck_texts({"Warehouse Associate": role_data}))
-    postings = [text for text in rendered.splitlines() if "6,300 active jobs" in text]
+    postings = [text for text in rendered.splitlines() if "6,300 jobs" in text]
     assert postings
-    assert "2026-10-13–2026-10-15; 3 dates" in postings[0]
+    assert "2026-10-13\u20132026-10-15" in rendered
 
 
 def test_cached_jooble_observation_uses_canonical_live_source_label() -> None:
@@ -1025,6 +1062,15 @@ def test_cached_jooble_observation_uses_canonical_live_source_label() -> None:
 def test_live_posting_deck_derives_source_label_from_provider_id() -> None:
     role_data = {
         "total_postings": 2_300,
+        "posting_primary": {
+            "count": 2_300,
+            "provider": "Industry Benchmark",
+            "provider_id": "adzuna",
+            "observed_at": "2026-10-15",
+            "observed_dates": ["2026-10-15"],
+            "scope": "national",
+            "scope_label": "",
+        },
         "posting_source_details": [
             {
                 "source": "Industry Benchmark",
@@ -1046,10 +1092,10 @@ def test_live_posting_deck_derives_source_label_from_provider_id() -> None:
     }
 
     rendered = "\n".join(_deck_texts({"Warehouse Associate": role_data}))
-    postings = [text for text in rendered.splitlines() if "2,300 active jobs" in text]
+    postings = [text for text in rendered.splitlines() if "2,300 jobs" in text]
     assert postings
-    assert "Adzuna (2026-10-15)" in postings[0]
-    assert "Industry Benchmark" not in postings[0]
+    assert "Adzuna \u00b7 2026-10-15" in rendered
+    assert "Industry Benchmark" not in rendered
 
 
 def test_zero_observed_market_providers_force_zero_confidence_despite_kb() -> None:

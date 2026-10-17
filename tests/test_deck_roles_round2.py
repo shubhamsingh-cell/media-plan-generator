@@ -1,5 +1,9 @@
 """Slide 5 / slide 8 trust and layout fixes (design-judge round 2).
 
+DJ1  the hardcoded ad-platform table is never captioned or coloured "live"
+DJ2  slide 5 keeps OBSERVED evidence rows and evicts curated rows first, and
+     the "Live Postings" value is one line built from structured fields
+DJ4  slide 8's industry column is labelled a benchmark, not a projection
 DJ5  slide 8 withholds hires like slides 2 and 6 do on a no-local-CPH market
 """
 
@@ -79,6 +83,9 @@ def _plan(brief: Dict[str, Any], observed: bool, extra_jm: Optional[dict] = None
                 "posting_observation": "observed",
                 "posting_provider_id": "adzuna",
                 "posting_observed_at": TODAY,
+                # the collector's own scope (api_enrichment.fetch_job_market)
+                "posting_scope": "national",
+                "posting_scope_label": "",
                 **(extra_jm or {}),
             }
             for role in roles
@@ -92,11 +99,6 @@ def _plan(brief: Dict[str, Any], observed: bool, extra_jm: Optional[dict] = None
     data["_synthesized"] = data_synthesizer.synthesize(
         enriched, data.get("_knowledge_base") or load_knowledge_base(), data
     )
-    if extra_jm:
-        # posting_scope is read from the synthesized role block
-        for role_block in data["_synthesized"]["job_market_demand"].values():
-            if isinstance(role_block, dict):
-                role_block.update(extra_jm)
     return data
 
 
@@ -138,6 +140,275 @@ def _inch(shape, attr: str) -> float:
     return getattr(shape, attr) / 914400.0
 
 
+# ---------------------------------------------------------------------- DJ1
+
+
+def test_platform_benchmark_table_is_never_confidence_live_api() -> None:
+    data = _plan(US_TWO_ROLE, observed=False)
+    bench = ppt_generator._get_benchmarks(data["industry"], data)
+    assert bench["cpa_is_generic_platform_range"], "fixture must hit the platform layer"
+    assert bench["confidence"] != "live_api"
+    assert bench["confidence"] == ppt_generator.PLATFORM_BENCHMARK_CONFIDENCE
+
+
+def test_platform_benchmark_confidence_is_curated_not_live_styled() -> None:
+    colour, label = ppt_generator._confidence_color(
+        ppt_generator.PLATFORM_BENCHMARK_CONFIDENCE
+    )
+    assert "live" not in label.lower()
+    assert colour != ppt_generator.GREEN
+    # the genuine live label/colour is still reachable for an observed source
+    assert ppt_generator._confidence_color("live_api") == (
+        ppt_generator.GREEN,
+        "Live Data",
+    )
+
+
+@pytest.mark.parametrize("brief", [US_TWO_ROLE, UK_WAREHOUSE], ids=["us", "uk"])
+@pytest.mark.parametrize("observed", [False, True], ids=["nokeys", "observed"])
+def test_slide5_does_not_caption_the_hardcoded_table_as_live(brief, observed) -> None:
+    slide = _slide5(_deck(_plan(brief, observed)))
+    texts = [s.text_frame.text for s in _shapes_with_text(slide)]
+    assert "Live Data" not in texts
+    # no benchmark cell (CPA/CPC/CPH/apply rate) is painted live-green
+    labels = {"Industry CPA", "Industry CPC", "Industry Cost-per-Hire", "Apply Rate"}
+    shapes = _shapes_with_text(slide)
+    for i, shape in enumerate(shapes):
+        if any(shape.text_frame.text.startswith(lbl) for lbl in labels):
+            value = shapes[i + 1]
+            assert _run_rgb(value) != ppt_generator.GREEN, (
+                shape.text_frame.text,
+                value.text_frame.text,
+            )
+
+
+# ---------------------------------------------------------------------- DJ2
+
+# the collector scopes Adzuna counts to the whole country, so the cell says so
+# ("US nationwide" on a US-only plan) on a short first line; the provider and
+# the observation date follow
+_POSTINGS_RE = re.compile(
+    r"^7,000 jobs \u00b7 (US )?nationwide\nAdzuna \u00b7 \d{4}-\d{2}-\d{2}$"
+)
+
+
+def _live_postings(slide) -> List[Tuple[Any, Any]]:
+    """[(label_shape, value_shape)] for every Live Postings row."""
+    shapes = _shapes_with_text(slide)
+    return [
+        (shape, shapes[i + 1])
+        for i, shape in enumerate(shapes)
+        if shape.text_frame.text.startswith("Live Postings: ")
+    ]
+
+
+@pytest.mark.parametrize(
+    "brief", [US_TWO_ROLE, UK_WAREHOUSE], ids=["us-two-role", "uk"]
+)
+def test_slide5_keeps_the_observed_live_postings_row(brief) -> None:
+    slide = _slide5(_deck(_plan(brief, observed=True)))
+    rows = _live_postings(slide)
+    assert rows, "observed postings row was evicted from slide 5"
+    label, value = rows[0]
+    text = value.text_frame.text
+    assert _POSTINGS_RE.match(text), text
+    assert _run_rgb(value) == ppt_generator.GREEN  # observed => live green
+    # a stacked cell is real paragraphs: a raw newline inside one run is plain
+    # whitespace to PowerPoint and the two lines would run together
+    for para in value.text_frame.paragraphs:
+        assert all("\n" not in run.text for run in para.runs)
+    assert len(value.text_frame.paragraphs) == len(text.split("\n"))
+    # every line is fitted to the value column (no unplanned third wrap)
+    pt = value.text_frame.paragraphs[0].runs[0].font.size.pt
+    for line in text.split("\n"):
+        assert ppt_generator._fits_one_line(line, 2.3, pt, bold=True), (line, pt)
+    # old nested-bracket string is gone
+    assert "active jobs" not in text and "(Adzuna (" not in text
+
+
+@pytest.mark.parametrize(
+    "brief", [US_TWO_ROLE, UK_WAREHOUSE], ids=["us-two-role", "uk"]
+)
+def test_slide5_orders_observed_rows_right_after_cpa_cpc_cph(brief) -> None:
+    slide = _slide5(_deck(_plan(brief, observed=True)))
+    labels = [
+        s.text_frame.text
+        for s in _shapes_with_text(slide)
+        if _inch(s, "left") < 6.0 or _inch(s, "left") > 6.9
+    ]
+    rows = [
+        t
+        for t in labels
+        if t.startswith(
+            ("Industry CPA", "Industry CPC", "Industry Cost", "Live Postings")
+        )
+        or t == "Apply Rate"
+    ]
+    assert rows[:3] and all(r.startswith("Industry") for r in rows[:3]), rows
+    assert rows[3].startswith("Live Postings"), rows
+    if "Apply Rate" in rows:
+        assert rows.index("Apply Rate") > rows.index(rows[3])
+
+
+def test_slide5_evicts_curated_rows_before_observed_rows() -> None:
+    """Space runs out on the two-role US table: BOTH observed Live Postings
+    rows (each says what the count covers, so takes two short lines) are kept
+    and the apply-rate benchmark / ad-platform rows are what give way."""
+    slide = _slide5(_deck(_plan(US_TWO_ROLE, observed=True)))
+    texts = [s.text_frame.text for s in _shapes_with_text(slide)]
+    assert any(t.startswith("Live Postings: Registered Nurse") for t in texts)
+    assert any(t.startswith("Live Postings: Travel Nurse") for t in texts)
+    assert "Apply Rate" not in texts
+    assert not any(t.startswith("Google Ads") for t in texts)
+
+
+def test_slide5_nokeys_deck_has_no_live_postings_row() -> None:
+    """No observation -> no row: the benchmark fallback is never a live count."""
+    slide = _slide5(_deck(_plan(UK_WAREHOUSE, observed=False)))
+    assert not _live_postings(slide)
+
+
+def test_slide5_table_closes_the_band_above_the_attribution_header() -> None:
+    slide = _slide5(_deck(_plan(US_TWO_ROLE, observed=True)))
+    shapes = _shapes_with_text(slide)
+    src = next(s for s in shapes if s.text_frame.text.startswith("Sources: "))
+    header = next(
+        s for s in shapes if s.text_frame.text == "CHANNEL CATEGORY ATTRIBUTION"
+    )
+    gap = _inch(header, "top") - (_inch(src, "top") + _inch(src, "height"))
+    # pre-fix the table stopped at ~4.4in and left a ~0.48in gap below the
+    # sources line (observed rows evicted, body rows at the 0.38in default)
+    assert gap < 0.3, gap
+
+
+def _jm(primary: dict, details_dates=None) -> dict:
+    """A role's job_market_demand block in the data layer's real shape."""
+    dates = details_dates or primary.get("observed_dates") or [primary["observed_at"]]
+    return {
+        "total_postings": primary["count"],
+        "posting_primary": primary,
+        "posting_source_details": [
+            {
+                "source": primary["provider"],
+                "provider_id": primary["provider_id"],
+                "observed_at": d,
+            }
+            for d in dates
+        ],
+        "market_evidence": {
+            "contract": "market_evidence_v1",
+            "metrics": {
+                "job_postings": {
+                    "status": "observed",
+                    "provider_ids": [primary["provider_id"]],
+                    "observed_at": sorted(set(dates)),
+                }
+            },
+        },
+    }
+
+
+_ADZUNA = {
+    "count": 7000,
+    "provider": "Adzuna",
+    "provider_id": "adzuna",
+    "observed_at": "2026-10-15",
+    "observed_dates": ["2026-10-15"],
+    "scope": "unspecified",
+    "scope_label": "",
+}
+
+
+def test_observed_postings_cell_formats_posting_primary() -> None:
+    cell = ppt_generator._observed_postings_cell
+    # no stated scope: nothing is guessed, one line
+    text, pt, lines = cell(_jm(_ADZUNA), 2.3)
+    assert (text, lines) == ("7,000 jobs \u00b7 Adzuna \u00b7 2026-10-15", 1)
+    # a nationwide count says so; one line cannot hold it -> two short lines
+    national = dict(_ADZUNA, scope="national")
+    text, pt, lines = cell(_jm(national), 2.3)
+    assert text == "7,000 jobs \u00b7 nationwide\nAdzuna \u00b7 2026-10-15"
+    assert lines == 2
+    # a US-only plan says "US nationwide"
+    text, _, _ = cell(_jm(national), 2.3, {"locations": ["Columbus, OH"]})
+    assert text.split("\n")[0] == "7,000 jobs \u00b7 US nationwide"
+    # a location-scoped count names its place
+    london = dict(
+        _ADZUNA,
+        count=2000,
+        provider="Jooble API",
+        provider_id="jooble",
+        observed_at="2026-10-14",
+        observed_dates=["2026-10-14"],
+        scope="location",
+        scope_label="London, UK",
+    )
+    text, _, _ = cell(_jm(london), 2.3)
+    assert text.split("\n")[0] == "2,000 jobs \u00b7 London, UK"
+    assert "Jooble API \u00b7 2026-10-14" in text
+    # several observation dates stack, none dropped
+    multi = dict(
+        _ADZUNA,
+        count=6300,
+        scope="national",
+        observed_dates=["2026-10-13", "2026-10-14", "2026-10-15"],
+    )
+    text, _, lines = cell(_jm(multi), 2.3)
+    assert lines == 2
+    assert text.endswith("Adzuna \u00b7 2026-10-13\u20132026-10-15")
+
+
+def test_observed_postings_cell_suppressed_without_backed_primary() -> None:
+    cell = ppt_generator._observed_postings_cell
+    assert cell({}, 2.3) is None  # no posting_primary
+    assert cell(dict(_jm(_ADZUNA), posting_primary=None), 2.3) is None
+    # a date the market evidence does not back is not printed
+    forged = _jm(_ADZUNA, details_dates=["2026-10-01"])
+    assert cell(forged, 2.3) is None
+    # a provider the evidence does not name is not printed
+    other = _jm(dict(_ADZUNA, provider_id="jooble", provider="Jooble API"))
+    other["posting_primary"] = dict(_ADZUNA)  # claims Adzuna; evidence says Jooble
+    assert cell(other, 2.3) is None
+
+
+def test_slide5_says_nationwide_when_the_collector_scopes_the_count_national() -> None:
+    slide = _slide5(_deck(_plan(US_TWO_ROLE, observed=True)))
+    rows = _live_postings(slide)
+    assert rows
+    assert "nationwide" in rows[0][1].text_frame.text
+
+
+def test_slide5_names_the_place_for_a_location_scoped_count() -> None:
+    plan = _plan(
+        US_TWO_ROLE,
+        observed=True,
+        extra_jm={"posting_scope": "location", "posting_scope_label": "Houston, TX"},
+    )
+    slide = _slide5(_deck(plan))
+    rows = _live_postings(slide)
+    assert rows
+    assert "Houston, TX" in rows[0][1].text_frame.text
+
+
+# ---------------------------------------------------------------------- DJ4
+
+
+@pytest.mark.parametrize("brief", [US_TWO_ROLE, UK_WAREHOUSE], ids=["us", "uk"])
+def test_slide8_labels_the_industry_cpa_a_benchmark(brief) -> None:
+    slide = _slide8(_deck(_plan(brief, observed=False)))
+    right = [
+        s.text_frame.text
+        for s in _shapes_with_text(slide)
+        if _inch(s, "left") > 6.5 and _inch(s, "top") > 1.5 and _inch(s, "top") < 5.0
+    ]
+    assert "Industry CPA (benchmark)" in right
+    assert "Projected CPA" not in right
+    left = [
+        s.text_frame.text for s in _shapes_with_text(slide) if _inch(s, "left") < 6.5
+    ]
+    assert "Projected CPA" in left  # the plan's own figure keeps its label
+
+
 # ---------------------------------------------------------------------- DJ5
 
 
@@ -158,9 +429,13 @@ def test_slide8_withholds_hires_on_a_market_with_no_local_cph() -> None:
     assert not re.search(r"\d", shown), shown
     assert shown == "n/a"
     # slides 2 and 6 say the same thing
-    all2 = " ".join(s.text_frame.text for s in _shapes_with_text(_slide_by_index(prs, 2)))
+    all2 = " ".join(
+        s.text_frame.text for s in _shapes_with_text(_slide_by_index(prs, 2))
+    )
     assert "n/a" in all2
-    all6 = " ".join(s.text_frame.text for s in _shapes_with_text(_slide_by_index(prs, 6)))
+    all6 = " ".join(
+        s.text_frame.text for s in _shapes_with_text(_slide_by_index(prs, 6))
+    )
     assert "hires not projected" in all6
     # and no client-goal band computed from a count that is not projected
     assert "this plan projects" not in " ".join(
