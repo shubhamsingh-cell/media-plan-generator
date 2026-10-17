@@ -228,6 +228,17 @@ SOC_CODES: Dict[str, str] = {
     "physician assistant": "29-1071",
     "pharmacist": "29-1051",
     "physical therapist": "29-1123",
+    # Qualified titles whose extra word changes the occupation. SOC titles read
+    # on bls.gov/oes/2025/may/oes_stru.htm: 29-1171 Nurse Practitioners; 29-2061
+    # Licensed Practical and Licensed Vocational Nurses; 11-9111 Medical and
+    # Health Services Managers; 31-2021 Physical Therapist Assistants.
+    "nurse practitioner": "29-1171",
+    "licensed practical nurse": "29-2061",
+    "licensed vocational nurse": "29-2061",
+    "lpn": "29-2061",
+    "lvn": "29-2061",
+    "nurse manager": "11-9111",
+    "physical therapist assistant": "31-2021",
     "dentist": "29-1021",
     "medical technologist": "29-2011",
     "medical coder": "29-2072",
@@ -2217,8 +2228,46 @@ _EXACT_ONLY_SOC_TITLES = frozenset(
         "territory sales representative",
         "account executive",
         "business development representative",
+        "lpn",
+        "lvn",
     }
 )
+
+# Words that change WHICH occupation a title names. "Nurse" inside "Licensed
+# Practical Nurse", "teacher" inside "Teacher Assistant" or "software engineer"
+# inside "Software Engineer Manager" is a different SOC with a different wage
+# (an intern or trainer is not paid the journey-level median). Seniority and
+# setting words (senior, travel, retail) are deliberately absent.
+_SOC_QUALIFIER_WORDS = frozenset(
+    {
+        "manager",
+        "director",
+        "supervisor",
+        "head",
+        "chief",
+        "assistant",
+        "aide",
+        "technician",
+        "tech",
+        "practitioner",
+        "practical",
+        "vocational",
+        "intern",
+        "internship",
+        "apprentice",
+        "trainee",
+        "trainer",
+        "instructor",
+        "coordinator",
+    }
+)
+
+
+def _title_match_changes_occupation(title: str, role_lower: str) -> bool:
+    """True when ``role_lower`` carries a qualifier word that ``title`` lacks."""
+    role_words = set(re.findall(r"[a-z]+", role_lower))
+    title_words = set(re.findall(r"[a-z]+", title))
+    return bool((role_words & _SOC_QUALIFIER_WORDS) - title_words)
 
 
 def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
@@ -2237,6 +2286,12 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
                 if title in _EXACT_ONLY_SOC_TITLES:
                     continue
                 if title in role_lower:
+                    if _title_match_changes_occupation(title, role_lower):
+                        _log_warn(
+                            f"SOC match '{title}' rejected for role '{role}': "
+                            "occupation-changing qualifier"
+                        )
+                        continue
                     soc = code
                     break
         # No word-overlap fallback: one shared word ("associate", "manager",

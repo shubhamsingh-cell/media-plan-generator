@@ -98,6 +98,67 @@ def test_v1_longer_titles_still_match_by_known_title_substring(
     assert _soc_calls(monkeypatch, "Regional Sales Manager") == ["11-2022"]
 
 
+# Occupation-changing qualifiers: a longer role that merely CONTAINS a known
+# title ("Nurse" in "Licensed Practical Nurse") is a different occupation and
+# must not take the contained title's BLS wage. Codes below were read on
+# https://www.bls.gov/oes/2025/may/oes_stru.htm.
+@pytest.mark.parametrize(
+    "role,soc",
+    [
+        ("Nurse Practitioner", "29-1171"),
+        ("Senior Nurse Practitioner", "29-1171"),
+        ("Licensed Practical Nurse", "29-2061"),
+        ("LPN", "29-2061"),
+        ("Licensed Vocational Nurse", "29-2061"),
+        ("LVN", "29-2061"),
+        ("Nurse Manager", "11-9111"),
+        ("Registered Nurse Manager", "11-9111"),
+        ("Physical Therapist Assistant", "31-2021"),
+    ],
+)
+def test_v1b_qualified_nursing_and_therapy_titles_map_to_their_own_soc(
+    monkeypatch: pytest.MonkeyPatch, role: str, soc: str
+) -> None:
+    assert _soc_calls(monkeypatch, role) == [soc]
+
+
+@pytest.mark.parametrize(
+    "role",
+    [
+        "Teacher Assistant",
+        "Software Engineer Manager",
+        "Data Analyst Intern",
+        "Electrician Apprentice",
+        "Truck Driver Trainer",
+        "Registered Nurse Supervisor",
+        "Software Engineering Intern",
+        "Pharmacist Technician",
+        "Nurse Aide",
+        "Physical Therapist Aide",
+    ],
+)
+def test_v1b_a_qualifier_that_changes_the_occupation_means_no_bls_wage(
+    monkeypatch: pytest.MonkeyPatch, role: str
+) -> None:
+    assert _soc_calls(monkeypatch, role) == []
+
+
+@pytest.mark.parametrize(
+    "role,soc",
+    [
+        ("Travel Nurse", "29-1141"),
+        ("Senior Software Engineer", "15-1252"),
+        ("Retail Sales Associate", "41-2031"),
+        ("Regional Sales Manager", "11-2022"),
+        ("Physician Assistant", "29-1071"),
+    ],
+)
+def test_v1b_seniority_and_setting_modifiers_keep_their_mapping(
+    monkeypatch: pytest.MonkeyPatch, role: str, soc: str
+) -> None:
+    assert _soc_calls(monkeypatch, role) == [soc]
+
+
 # --------------------------------------------------------------------- V2 ---
 
 from tests.test_roles_audit_fixes import (  # noqa: E402,F401
