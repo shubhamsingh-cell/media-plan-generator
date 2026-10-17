@@ -181,7 +181,11 @@ def test_one_retry_after_csrf_403(results: dict) -> None:
 
 @needs_node
 def test_retry_is_bounded_to_one(results: dict) -> None:
-    assert results["bounded"]["statusCalls"] == 2, results["bounded"]
+    r = results["bounded"]
+    assert r["statusCalls"] == 2, r
+    # a 403 that persists past the single retry is UNKNOWN, not "not configured"
+    assert r["googleDisabled"] is False, r
+    assert "unavailable" in (r["googleTitle"] or "").lower(), r
 
 
 @needs_node
@@ -190,7 +194,7 @@ def test_csrf_ready_resolves_when_token_fetch_fails(results: dict) -> None:
     assert r["readyState"] == "resolved", r
     assert (
         r["statusCalls"] >= 1
-    ), "poller must still run (and show 'not configured' honestly)"
+    ), "poller must still run (its non-2xx answer reads as unknown, not 'not configured')"
 
 
 @needs_node

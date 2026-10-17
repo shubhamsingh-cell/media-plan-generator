@@ -569,7 +569,7 @@ class DataMatrixMonitor:
         time.sleep(_initial_sleep)
         while True:
             try:
-                with _check_run_claim(_CHECK_INTERVAL / 2) as elected:
+                with _check_run_claim(_CHECK_INTERVAL * 0.9) as elected:
                     if elected:
                         _publish_result(self.run_check())
                     else:
