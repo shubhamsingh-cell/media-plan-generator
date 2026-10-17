@@ -714,7 +714,9 @@ def _projected_cpa_row_shapes(slide):
     labels = [
         s
         for s in slide.shapes
-        if s.has_text_frame and s.text_frame.text.strip() == "Projected CPA"
+        if s.has_text_frame
+        and s.text_frame.text.strip()
+        in ("Projected CPA", "Projected CPA (plan efficiency)")
     ]
     assert labels, "no 'Projected CPA' row found on slide 8 -- fixture didn't drive one"
     row_shapes = []
@@ -801,7 +803,11 @@ class TestSlide8ProjectedCpaNeverFabricatesABeat:
             # row labels: the plan's own, and the industry column's (relabelled
             # "Industry CPA (benchmark)" -- it is a range, not a projection)
             and "".join(r.text for r in para.runs).strip()
-            not in ("Projected CPA", "Industry CPA (benchmark)")
+            not in (
+                "Projected CPA",
+                "Projected CPA (plan efficiency)",
+                "Industry CPA (benchmark)",
+            )
         ]
         assert value_texts, "no Projected CPA value text found on the USD slide 8"
         for text in value_texts:
