@@ -96,3 +96,31 @@ def test_v1_longer_titles_still_match_by_known_title_substring(
 ) -> None:
     assert _soc_calls(monkeypatch, "Senior Software Engineer") == ["15-1252"]
     assert _soc_calls(monkeypatch, "Regional Sales Manager") == ["11-2022"]
+
+
+# --------------------------------------------------------------------- V2 ---
+
+from tests.test_roles_audit_fixes import (  # noqa: E402,F401
+    _fanout,
+    _generate_server,
+    isolated_breakers,
+)
+
+
+@pytest.mark.parametrize(
+    "locations,env",
+    [
+        (["Columbus, OH"], None),
+        (["London, UK"], None),
+        (["Columbus, OH"], "all"),
+        (["London, UK"], "Adzuna"),
+    ],
+    ids=["us-default", "uk-default", "us-all", "uk-adzuna-only"],
+)
+def test_v2_generate_fanout_makes_no_adzuna_call(
+    monkeypatch: pytest.MonkeyPatch, _generate_server: int, locations, env
+) -> None:
+    # The fan-out's Adzuna result was read by nothing but a PostHog event and
+    # each plan spent up to 5 requests of the shared 200/day cap on it.
+    spies = _fanout(monkeypatch, _generate_server, locations, env)
+    assert spies["adzuna"].calls == [], spies["adzuna"].calls

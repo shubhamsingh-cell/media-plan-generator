@@ -21536,56 +21536,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     logger.warning("API enrichment failed (non-fatal): %s", exc)
                     return ("api_enrichment", None)
 
-            def _call_adzuna() -> "tuple[str, Optional[dict]]":
-                """Fetch Adzuna job count for ALL roles (up to 5)."""
-                if not (
-                    _api_integrations_available and _api_adzuna and _roles_normalized
-                ):
-                    return ("adzuna_job_count", None)
-                if not _role_source_on("Adzuna"):
-                    return ("adzuna_job_count", None)
-                # Query the plan's own Adzuna market. This used to be "us" for
-                # every plan, so a Dubai or London plan got a US total.
-                _az_scope = (
-                    _api_enrichment_mod.adzuna_query_scope(_locs_for_api)
-                    if _api_enrichment_mod is not None
-                    else None
-                )
-                if _az_scope is None:
-                    return ("adzuna_job_count", None)
-                per_role: list[dict[str, Any]] = []
-                for _ri in _roles_normalized:
-                    try:
-                        count = _api_adzuna.get_job_count(
-                            _ri["title"], _az_scope["country"]
-                        )
-                        if count:
-                            per_role.append({"role": _ri["title"], "count": count})
-                    except (
-                        urllib.error.URLError,
-                        OSError,
-                        ValueError,
-                        TypeError,
-                    ) as exc:
-                        logger.error(
-                            f"Adzuna enrichment for role '{_ri['title']}' failed: {exc}",
-                            exc_info=True,
-                        )
-                if not per_role:
-                    return ("adzuna_job_count", None)
-                total = sum(
-                    r["count"] for r in per_role if isinstance(r["count"], (int, float))
-                )
-                logger.info(
-                    f"Enriched /api/generate with adzuna data for {len(per_role)} role(s)"
-                )
-                return (
-                    "adzuna_job_count",
-                    {
-                        "total": total,
-                        "per_role": per_role,
-                    },
-                )
+            # There is no Adzuna call here on purpose. It used to fetch a job
+            # count per role into market_context, which nothing but a PostHog
+            # event read (and its "total" was always 0, as get_job_count
+            # returns a dict) -- yet it spent up to 5 requests per plan from
+            # the shared 200/day Adzuna cap. The plan's live postings come
+            # from api_enrichment.fetch_job_market via enrich_data.
 
             def _call_bls() -> "tuple[str, Optional[dict]]":
                 """Fetch BLS occupational employment data for ALL roles with SOC codes."""
@@ -22071,7 +22027,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # -- Dispatch all enrichment tasks concurrently (20s combined timeout) --
             _enrich_tasks = [
                 _call_enrich_data,
-                _call_adzuna,
                 _call_bls,
                 _call_fred,
                 _call_jobspy,

@@ -697,11 +697,13 @@ def _called(spies: Dict[str, _Spy]) -> set:
     return {name for name, spy in spies.items() if spy.calls}
 
 
-def test_f4_default_set_runs_adzuna_and_bls_not_jooble_or_onet(
+def test_f4_default_set_runs_bls_not_jooble_or_onet(
     monkeypatch: pytest.MonkeyPatch, _generate_server: int
 ) -> None:
+    # Adzuna is not in app.py's fan-out any more (final round V2): the plan's
+    # live postings come from enrich_data, not from this dead extra spend.
     spies = _fanout(monkeypatch, _generate_server, ["Columbus, OH"], None)
-    assert _called(spies) == {"adzuna", "bls"}
+    assert _called(spies) == {"bls"}
 
 
 def test_f4_kill_switch_stops_every_fanout_source(
@@ -721,16 +723,15 @@ def test_f4_an_allowlist_without_adzuna_stops_adzuna(
 def test_f4_all_sources_still_available_when_opted_in(
     monkeypatch: pytest.MonkeyPatch, _generate_server: int
 ) -> None:
-    # London: Adzuna runs (gb), Jooble + O*NET run, BLS (US wages) does not.
+    # London: Jooble + O*NET run, BLS (US wages) does not.
     spies = _fanout(monkeypatch, _generate_server, ["London, UK"], "all")
-    assert _called(spies) == {"adzuna", "jooble", "onet"}
+    assert _called(spies) == {"jooble", "onet"}
 
 
-def test_f4_adzuna_is_asked_about_the_plans_own_country(
+def test_f4_bls_is_not_called_on_a_london_plan(
     monkeypatch: pytest.MonkeyPatch, _generate_server: int
 ) -> None:
     spies = _fanout(monkeypatch, _generate_server, ["London, UK"], None)
-    assert [c[2] for c in spies["adzuna"].calls] == ["gb"]  # was always "us"
     assert spies["bls"].calls == []  # BLS is US data: not on a London plan
 
 
