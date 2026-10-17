@@ -52,11 +52,11 @@ def test_hires_inversion_is_minimal_and_consistent(goal):
     assert req["ok"] and req["low"] <= req["high"]
     # low end: the optimistic end of the projection reaches the goal ...
     assert proj(req["low"])["hires"]["high"] >= goal
-    # ... and a dollar-scale step below does not (it is the smallest budget)
-    assert proj(req["low"] - 5)["hires"]["high"] < goal
+    # ... and one planning step below does not (it is the smallest quoted budget)
+    assert proj(req["low"] - req["step_low"])["hires"]["high"] < goal
     # high end: the conservative end reaches it, minimally
     assert proj(req["high"])["hires"]["low"] >= goal
-    assert proj(req["high"] - 5)["hires"]["low"] < goal
+    assert proj(req["high"] - req["step_high"])["hires"]["low"] < goal
 
 
 def test_apply_start_inversion_is_minimal_and_consistent():
@@ -65,9 +65,9 @@ def test_apply_start_inversion_is_minimal_and_consistent():
     req = dp.required_budget(goal, "apply_starts", proj, hint=100_000)
     assert req["ok"] and req["low"] <= req["high"]
     assert proj(req["low"])["applications"]["high"] >= goal
-    assert proj(req["low"] - 5)["applications"]["high"] < goal
+    assert proj(req["low"] - req["step_low"])["applications"]["high"] < goal
     assert proj(req["high"])["applications"]["low"] >= goal
-    assert proj(req["high"] - 5)["applications"]["low"] < goal
+    assert proj(req["high"] - req["step_high"])["applications"]["low"] < goal
 
 
 def test_required_budget_is_monotone_in_the_goal():
@@ -83,6 +83,32 @@ def test_hint_does_not_change_the_answer():
     a = dp.required_budget(100, "hires", proj, hint=0)
     b = dp.required_budget(100, "hires", proj, hint=10_000_000)
     assert (a["low"], a["high"]) == (b["low"], b["high"])
+
+
+def test_inversion_is_cheap_and_quiet():
+    calls = []
+
+    def counting(b):
+        calls.append(b)
+        return pp.project_plan(dict(BRIEF, budget=b))
+
+    records = []
+
+    class _H(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    h = _H()
+    lg = logging.getLogger("budget_engine")
+    lg.addHandler(h)
+    try:
+        logging.disable(logging.NOTSET)
+        lg.setLevel(logging.INFO)
+        dp.required_budget(250, "hires", counting, hint=100_000)
+    finally:
+        lg.removeHandler(h)
+    assert len(calls) < 60  # a bisection, not a scan
+    assert records == []  # the search mutes its own engine log lines
 
 
 def test_bad_goal_is_refused():

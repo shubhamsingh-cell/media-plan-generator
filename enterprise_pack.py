@@ -37,6 +37,8 @@ import math
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+import demand_planning
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -48,6 +50,7 @@ REQUEST_KEYS: Tuple[str, ...] = (
     "enterprise_system_of_record",
     "enterprise_request_lock_day",
     "enterprise_setup_sla_days",
+    "site_goals",
 )
 WEEKDAYS: Tuple[str, ...] = (
     "monday",
@@ -73,6 +76,8 @@ SHEET_TIERS = "Publisher Tiers & Gates"
 SHEET_TRACKING = "Tracking & Measurement"
 SHEET_FEASIBILITY = "Feasibility Check"
 SHEET_JOBAD = "Job Ad Quality"
+# Wave 2 (demand-first): present only when a hiring goal was stated.
+SHEET_GOALPLAN = "Goal Plan"
 SHEET_TITLES: Tuple[str, ...] = (
     SHEET_PACING,
     SHEET_TIERS,
@@ -152,10 +157,14 @@ def request_problem(data: Any) -> Tuple[str, str]:
                 "The system of record is too long "
                 f"(max {MAX_SYSTEM_OF_RECORD_CHARS} characters).",
             )
+    sg_code, sg_msg = demand_planning.site_goals_problem(data.get("site_goals"))
+    if sg_code:
+        return "site_goals", sg_msg
     return "", ""
 
 
 _PROBLEM_FIELDS = {
+    "site_goals": "site_goals",
     "week_start": "enterprise_week_start",
     "lock_day": "enterprise_request_lock_day",
     "sla": "enterprise_setup_sla_days",
@@ -201,6 +210,11 @@ def normalize_request(data: Any) -> None:
     data["enterprise_setup_sla_days"] = (
         n if n is not None and 0 <= n <= MAX_SETUP_SLA_DAYS else ""
     )
+    goals = demand_planning.clean_site_goals(data.get("site_goals"))
+    if goals:
+        data["site_goals"] = goals
+    else:
+        data.pop("site_goals", None)
 
 
 def settings(data: Any) -> Dict[str, Any]:
@@ -386,10 +400,29 @@ def _site_shares(data: dict, sites: List[str]) -> Tuple[List[float], str]:
     weights = [adj.get(_city_key(s)) for s in sites]
     known = [w for w in weights if w]
     if not known:
-        return _exact_shares([1.0] * n), "equal shares (fair share)"
-    fill = sum(known) / len(known)
-    weights = [w if w else fill for w in weights]
-    return _exact_shares(weights), "plan location weights"
+        fallback = [1.0] * n
+        default_basis = "equal shares (fair share)"
+    else:
+        fill = sum(known) / len(known)
+        fallback = [w if w else fill for w in weights]
+        default_basis = "plan location weights"
+    # Per-site hiring goals (wave 2) replace the default weights: a site's
+    # fair share is its share of the goals.  No goals (or none matching a
+    # site) leaves the default allocation untouched.
+    goals = site_goals(data)
+    if goals:
+        gw, gbasis = demand_planning.site_weights(
+            sites, goals, total_goal=_hire_goal(data), fallback=fallback
+        )
+        if gw:
+            total = sum(gw)
+            shares = [round(w / total, 4) for w in gw]
+            # the rounding remainder goes to the largest site, never to a
+            # site whose goal is zero
+            top = max(range(len(shares)), key=lambda i: gw[i])
+            shares[top] = round(shares[top] + (1.0 - sum(shares)), 4)
+            return shares, gbasis
+    return _exact_shares(fallback), default_basis
 
 
 def _funded_channels(data: dict) -> Tuple[List[Dict[str, Any]], int, float]:
@@ -481,13 +514,104 @@ def _cpa_info(
     return None, "none"
 
 
+def site_goals(data: Any) -> Dict[str, int]:
+    """The plan's per-site hiring goals ({} unless the pack is on and goals
+    were given).  Reading is defensive: a hand-built plan dict is cleaned the
+    same way the request layer cleans a payload."""
+    if not enabled(data):
+        return {}
+    raw = data.get("site_goals")
+    if demand_planning.site_goals_problem(raw)[0]:
+        return {}
+    return demand_planning.clean_site_goals(raw)
+
+
 def _hire_goal(data: dict) -> int:
+    goals = site_goals(data)
+    if goals:
+        # per-site goals ARE the plan's goal: their total is what the plan is
+        # graded against
+        return sum(goals.values())
     meta = (data.get("_budget_allocation") or {}).get("metadata") or {}
     openings = int(_num(meta.get("total_openings")))
     if openings > 0:
         return openings
     m = re.search(r"(\d[\d,]*)", str(data.get("hire_volume") or ""))
     return int(m.group(1).replace(",", "")) if m else 0
+
+
+def stated_goal(data: Any) -> int:
+    """The plan's hiring goal as the client stated it: the total of the
+    per-site goals when any were given, else the hire volume / exact hires
+    field (the SAME parse the deck's and workbook's goal-gap line use).  0 =
+    no goal stated -- never the engine's projected-hires fallback."""
+    goals = site_goals(data)
+    if goals:
+        return sum(goals.values())
+    if not isinstance(data, dict):
+        return 0
+    try:
+        import display_format
+
+        return int(display_format.parse_hire_goal(data.get("hire_volume")))
+    except (ImportError, TypeError, ValueError):
+        return 0
+
+
+def compute_goal_plan(
+    data: dict,
+    projector: Any,
+    *,
+    budget: float,
+    symbol: str = "$",
+    currency_code: str = "USD",
+) -> Optional[Dict[str, Any]]:
+    """The goal plan (:func:`demand_planning.build_goal_plan`) for an enabled
+    plan with a stated goal, else None.  ``projector(b)`` is project_plan at
+    budget ``b`` with the caller's own inputs, so the plan and the headline
+    ranges can never disagree.  Per-site rows use the same shares as the
+    Weekly Pacing site x week split."""
+    if not enabled(data):
+        return None
+    goal = stated_goal(data)
+    if goal <= 0:
+        return None
+    goals = site_goals(data)
+    sites = _locations(data)
+    shares, _basis = _site_shares(data, sites) if len(sites) >= 2 or goals else ([], "")
+    plan = demand_planning.build_goal_plan(
+        goal=goal,
+        budget=budget,
+        projector=projector,
+        weeks=demand_planning.campaign_weeks(data),
+        site_goals=goals,
+        sites=sites if shares else [],
+        shares=shares,
+        symbol=symbol,
+        currency_code=currency_code,
+    )
+    if plan.get("ok"):
+        volume = str(data.get("hire_volume") or "")
+        if not goals and re.search(r"\d\s*(?:-|\u2013|to)\s*\d|\d\s*\+", volume):
+            plan.setdefault("notes", []).append(
+                f"The hire volume was a range ({volume.strip()}): the plan is built "
+                f"to its low end ({plan['goal']:,}). Enter an exact number to plan "
+                "to a precise goal."
+            )
+        stated = 0
+        if goals:
+            try:
+                import display_format
+
+                stated = int(display_format.parse_hire_goal(data.get("hire_volume")))
+            except (ImportError, TypeError, ValueError):
+                stated = 0
+        if goals and stated > 0 and stated != sum(goals.values()):
+            plan.setdefault("notes", []).append(
+                f"Site goals total {sum(goals.values()):,}; the plan is built to "
+                "the site goals, not the hire volume field."
+            )
+    return plan
 
 
 def _compliance_flags(data: dict) -> List[str]:
@@ -1613,6 +1737,13 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
             ),
         )
         row += 1
+        goals = site_goals(data)
+        if goals:
+            sh.put(row, 2, "Site hiring goal (hires)", font=x._FONT_BODY_BOLD)
+            for j, s_name in enumerate(sites):
+                g = demand_planning.goal_for_site(s_name, goals)
+                sh.put(row, 3 + j, g if g > 0 else "no goal", fmt="#,##0")
+            row += 1
         grid_first = row
         site_tot = [0.0] * len(sites)
         for i, w in enumerate(weeks):
@@ -2694,6 +2825,290 @@ def _build_jobad(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> None:
     )
 
 
+# -- Goal Plan (demand-first) -------------------------------------------------
+def goal_plan_of(data: Any) -> Optional[Dict[str, Any]]:
+    """The stamped goal plan for an enabled plan, else None."""
+    if not enabled(data):
+        return None
+    gp = (data.get("_budget_allocation") or {}).get("goal_plan")
+    return gp if isinstance(gp, dict) and gp.get("ok") else None
+
+
+def _build_goalplan(ws: Any, data: dict, gp: Dict[str, Any], x: Any) -> None:
+    sh = _Sheet(ws, x)
+    ws.title = SHEET_GOALPLAN
+    sh.widths({1: 3, 2: 38, 3: 18, 4: 18, 5: 18, 6: 18, 7: 16, 8: 16, 9: 48})
+    cur_fmt = x._usd0_fmt()
+    ints = x.FMT_INT
+    pct = x.FMT_PCT1
+    unit = gp["unit"]
+    last = 9
+
+    row = _title_block(
+        sh,
+        "Goal Plan",
+        f"Plan backward from the goal: what {unit} the goal needs, what the budget "
+        "buys, and three ways to decide. Every figure is the plan's own projection "
+        "inverted -- no client hire history is used, so these are estimates, not forecasts.",
+        last,
+    )
+    if gp.get("status") == "not_projected":
+        row = sh.sub(row, "Goal not priced", last)
+        row = sh.note(row, str(gp["text"]["callout"]), last)
+        return
+    if gp.get("status") not in ("meets", "borderline", "short"):
+        row = sh.sub(row, "Goal not priced", last)
+        row = sh.note(row, str(gp["text"]["callout"]), last)
+        return
+
+    req, proj, short = gp["required"], gp["projected"], gp["shortfall"]
+    row = sh.sub(row, "Goal and budget (editable)", last)
+    row = sh.header(row, ["Input", "Value", "Basis"], 2)
+    ws.merge_cells(start_row=row - 1, start_column=4, end_row=row - 1, end_column=last)
+
+    def inp_row(label: str, value: Any, basis: str, fmt: Optional[str]) -> Tuple[int, int]:
+        nonlocal row
+        sh.put(row, 2, label, font=x._FONT_BODY_BOLD)
+        sh.inp(row, 3, value, fmt)
+        sh.merged(row, 4, last, basis)
+        ref = (3, row)
+        row += 1
+        return ref
+
+    goal_ref = inp_row(
+        f"Goal ({unit})",
+        gp["goal"],
+        "The client's stated goal: the total of the site goals when given, else the hire volume.",
+        ints,
+    )
+    bud_ref = inp_row(
+        "Planned budget",
+        round(gp["budget"], 2),
+        "The plan's total campaign budget.",
+        cur_fmt,
+    )
+    plo_ref = inp_row(
+        f"Projected {unit}, low",
+        round(proj["low"]),
+        "At the planned budget, at the industry-average cost (conservative end).",
+        ints,
+    )
+    phi_ref = inp_row(
+        f"Projected {unit}, high",
+        round(proj["high"]),
+        "At the planned budget, at the plan-efficiency cost (optimistic end).",
+        ints,
+    )
+    rlo_ref = inp_row(
+        "Required budget, low",
+        req["low"],
+        f"Smallest budget at which the optimistic end reaches the goal (the plan's own projection, inverted).",
+        cur_fmt,
+    )
+    rhi_ref = inp_row(
+        "Required budget, high",
+        req["high"],
+        f"Smallest budget at which the conservative end reaches the goal.",
+        cur_fmt,
+    )
+    weeks = gp.get("weeks")
+    wk_ref = inp_row(
+        "Campaign weeks",
+        weeks,
+        "From the plan's campaign length; blank when none was stated.",
+        "0.0",
+    )
+    row += 1
+
+    goal, bud = _a(*goal_ref), _a(*bud_ref)
+    plo, phi = _a(*plo_ref), _a(*phi_ref)
+    rlo, rhi = _a(*rlo_ref), _a(*rhi_ref)
+    wk = _a(*wk_ref)
+
+    row = sh.sub(row, "Result", last)
+    row = sh.header(row, ["Measure", "Low", "High", "Reads as"], 2)
+    ws.merge_cells(start_row=row - 1, start_column=5, end_row=row - 1, end_column=last)
+    short_row = row
+    sh.put(row, 2, f"Shortfall ({unit})", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f"=MAX(0,{goal}-{phi})", short["low"], fmt=ints)
+    sh.formula(row, 4, f"=MAX(0,{goal}-{plo})", short["high"], fmt=ints)
+    sh.merged(
+        row,
+        5,
+        last,
+        "Low: if the plan runs at plan efficiency. High: if it runs at the industry average.",
+    )
+    row += 1
+    sh.put(row, 2, "Budget gap to the goal", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f"=MAX(0,{rlo}-{bud})", short["budget_gap_low"], fmt=cur_fmt)
+    sh.formula(row, 4, f"=MAX(0,{rhi}-{bud})", short["budget_gap_high"], fmt=cur_fmt)
+    sh.merged(row, 5, last, "Extra spend needed on top of the planned budget.")
+    row += 1
+    sh.put(row, 2, "Status", font=x._FONT_BODY_BOLD)
+    status_word = {"meets": "COVERED", "borderline": "NOT ASSURED", "short": "SHORT"}[
+        gp["status"]
+    ]
+    sh.formula(
+        row,
+        3,
+        f'=IF({plo}>={goal},"COVERED",IF({phi}>={goal},"NOT ASSURED","SHORT"))',
+        status_word,
+        font=x._FONT_BODY_BOLD,
+    )
+    sh.merged(
+        row,
+        4,
+        last,
+        "COVERED: even the conservative end reaches the goal. NOT ASSURED: only the "
+        "optimistic end does. SHORT: neither does.",
+    )
+    row += 2
+
+    row = sh.sub(row, "Decision options", last)
+    row = sh.header(
+        row,
+        [
+            "Option",
+            "Budget, low",
+            "Budget, high",
+            f"Delivers ({unit}), low",
+            f"Delivers ({unit}), high",
+            "Short of goal at the deadline, low",
+            "Short of goal at the deadline, high",
+            "What it means",
+        ],
+        2,
+    )
+    a, b, c = gp["options"]
+    sh.put(row, 2, "A. Full objective", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f"={rlo}", a["budget_low"], fmt=cur_fmt)
+    sh.formula(row, 4, f"={rhi}", a["budget_high"], fmt=cur_fmt)
+    sh.formula(row, 5, f"={goal}", a["delivers_low"], fmt=ints)
+    sh.formula(row, 6, f"={goal}", a["delivers_high"], fmt=ints)
+    sh.formula(row, 7, "=0", 0, fmt=ints)
+    sh.formula(row, 8, "=0", 0, fmt=ints)
+    sh.put(row, 9, a["summary"])
+    ws.row_dimensions[row].height = 58
+    row += 1
+    sh.put(row, 2, "B. Current constraint", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f"={bud}", b["budget_low"], fmt=cur_fmt)
+    sh.formula(row, 4, f"={bud}", b["budget_high"], fmt=cur_fmt)
+    sh.formula(row, 5, f"={plo}", b["delivers_low"], fmt=ints)
+    sh.formula(row, 6, f"={phi}", b["delivers_high"], fmt=ints)
+    sh.formula(row, 7, f"=C{short_row}", short["low"], fmt=ints)
+    sh.formula(row, 8, f"=D{short_row}", short["high"], fmt=ints)
+    sh.put(row, 9, b["summary"])
+    ws.row_dimensions[row].height = 58
+    row += 1
+    sh.put(row, 2, f"C. {c['title']}", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f"={rlo}", c["budget_low"], fmt=cur_fmt)
+    sh.formula(row, 4, f"={rhi}", c["budget_high"], fmt=cur_fmt)
+    sh.formula(row, 5, f"={goal}", c["delivers_low"], fmt=ints)
+    sh.formula(row, 6, f"={goal}", c["delivers_high"], fmt=ints)
+    sh.formula(row, 7, f"=C{short_row}", short["low"], fmt=ints)
+    sh.formula(row, 8, f"=D{short_row}", short["high"], fmt=ints)
+    sh.put(row, 9, c["summary"])
+    ws.row_dimensions[row].height = 86
+    row += 1
+    if c.get("kind") == "extend_deadline":
+        row += 1
+        row = sh.header(
+            row,
+            [
+                "Option C: window at today's weekly spend",
+                "Weeks to the goal, low",
+                "Weeks to the goal, high",
+                "Weeks added, low",
+                "Weeks added, high",
+            ],
+            2,
+        )
+        sh.put(row, 2, "Weeks (current window in the inputs above)", font=x._FONT_BODY_BOLD)
+        sh.formula(row, 3, f"={wk}*{rlo}/{bud}", c["weeks_low"], fmt="0.0")
+        sh.formula(row, 4, f"={wk}*{rhi}/{bud}", c["weeks_high"], fmt="0.0")
+        sh.formula(row, 5, f"=MAX(0,C{row}-{wk})", c["extra_weeks_low"], fmt="0.0")
+        sh.formula(row, 6, f"=MAX(0,D{row}-{wk})", c["extra_weeks_high"], fmt="0.0")
+        row += 1
+    row = sh.note(
+        row,
+        "The option text describes the plan as generated; the numbers beside it recalculate when an input above changes.",
+        last,
+    )
+    row += 1
+
+    sites = gp.get("sites") or []
+    if sites:
+        row = sh.sub(row, "Per-site goal vs projected", last)
+        goals_given = any(r.get("goal") is not None for r in sites)
+        row = sh.header(
+            row,
+            [
+                "Site",
+                f"Site goal ({unit})",
+                "Fair share of spend",
+                "Budget",
+                f"Projected ({unit}), low",
+                f"Projected ({unit}), high",
+                "Gap to goal, low",
+                "Gap to goal, high",
+            ],
+            2,
+        )
+        first = row
+        for i, r in enumerate(sites):
+            alt = x._FILL_BLUE_PALE if i % 2 else x._FILL_WHITE
+            sh.put(row, 2, r["site"], fill=alt)
+            if r.get("goal") is not None:
+                sh.inp(row, 3, r["goal"], ints)
+            else:
+                sh.put(row, 3, "no goal set", fill=alt, align=x._ALIGN_CENTER)
+            sh.inp(row, 4, round(r["share"], 4), pct)
+            sh.formula(row, 5, f"={bud}*D{row}", r["budget"], fmt=cur_fmt, fill=alt)
+            sh.formula(row, 6, f"={plo}*D{row}", r["projected_low"], fmt="#,##0.0", fill=alt)
+            sh.formula(row, 7, f"={phi}*D{row}", r["projected_high"], fmt="#,##0.0", fill=alt)
+            if r.get("goal") is not None:
+                sh.formula(
+                    row, 8, f"=MAX(0,C{row}-G{row})", r["gap_low"], fmt="#,##0.0", fill=alt
+                )
+                sh.formula(
+                    row, 9, f"=MAX(0,C{row}-F{row})", r["gap_high"], fmt="#,##0.0", fill=alt
+                )
+            else:
+                sh.put(row, 8, "n/a", fill=alt, align=x._ALIGN_CENTER)
+                sh.put(row, 9, "n/a", fill=alt, align=x._ALIGN_CENTER)
+            row += 1
+        last_row = row - 1
+        sh.put(row, 2, "Total", font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        tot_goal = sum(r["goal"] or 0 for r in sites)
+        sh.formula(row, 3, f"=SUM(C{first}:C{last_row})", tot_goal, fmt=ints, font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        sh.formula(row, 4, f"=SUM(D{first}:D{last_row})", sum(round(r["share"], 4) for r in sites), fmt=pct, font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        sh.formula(row, 5, f"=SUM(E{first}:E{last_row})", sum(r["budget"] for r in sites), fmt=cur_fmt, font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        sh.formula(row, 6, f"=SUM(F{first}:F{last_row})", sum(r["projected_low"] for r in sites), fmt="#,##0.0", font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        sh.formula(row, 7, f"=SUM(G{first}:G{last_row})", sum(r["projected_high"] for r in sites), fmt="#,##0.0", font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        sh.formula(
+            row,
+            9,
+            f'=IF(ABS(D{row}-1)<0.0005,"OK","SHARES MUST ADD TO 100%")',
+            "OK" if abs(sum(round(r["share"], 4) for r in sites) - 1) < 0.0005 else "SHARES MUST ADD TO 100%",
+            font=x._FONT_BODY_BOLD,
+            fill=x._FILL_OFF_WHITE,
+        )
+        row += 1
+        row = sh.note(
+            row,
+            "Fair share follows the site goals (each site's share of the goals), the same shares the Weekly Pacing "
+            "site x week split uses. Shares are editable and must add to 100%."
+            if goals_given
+            else "No site goals were set: shares follow the plan's location weights.",
+            last,
+        )
+        row += 1
+
+    for n_ in gp.get("notes") or []:
+        row = sh.note(row, str(n_), last)
+    row = sh.note(row, str(gp["assumptions"]["basis"]), last)
+
+
 def append_sheets(wb: Any, data: dict, today: Optional[datetime.date] = None) -> bool:
     """Add the five enterprise sheets to ``wb``.  Called by excel_v2 only
     when :func:`enabled`; returns False (and adds nothing) otherwise.  Each
@@ -2716,7 +3131,11 @@ def append_sheets(wb: Any, data: dict, today: Optional[datetime.date] = None) ->
     tracking: Optional[Dict[str, Any]] = None
     # Build order follows the dependencies (tiers read pacing, feasibility
     # reads tracking); sheet ORDER in the workbook stays the product order.
-    sheets = {t: wb.create_sheet() for t in SHEET_TITLES}
+    goal_plan = goal_plan_of(data)
+    titles = ((SHEET_GOALPLAN,) if goal_plan else ()) + SHEET_TITLES
+    if goal_plan:
+        x._TAB_COLORS[SHEET_GOALPLAN] = getattr(x, "PURPLE_LIGHT_HEX", None) or tab[SHEET_PACING]
+    sheets = {t: wb.create_sheet() for t in titles}
     for title, ws in sheets.items():
         ws.title = title
     plan = (
@@ -2729,6 +3148,8 @@ def append_sheets(wb: Any, data: dict, today: Optional[datetime.date] = None) ->
         ),
         (SHEET_JOBAD, lambda ws: _build_jobad(ws, data, model, x)),
     )
+    if goal_plan:
+        plan = ((SHEET_GOALPLAN, lambda ws: _build_goalplan(ws, data, goal_plan, x)),) + plan
     for title, build in plan:
         ws = sheets[title]
         try:
@@ -3256,6 +3677,167 @@ def _slide_tracking(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> No
     ppt._add_footer(slide, datetime.date.today().strftime("%B %d, %Y"))
 
 
+def _slide_goalplan(prs: Any, data: dict, gp: Dict[str, Any], ppt: Any) -> None:
+    unit = gp["unit"]
+    sym = (gp.get("currency") or {}).get("symbol") or "$"
+    status = gp.get("status")
+    slide = _slide_base(
+        prs,
+        ppt,
+        "Goal Plan: What It Takes",
+        _clip(f"Appendix: {gp['text']['callout']}", 150),
+    )
+    if status not in ("meets", "borderline", "short"):
+        _card(slide, ppt, _L, 1.6, _W, 1.6, "Goal not priced")
+        _line(slide, ppt, _L + 0.25, 2.1, _W - 0.5, 1.0, str(gp["text"]["callout"]), size=12)
+        ppt._add_footer(slide, datetime.date.today().strftime("%B %d, %Y"))
+        return
+
+    def m(v: Any) -> str:
+        return f"{sym}{float(v):,.0f}"
+
+    def mr(lo: Any, hi: Any) -> str:
+        a, b = m(lo), m(hi)
+        return a if a == b else f"{a}-{b}"
+
+    def cr(lo: Any, hi: Any) -> str:
+        a, b = f"{float(lo):,.0f}", f"{float(hi):,.0f}"
+        return a if a == b else f"{a}-{b}"
+
+    a, b, c = gp["options"]
+    short = gp["shortfall"]
+    rows = [
+        [
+            "A. Full objective",
+            mr(a["budget_low"], a["budget_high"]),
+            f"{gp['goal']:,} {unit}",
+            "none",
+            _clip(
+                "Fund the goal."
+                + (
+                    f" {mr(a['extra_budget_low'], a['extra_budget_high'])} more than planned."
+                    if a["extra_budget_high"] > 0
+                    else " The planned budget already covers it."
+                ),
+                70,
+            ),
+        ],
+        [
+            "B. Current constraint",
+            m(gp["budget"]),
+            f"{cr(b['delivers_low'], b['delivers_high'])} {unit}",
+            f"{cr(short['low'], short['high'])} {unit}" if short["high"] > 0 else "none",
+            _clip("Hold the budget; accept what it buys.", 70),
+        ],
+    ]
+    if c.get("kind") == "extend_deadline" and short["high"] > 0:
+        c_text = (
+            f"Same weekly spend, window grows to {c['weeks_low']:.0f}-{c['weeks_high']:.0f} "
+            f"weeks (now {c['weeks_now']:g})."
+            if abs(c["weeks_high"] - c["weeks_low"]) >= 0.5
+            else f"Same weekly spend, window grows to {c['weeks_high']:.0f} weeks (now {c['weeks_now']:g})."
+        )
+        rows.append(
+            [
+                "C. Extend the deadline",
+                mr(c["budget_low"], c["budget_high"]),
+                f"{gp['goal']:,} {unit}",
+                f"{cr(short['low'], short['high'])} {unit} at today's deadline",
+                _clip(c_text, 90),
+            ]
+        )
+    elif c.get("kind") == "second_flight" and short["high"] > 0:
+        rows.append(
+            [
+                "C. Second flight",
+                mr(c["budget_low"], c["budget_high"]),
+                f"{gp['goal']:,} {unit}",
+                f"{cr(short['low'], short['high'])} {unit} until the second flight",
+                _clip(
+                    f"Fund {mr(c['extra_budget_low'], c['extra_budget_high'])} more in a second flight.",
+                    90,
+                ),
+            ]
+        )
+    else:
+        rows.append(
+            [
+                "C. Alternative",
+                "not needed",
+                f"{gp['goal']:,} {unit}",
+                "none",
+                "The planned budget covers the goal.",
+            ]
+        )
+    bottom = _table(
+        slide,
+        ppt,
+        _L,
+        1.5,
+        [2.3, 2.2, 1.9, 2.3, 3.53],
+        ["Option", "Budget", "Delivers", "Short of goal", "What it means"],
+        rows,
+        row_h=0.62,
+    )
+    y = bottom + 0.25
+    site_rows = gp.get("sites") or []
+    if site_rows:
+        shown = site_rows[:4]
+        body = []
+        for r in shown:
+            goal_txt = f"{r['goal']:,}" if r.get("goal") is not None else "no goal"
+            gap_txt = (
+                "covered"
+                if r.get("gap_high") is not None and r["gap_high"] <= 0
+                else (
+                    f"{cr(r['gap_low'], r['gap_high'])} short"
+                    if r.get("gap_high") is not None
+                    else "n/a"
+                )
+            )
+            body.append(
+                [
+                    _clip(r["site"], 28),
+                    goal_txt,
+                    f"{r['share']:.0%}",
+                    f"{cr(r['projected_low'], r['projected_high'])}",
+                    gap_txt,
+                ]
+            )
+        bottom = _table(
+            slide,
+            ppt,
+            _L,
+            y,
+            [3.4, 1.9, 1.9, 2.5, 2.53],
+            ["Site", f"Goal ({unit})", "Share of spend", f"Projected ({unit})", "Gap to goal"],
+            body,
+            row_h=0.36,
+        )
+        more = len(site_rows) - len(shown)
+        if more > 0:
+            _line(
+                slide,
+                ppt,
+                _L,
+                bottom + 0.04,
+                _W,
+                0.28,
+                f"{more} more site(s) in the workbook's Goal Plan sheet.",
+                size=9,
+                color=ppt.MUTED_TEXT,
+            )
+            bottom += 0.3
+        y = bottom + 0.2
+    foot = (
+        "Estimates, not forecasts: the plan's own projection inverted (industry cost per hire, no client hire history). "
+        "Required budget runs from the plan-efficiency cost (low) to the industry-average cost (high). "
+        "The workbook's Goal Plan sheet recalculates from editable inputs."
+    )
+    _line(slide, ppt, _L, min(y, 6.45), _W, 0.55, foot, size=9, color=ppt.MUTED_TEXT)
+    ppt._add_footer(slide, datetime.date.today().strftime("%B %d, %Y"))
+
+
 def add_deck_appendix(prs: Any, data: dict, ppt: Any) -> int:
     """Append the three enterprise slides to ``prs`` (``ppt`` is the
     ppt_generator module, passed in so its drawing helpers are reused).
@@ -3264,7 +3846,15 @@ def add_deck_appendix(prs: Any, data: dict, ppt: Any) -> int:
         return 0
     model = build_model(data)
     added = 0
-    for builder in (_slide_pacing, _slide_tiers, _slide_tracking):
+    builders: List[Any] = [_slide_pacing, _slide_tiers, _slide_tracking]
+    goal_plan = goal_plan_of(data)
+    if goal_plan:
+        builders.append(
+            lambda prs_, data_, model_, ppt_: _slide_goalplan(
+                prs_, data_, goal_plan, ppt_
+            )
+        )
+    for builder in builders:
         before = len(prs.slides)
         try:
             builder(prs, data, model, ppt)
@@ -3273,7 +3863,10 @@ def add_deck_appendix(prs: Any, data: dict, ppt: Any) -> int:
             Exception
         ) as exc:  # noqa: BLE001 - an appendix slide never blocks the deck
             logger.error(
-                "Enterprise slide %s failed: %s", builder.__name__, exc, exc_info=True
+                "Enterprise slide %s failed: %s",
+                getattr(builder, "__name__", "goal plan"),
+                exc,
+                exc_info=True,
             )
             while len(prs.slides) > before:
                 _drop_last_slide(prs)

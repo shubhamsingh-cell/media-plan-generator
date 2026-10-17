@@ -33,6 +33,7 @@ from __future__ import annotations
 import logging
 import math
 import re
+import threading
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,37 @@ _MAX_BISECT_STEPS = 60
 _ABS_TOLERANCE = 1.0  # dollars
 
 Projector = Callable[[float], Dict[str, Any]]
+
+
+# --------------------------------------------------------------------------
+# quiet inversion: a search makes ~20 engine calls, each logging a dozen INFO
+# lines.  A per-thread filter on the engine's logger mutes only THIS thread's
+# search records (other requests keep logging).
+# --------------------------------------------------------------------------
+_quiet_state = threading.local()
+_QUIET_LOGGERS = ("budget_engine",)
+
+
+class _QuietFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        return not getattr(_quiet_state, "depth", 0)
+
+
+_QUIET_FILTER = _QuietFilter()
+
+
+class _quiet_engine:
+    """Context manager muting the budget engine's log lines on this thread."""
+
+    def __enter__(self) -> None:
+        for name in _QUIET_LOGGERS:
+            lg = logging.getLogger(name)
+            if _QUIET_FILTER not in lg.filters:
+                lg.addFilter(_QUIET_FILTER)
+        _quiet_state.depth = getattr(_quiet_state, "depth", 0) + 1
+
+    def __exit__(self, *exc: Any) -> None:
+        _quiet_state.depth = max(0, getattr(_quiet_state, "depth", 1) - 1)
 
 
 # --------------------------------------------------------------------------
@@ -98,47 +130,86 @@ def city_key(text: Any) -> str:
 
 
 def _smallest_budget(
-    reaches: Callable[[float], Optional[bool]], hint: float
+    value: Callable[[float], Optional[float]], goal: float, hint: float
 ) -> Tuple[Optional[float], str]:
-    """Smallest budget (to ``_ABS_TOLERANCE`` dollars) at which ``reaches`` is
-    true, for a predicate that is monotone in the budget.  ``(None, reason)``
-    when no budget up to the cap gets there or the projection is unavailable.
-    The returned budget always satisfies the predicate (the true side of the
-    bracket)."""
+    """Smallest budget (to ``_ABS_TOLERANCE`` dollars) at which ``value`` --
+    a count that is non-decreasing in the budget -- reaches ``goal``.
+    ``(None, reason)`` when no budget up to the cap gets there or the
+    projection is unavailable.  The returned budget always satisfies
+    ``value(budget) >= goal`` (the true side of the bracket).
+
+    The counts are close to proportional to the budget, so the search jumps
+    by ``goal / value`` instead of blind doubling and then bisects a narrow
+    bracket: ~20 projections, not ~60."""
     hi = max(_START_BUDGET, hint)
-    ok = reaches(hi)
-    steps = 0
-    while ok is False and hi < _MAX_BUDGET and steps < _MAX_BRACKET_STEPS:
-        hi *= 2.0
-        ok = reaches(hi)
-        steps += 1
-    if ok is None:
+    v = value(hi)
+    if v is None:
         return None, "not_projected"
-    if not ok:
+    steps = 0
+    while v < goal and hi < _MAX_BUDGET and steps < _MAX_BRACKET_STEPS:
+        factor = (goal / v * 1.02) if v > 0 else 4.0
+        hi *= min(max(factor, 1.05), 1e4)
+        nxt = value(hi)
+        if nxt is None:
+            return None, "not_projected"
+        v = nxt
+        steps += 1
+    if v < goal:
         return None, "out_of_range"
     lo = 0.0
-    # shrink the bracket from below as well: halve while the lower half still
-    # reaches the goal, so an oversized hint costs a few calls, not a wide search
-    for _ in range(_MAX_BRACKET_STEPS):
-        mid = hi / 2.0
-        if mid < _START_BUDGET:
+    for _ in range(4):  # tighten the lower edge with the same proportional step
+        est = hi * goal / v * 0.98 if v > 0 else 0.0
+        if est < _START_BUDGET or est >= hi:
             break
-        r = reaches(mid)
-        if r:
-            hi = mid
+        r = value(est)
+        if r is None:
+            return None, "not_projected"
+        if r >= goal:
+            hi, v = est, r
         else:
-            lo = mid
+            lo = est
             break
     for _ in range(_MAX_BISECT_STEPS):
         if hi - lo <= _ABS_TOLERANCE:
             break
         mid = (lo + hi) / 2.0
-        r = reaches(mid)
-        if r:
+        r = value(mid)
+        if r is not None and r >= goal:
             hi = mid
         else:
             lo = mid
     return float(math.ceil(hi)), ""
+
+
+def planning_step(budget: float) -> float:
+    """The rounding increment a required budget is quoted in: whole dollars
+    under $1,000, $10 under $10,000, else $100 (nobody plans a media budget
+    to the dollar)."""
+    return 1.0 if budget < 1000 else 10.0 if budget < 10000 else 100.0
+
+
+def _quote(budget: float) -> float:
+    """``budget`` rounded UP to its planning step (still reaches the goal: the
+    counts never fall as the budget rises)."""
+    step = planning_step(budget)
+    return float(math.ceil(budget / step) * step)
+
+
+def _settle(
+    value: Callable[[float], Optional[float]], goal: float, budget: float
+) -> float:
+    """The smallest planning-step budget at or below ``_quote(budget)`` that
+    still reaches ``goal`` (the search is exact to a dollar, so rounding up can
+    land one step above the true minimum)."""
+    q = _quote(budget)
+    for _ in range(5):
+        cand = q - planning_step(q)
+        got = value(cand) if cand > 0 else None
+        if got is not None and got >= goal:
+            q = cand
+        else:
+            break
+    return q
 
 
 def required_budget(
@@ -156,7 +227,9 @@ def required_budget(
     the goal, ``high`` the smallest at which the conservative end does
     (``low <= high``).  ``status`` is "" or "not_projected" (hires suppressed
     for the market) / "out_of_range" (no budget up to the search cap reaches
-    it).  Whole-dollar, rounded UP, so ``projector(low)`` really reaches it.
+    it).  Quoted in planning steps ($10 under $10k, else $100), rounded UP, so
+    ``projector(low)`` really reaches the goal and ``projector(low - step_low)``
+    does not.
     """
     goal = float(goal)
     if kind not in (GOAL_HIRES, GOAL_APPLY_STARTS) or goal <= 0:
@@ -173,21 +246,31 @@ def required_budget(
                 cache[key] = None
         return cache[key]
 
-    def optimistic(b: float) -> Optional[bool]:
+    def optimistic(b: float) -> Optional[float]:
         m = at(b)
-        return None if m is None else m[1] >= goal
+        return None if m is None else m[1]
 
-    def conservative(b: float) -> Optional[bool]:
+    def conservative(b: float) -> Optional[float]:
         m = at(b)
-        return None if m is None else m[0] >= goal
+        return None if m is None else m[0]
 
-    low, why = _smallest_budget(optimistic, hint)
-    if low is None:
-        return {"ok": False, "status": why, "low": None, "high": None}
-    high, why = _smallest_budget(conservative, max(low, hint))
-    if high is None:
-        return {"ok": False, "status": why, "low": low, "high": None}
-    return {"ok": True, "status": "", "low": low, "high": max(low, high)}
+    with _quiet_engine():
+        low, why = _smallest_budget(optimistic, goal, hint)
+        if low is None:
+            return {"ok": False, "status": why, "low": None, "high": None}
+        high, why = _smallest_budget(conservative, goal, max(low, hint))
+        if high is None:
+            return {"ok": False, "status": why, "low": low, "high": None}
+        low = _settle(optimistic, goal, low)
+        high = _settle(conservative, goal, max(low, high))
+    return {
+        "ok": True,
+        "status": "",
+        "low": low,
+        "high": high,
+        "step_low": planning_step(low),
+        "step_high": planning_step(high),
+    }
 
 
 # --------------------------------------------------------------------------
@@ -244,7 +327,7 @@ def clean_site_goals(raw: Any) -> Dict[str, int]:
             n = int(float(val))
         except (TypeError, ValueError):
             continue
-        text = " ".join(str(name).split())
+        text = " ".join(re.sub(r"<[^>]+>", "", str(name)).split())
         if not text or n <= 0:
             continue
         key = text.lower()
@@ -371,18 +454,19 @@ def build_goal_plan(
     budget is unusable.  Never raises.
     """
     try:
-        return _build_goal_plan(
-            goal=goal,
-            budget=budget,
-            projector=projector,
-            kind=kind,
-            weeks=weeks,
-            site_goals=site_goals or {},
-            sites=sites or [],
-            shares=shares or [],
-            symbol=symbol,
-            currency_code=currency_code,
-        )
+        with _quiet_engine():
+            return _build_goal_plan(
+                goal=goal,
+                budget=budget,
+                projector=projector,
+                kind=kind,
+                weeks=weeks,
+                site_goals=site_goals or {},
+                sites=sites or [],
+                shares=shares or [],
+                symbol=symbol,
+                currency_code=currency_code,
+            )
     except Exception as exc:  # noqa: BLE001 - a goal plan must never crash a caller
         logger.error("build_goal_plan failed: %s", exc, exc_info=True)
         return {"ok": False, "error": "Goal plan unavailable"}

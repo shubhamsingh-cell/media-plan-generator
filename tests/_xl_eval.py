@@ -245,6 +245,18 @@ class Evaluator:
             )
         if name == "ROUND":
             return lambda: _round(_n(args[0]()), int(_n(args[1]())))
+        if name == "MAX":
+            return lambda: max(
+                float(v)
+                for v in flat([a() for a in args])
+                if _is_num(v) and not isinstance(v, _Blank)
+            )
+        if name == "MIN":
+            return lambda: min(
+                float(v)
+                for v in flat([a() for a in args])
+                if _is_num(v) and not isinstance(v, _Blank)
+            )
         if name == "ABS":
             return lambda: abs(_n(args[0]()))
         if name == "AND":

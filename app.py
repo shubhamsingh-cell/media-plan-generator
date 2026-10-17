@@ -4410,6 +4410,10 @@ def _hire_goal_for_budget(data: dict) -> int:
     """
     if display_format is None or not isinstance(data, dict):
         return 0
+    # Enterprise per-site hiring goals ARE the plan's goal: their total.
+    _site_goal_total = sum(enterprise_pack.site_goals(data).values())
+    if _site_goal_total > 0:
+        return _site_goal_total
     try:
         return int(display_format.parse_hire_goal(data.get("hire_volume")))
     except (TypeError, ValueError):
@@ -4842,6 +4846,15 @@ def _sanitize_generate_request(data: dict) -> dict:
     }
     out = {key: _sanitize_request_value(val) for key, val in data.items()}
     out.update(numeric_budget)
+    # Enterprise site goals: dict KEYS are location names the sanitizer above
+    # does not touch (it strips values); strip markup from them too. Shape,
+    # whole-number, per-site and total caps are enforced by
+    # enterprise_pack.request_problem (a 400 naming "site_goals").
+    if isinstance(out.get("site_goals"), dict):
+        out["site_goals"] = {
+            re.sub(r"<[^>]+>", "", str(k)).strip(): v
+            for k, v in out["site_goals"].items()
+        }
     return out
 
 
@@ -6039,6 +6052,14 @@ def _compute_plan_estimate(brief: dict) -> dict:
     if _ex_code:
         raise _EstimateValidationError(_ex_msg, field="excluded_publishers")
     _normalize_excluded_publishers(brief)
+    # Enterprise request fields (site goals): the same boundary check and
+    # canonical form /api/generate applies; dropped when the pack is off.
+    _ent_code, _ent_msg = enterprise_pack.request_problem(brief)
+    if _ent_code:
+        raise _EstimateValidationError(
+            _ent_msg, field=enterprise_pack.problem_field(_ent_code)
+        )
+    enterprise_pack.normalize_request(brief)
     if brief.get("budget_only") is True and _request_budget_raw(brief)[0] == "":
         # Nothing typed yet: only the currency a bare amount would be priced
         # in for these locations (the quick-amount buttons' labels).
@@ -6224,28 +6245,29 @@ def _compute_plan_estimate(brief: dict) -> dict:
     # ONE projection engine: the same plan_projection.project_plan call Quick
     # Plan and Nova make. It runs calculate_budget_allocation on exactly the
     # inputs resolved above and turns total_projected into low/high ranges.
-    projection = project_plan(
-        {
-            "budget": budget_val,
-            "roles": roles_for_ba,
-            "locations": locs_for_ba,
-            "industry": industry_raw,
-            "client_name": company_name,
-            "campaign_start_month": _coerce_int_field(
-                brief.get("campaign_start_month") or 0,
-                field_name="campaign_start_month",
-            ),
-            "locations_raw": locs_raw,
-            "budget_text": budget_str,
-            "target_hires": _hire_goal_for_budget(brief),
-            "target_region": brief["target_region"],
-        },
-        channel_percentages=channel_pcts,
-        vendor_availability=vendor_availability,
-        knowledge_base=kb,
-        plan_currency=_resolve_plan_currency(brief) or "",
-        industry_key=industry_key,
-    )
+    _proj_brief = {
+        "budget": budget_val,
+        "roles": roles_for_ba,
+        "locations": locs_for_ba,
+        "industry": industry_raw,
+        "client_name": company_name,
+        "campaign_start_month": _coerce_int_field(
+            brief.get("campaign_start_month") or 0,
+            field_name="campaign_start_month",
+        ),
+        "locations_raw": locs_raw,
+        "budget_text": budget_str,
+        "target_hires": _hire_goal_for_budget(brief),
+        "target_region": brief["target_region"],
+    }
+    _proj_kwargs = {
+        "channel_percentages": channel_pcts,
+        "vendor_availability": vendor_availability,
+        "knowledge_base": kb,
+        "plan_currency": _resolve_plan_currency(brief) or "",
+        "industry_key": industry_key,
+    }
+    projection = project_plan(_proj_brief, **_proj_kwargs)
     if not projection.get("ok"):
         raise _EstimateValidationError(
             str(projection.get("error") or "Projection unavailable")
@@ -6282,7 +6304,19 @@ def _compute_plan_estimate(brief: dict) -> dict:
         budget_result.get("sufficiency") if isinstance(budget_result, dict) else {}
     )
     _midpoint_cph = (_est_suff or {}).get("industry_avg_cost_per_hire")
+    # Demand-first goal plan (enterprise pack on + a stated hiring goal):
+    # the required budget range, shortfall and options A/B/C, from the SAME
+    # projection call inverted. Absent (key omitted) otherwise.
+    _goal_plan = _goal_plan_for_request(
+        dict(brief, _budget_allocation=budget_result),
+        _proj_brief,
+        _proj_kwargs,
+        budget_val,
+        projection,
+    )
+    _goal_only = {"goal_plan": _goal_plan} if _goal_plan else {}
     return {
+        **_goal_only,
         "est_hires": est_hires,
         "est_cph": est_cph,
         "est_applications": int(applications),
@@ -6322,6 +6356,39 @@ def _compute_plan_estimate(brief: dict) -> dict:
         "plan_currency": plan_currency_info,
         "target_region": brief["target_region"],
     }
+
+
+def _goal_plan_for_request(
+    req: dict,
+    proj_brief: dict,
+    proj_kwargs: dict,
+    budget: float,
+    projection: dict,
+) -> Optional[dict]:
+    """The demand-first goal plan for a request, or None (pack off, no stated
+    goal, or any failure). ``proj_brief`` / ``proj_kwargs`` are the EXACT
+    arguments of the projection call that produced the headline, so the
+    inversion re-runs that same call at other budgets. Never raises."""
+    if project_plan is None or not enterprise_pack.enabled(req):
+        return None
+    try:
+        cur = projection.get("currency") if isinstance(projection, dict) else None
+        cur = cur if isinstance(cur, dict) else {}
+
+        def _projector(b: float) -> dict:
+            return project_plan(dict(proj_brief, budget=b), **proj_kwargs)
+
+        plan = enterprise_pack.compute_goal_plan(
+            req,
+            _projector,
+            budget=budget,
+            symbol=str(cur.get("symbol") or "$"),
+            currency_code=str(cur.get("code") or "USD"),
+        )
+        return plan if isinstance(plan, dict) and plan.get("ok") else None
+    except Exception as exc:  # noqa: BLE001 - the goal plan is best-effort
+        logger.warning("goal plan failed (non-fatal): %s", exc)
+        return None
 
 
 def _attach_headline_projection(
@@ -6408,27 +6475,39 @@ def _attach_headline_projection(
                 vendor = _vendor_fn(industry=key, us_plan=_us)
             except Exception as vendor_err:  # noqa: BLE001 - gate is optional
                 logger.debug("headline vendor gate unavailable: %s", vendor_err)
-        proj = project_plan(
-            {
-                "budget": budget,
-                "roles": preview_roles,
-                "locations": plan.get("locations") or [],
-                "industry": raw_industry,
-                "client_name": client,
-                "campaign_start_month": int(plan.get("campaign_start_month") or 0 or 0),
-                "locations_raw": plan.get("locations"),
-                "budget_text": str(plan.get("budget") or "").strip(),
-                "target_hires": _hire_goal_for_budget(plan),
-                "target_region": region,
-            },
-            channel_percentages=mix,
-            vendor_availability=vendor,
-            knowledge_base=kb,
-            plan_currency=_resolve_plan_currency(plan) or "",
-            industry_key=key,
-        )
+        _hp_brief = {
+            "budget": budget,
+            "roles": preview_roles,
+            "locations": plan.get("locations") or [],
+            "industry": raw_industry,
+            "client_name": client,
+            "campaign_start_month": int(plan.get("campaign_start_month") or 0 or 0),
+            "locations_raw": plan.get("locations"),
+            "budget_text": str(plan.get("budget") or "").strip(),
+            "target_hires": _hire_goal_for_budget(plan),
+            "target_region": region,
+        }
+        _hp_kwargs = {
+            "channel_percentages": mix,
+            "vendor_availability": vendor,
+            "knowledge_base": kb,
+            "plan_currency": _resolve_plan_currency(plan) or "",
+            "industry_key": key,
+        }
+        proj = project_plan(_hp_brief, **_hp_kwargs)
         if proj.get("ok"):
             budget_result["headline_projection"] = {"ok": True, **public_view(proj)}
+            # Demand-first goal plan for the workbook's Goal Plan sheet and the
+            # deck slide (enterprise pack on + a stated goal; else no key).
+            _gp = _goal_plan_for_request(
+                dict(plan, _budget_allocation=budget_result),
+                _hp_brief,
+                _hp_kwargs,
+                budget,
+                proj,
+            )
+            if _gp:
+                budget_result["goal_plan"] = _gp
             # The hires range every sheet and slide prints is the headline's
             # (only where the engine itself bounded a range: a market whose
             # per-hire claim is suppressed keeps its suppression).
