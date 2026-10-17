@@ -1713,6 +1713,9 @@
     _locResolveSeq++;
     _regionUserPicked = false; // the cleared selector is the default again
     if (typeof novaSetRegionHint === "function") novaSetRegionHint("");
+    // ...and the selector itself goes back to its default (Clear never reset
+    // it, so a derived or picked region outlived the cleared locations).
+    if (typeof novaApplyDerivedRegion === "function") novaApplyDerivedRegion("us_only");
     const locResPanel = document.getElementById("locationResolution");
     if (locResPanel) locResPanel.innerHTML = "";
     // Reset industry selection visual

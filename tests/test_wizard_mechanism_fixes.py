@@ -492,3 +492,23 @@ def test_markup_has_the_badge_and_the_review_row_and_the_toggle_handler_syncs_it
         'if (e.target.id === "enterpriseEnabled")',
         'else if (e.target.id === "enterpriseSetupSla")',
     )
+
+
+def test_clear_form_returns_the_region_selector_to_its_default():
+    clear = js_block(SRC, "function clearFormState()")
+    assert 'novaApplyDerivedRegion("us_only")' in clear
+    # ...after the picked flag is dropped, or the apply would be refused
+    assert clear.index("_regionUserPicked = false") < clear.index(
+        'novaApplyDerivedRegion("us_only")'
+    )
+
+
+@needs_node
+def test_a_picked_region_is_applied_back_to_default_once_the_flag_is_dropped():
+    out = run_node(
+        _region_script(
+            "userPicks('apac'); log.push(novaApplyDerivedRegion('us_only')); log.push(sel.value);"
+            "_regionUserPicked = false; log.push(novaApplyDerivedRegion('us_only')); log.push(sel.value);"
+        )
+    )
+    assert out == [False, "apac", True, "us_only"]
