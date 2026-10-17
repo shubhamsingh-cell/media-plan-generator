@@ -292,7 +292,10 @@ def _deck_texts(job_market_demand: dict) -> list[str]:
         "campaign_start_month": 9,
         "hire_volume": "35 hires",
         "work_environment": "onsite",
-        "locations": [{"city": "London", "country": "United Kingdom"}],
+        # A US market: on a non-US plan slide 5's content-derived row cap drops
+        # the 5th benchmark row (this one) before the provenance wording is
+        # reachable, so the provenance assertions would test nothing there.
+        "locations": [{"city": "Columbus", "state": "OH", "country": "United States"}],
         "roles": [{"title": "Warehouse Associate", "count": 20, "tier": "mid"}],
         "_synthesized": {"job_market_demand": job_market_demand},
     }

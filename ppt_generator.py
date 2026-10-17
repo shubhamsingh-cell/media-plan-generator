@@ -5778,7 +5778,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             _cpa_val = (
                 _range_value(_kpi_proj["cpa"], _fmt_currency) if _kpi_proj else None
             ) or _fmt_currency(avg_cpa_val)
-            secondary_metrics.append((_cpa_val, "Avg CPA"))
+            secondary_metrics.append((_cpa_val, "Projected CPA"))
         elif (
             avg_cph_val
             and avg_cph_val > 0
@@ -7196,7 +7196,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         },
         {"value": _sm_apps, "label": "Projected Applications", "accent": TEAL},
         {"value": _sm_hires, "label": "Projected Hires", "accent": GREEN},
-        {"value": _sm_cpa, "label": "Avg CPA", "accent": JOVEO_PINK},
+        {"value": _sm_cpa, "label": "Projected CPA", "accent": JOVEO_PINK},
         {"value": _sm_cph, "label": "Avg Cost/Hire", "accent": NAVY},
     ]
 

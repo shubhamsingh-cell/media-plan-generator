@@ -3551,9 +3551,7 @@ def fetch_search_trends(keywords: List[str]) -> Dict[str, Any]:
                         "trend": "rising" if latest > avg_interest else "stable",
                         "trend_observation": "observed",
                         "trend_provider_id": "google_trends",
-                        "trend_observed_at": time.strftime(
-                            "%Y-%m-%d", time.gmtime()
-                        ),
+                        "trend_observed_at": time.strftime("%Y-%m-%d", time.gmtime()),
                     }
             if len(result) > 1:
                 _set_cached(cache_k, result)
@@ -12848,9 +12846,7 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                     "market_activity": fb["market_activity"],
                     "top_companies": fb.get("top_companies") or [],
                     "freshness": fb["freshness"],
-                    "posting_observation": fb.get(
-                        "posting_observation", "unavailable"
-                    ),
+                    "posting_observation": fb.get("posting_observation", "unavailable"),
                     "posting_provider_id": fb.get("posting_provider_id") or "",
                 }
 
@@ -14544,10 +14540,7 @@ def _build_enrichment_summary(
     ("deadline"). They applied and returned nothing, so they are also in
     ``apis_failed`` and stay in the confidence denominator."""
     finished = (
-        set(apis_succeeded)
-        | set(apis_estimated)
-        | set(apis_skipped)
-        | set(apis_failed)
+        set(apis_succeeded) | set(apis_estimated) | set(apis_skipped) | set(apis_failed)
     )
     summary: Dict[str, Any] = {
         "apis_called": list(apis_called),
