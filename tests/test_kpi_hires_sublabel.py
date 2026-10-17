@@ -145,7 +145,11 @@ class TestProjectedHiresKpi:
             shape
             for slide in hospital[1].slides
             for shape in slide.shapes
-            if shape.has_text_frame and shape.text_frame.text.strip() == "Projected CPA"
+            # slide 9 qualifies its point figure "(plan efficiency)" where slide 2
+            # prints the label over a range (final round D1)
+            if shape.has_text_frame
+            and shape.text_frame.text.strip()
+            in ("Projected CPA", "Projected CPA (plan efficiency)")
         ]
         assert len(labels) >= 2
         assert not any(
@@ -158,7 +162,7 @@ class TestProjectedHiresKpi:
             font_pt = run.font.size.pt if run.font.size is not None else 9.0
             assert (
                 ppt_generator._measure_lines(
-                    "Projected CPA", shape.width / EMU, font_pt, bold=True
+                    shape.text_frame.text.strip(), shape.width / EMU, font_pt, bold=True
                 )
                 == 1
             )
