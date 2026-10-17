@@ -10818,6 +10818,7 @@ _rl_llm_heavy = RateLimiter()  # LLM-heavy analysis endpoints -- 10 req/min
 _rl_portal = RateLimiter()  # /api/portal/* -- 20 req/min
 _rl_general = RateLimiter()  # all other /api/* POST routes -- 30 req/min
 _rl_copilot = RateLimiter()  # /api/copilot/* -- 30 req/min (lightweight)
+_rl_snapshot = RateLimiter()  # market-snapshot Adzuna spend -- 5 req/min
 _rl_estimate = RateLimiter()  # /api/estimate -- 60 req/min (debounced live preview)
 
 # ── Concurrent /api/generate cap ──
@@ -11073,6 +11074,7 @@ def _rate_limiter_cleanup_loop():
             _rl_llm_heavy.cleanup()
             _rl_portal.cleanup()
             _rl_general.cleanup()
+            _rl_snapshot.cleanup()
         except Exception as exc:
             logger.warning("Rate limiter cleanup error: %s", exc)
 
@@ -17162,7 +17164,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             qs = urllib.parse.parse_qs(parsed.query)
             _snap_role = qs.get("role", [""])[0]
             _snap_location = qs.get("location", [""])[0]
-            if not _snap_role:
+            if not self._check_rate_limit():
+                self._send_error("Rate limit exceeded", "RATE_LIMITED", 429)
+            elif not _snap_role:
                 self._send_json({"error": "Missing required 'role' query parameter"})
             elif not _api_integrations_available:
                 self._send_json(
@@ -17178,18 +17182,67 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "location": _snap_location,
                     "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
                 }
-                # Adzuna job count + salary
+                # Adzuna job count + salary. This endpoint is anonymous and every
+                # new role costs 3 requests of the ONE shared 200/day Adzuna
+                # key, so it is gated like every other Adzuna caller
+                # (ENRICH_ROLE_SOURCES), throttled per IP, and pointed at the
+                # country the caller's location names -- not always "us". The
+                # AdzunaClient is country-level, so the count is national and
+                # the response says so.
                 try:
                     if _api_adzuna:
-                        _s_count = _api_adzuna.get_job_count(_snap_role, "us")
-                        if _s_count:
-                            _snapshot["adzuna_job_count"] = _s_count
-                        _s_hist = _api_adzuna.get_salary_histogram(_snap_role, "us")
-                        if _s_hist:
-                            _snapshot["adzuna_salary_histogram"] = _s_hist
-                        _s_companies = _api_adzuna.get_top_companies(_snap_role, "us")
-                        if _s_companies:
-                            _snapshot["adzuna_top_companies"] = _s_companies
+                        _s_az_country = ""
+                        if not _role_source_on("Adzuna"):
+                            _snapshot["adzuna_unavailable_reason"] = (
+                                "Adzuna is not enabled as a role source"
+                            )
+                        elif _snap_location.strip():
+                            _s_az_scope = (
+                                _api_enrichment_mod.adzuna_query_scope(
+                                    [_snap_location]
+                                )
+                                if _api_enrichment_mod is not None
+                                else None
+                            )
+                            _s_az_country = (_s_az_scope or {}).get("country") or ""
+                            if not _s_az_country:
+                                _snapshot["adzuna_unavailable_reason"] = (
+                                    "no Adzuna market for the location"
+                                )
+                        else:
+                            _s_az_country = "us"
+                        if _s_az_country and not _rl_snapshot.is_allowed(
+                            self._get_client_ip(), max_requests=5, window_seconds=60
+                        ):
+                            _s_az_country = ""
+                            _snapshot["adzuna_unavailable_reason"] = (
+                                "rate limited; try again in a minute"
+                            )
+                        if _s_az_country:
+                            _snapshot["adzuna_scope"] = {
+                                "country": _s_az_country,
+                                "kind": "national",
+                                "label": (
+                                    "US nationwide"
+                                    if _s_az_country == "us"
+                                    else f"{_s_az_country.upper()} nationwide"
+                                ),
+                            }
+                            _s_count = _api_adzuna.get_job_count(
+                                _snap_role, _s_az_country
+                            )
+                            if _s_count:
+                                _snapshot["adzuna_job_count"] = _s_count
+                            _s_hist = _api_adzuna.get_salary_histogram(
+                                _snap_role, _s_az_country
+                            )
+                            if _s_hist:
+                                _snapshot["adzuna_salary_histogram"] = _s_hist
+                            _s_companies = _api_adzuna.get_top_companies(
+                                _snap_role, _s_az_country
+                            )
+                            if _s_companies:
+                                _snapshot["adzuna_top_companies"] = _s_companies
                 except (urllib.error.URLError, OSError, ValueError, TypeError) as _ae:
                     logger.error(
                         "Adzuna data for market-snapshot failed: %s", _ae, exc_info=True

@@ -124,3 +124,117 @@ def test_v2_generate_fanout_makes_no_adzuna_call(
     # each plan spent up to 5 requests of the shared 200/day cap on it.
     spies = _fanout(monkeypatch, _generate_server, locations, env)
     assert spies["adzuna"].calls == [], spies["adzuna"].calls
+
+
+# --------------------------------------------------------------------- V3 ---
+
+import http.client  # noqa: E402
+import json  # noqa: E402
+import threading  # noqa: E402
+
+import app  # noqa: E402
+from tests.test_roles_audit_fixes import _Spy  # noqa: E402
+
+
+def _snapshot(port: int, query: str):
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+    try:
+        conn.request("GET", f"/api/integrations/market-snapshot?{query}")
+        resp = conn.getresponse()
+        raw = resp.read()
+    finally:
+        conn.close()
+    try:
+        return resp.status, json.loads(raw)
+    except ValueError:
+        return resp.status, {}
+
+
+@pytest.fixture
+def snapshot_env(monkeypatch: pytest.MonkeyPatch):
+    """Spies for every client the snapshot touches; fresh rate-limit state."""
+    spies = {
+        "adzuna": _Spy({"count": 5}),
+        "bls": _Spy(None),
+        "fred": _Spy(None),
+        "onet": _Spy(None),
+    }
+    monkeypatch.setattr(app, "_api_integrations_available", True)
+    monkeypatch.setattr(app, "_api_adzuna", spies["adzuna"])
+    monkeypatch.setattr(app, "_api_bls", spies["bls"])
+    monkeypatch.setattr(app, "_api_fred", spies["fred"])
+    monkeypatch.setattr(app, "_api_onet", spies["onet"])
+    for other in ("_api_bea", "_api_census", "_api_usajobs", "_api_jooble"):
+        monkeypatch.setattr(app, other, None, raising=False)
+    monkeypatch.delenv("ENRICH_ROLE_SOURCES", raising=False)
+    app._rate_limit_store.clear()
+    with app._rl_snapshot._lock:
+        app._rl_snapshot._requests.clear()
+    yield spies
+    app._rate_limit_store.clear()
+    with app._rl_snapshot._lock:
+        app._rl_snapshot._requests.clear()
+
+
+def test_v3_snapshot_spends_no_adzuna_request_when_adzuna_is_not_an_enabled_source(
+    monkeypatch: pytest.MonkeyPatch, _generate_server: int, snapshot_env
+) -> None:
+    monkeypatch.setenv("ENRICH_ROLE_SOURCES", "0")
+    status, body = _snapshot(_generate_server, "role=Nurse")
+    assert status == 200
+    assert snapshot_env["adzuna"].calls == []
+    assert "adzuna_job_count" not in body
+    assert body.get("adzuna_unavailable_reason")
+
+
+def test_v3_snapshot_is_rate_limited_per_ip(
+    monkeypatch: pytest.MonkeyPatch, _generate_server: int, snapshot_env
+) -> None:
+    monkeypatch.setattr(app, "_RATE_LIMIT_MAX", 3)
+    statuses = [_snapshot(_generate_server, f"role=Role{i}")[0] for i in range(6)]
+    assert statuses[:3] == [200, 200, 200], statuses
+    assert set(statuses[3:]) == {429}, statuses
+    # nothing past the cap reached a provider: 3 roles x 3 Adzuna requests
+    assert len(snapshot_env["adzuna"].calls) <= 9
+
+
+def test_v3_adzuna_spend_has_its_own_tighter_per_ip_cap(
+    _generate_server: int, snapshot_env
+) -> None:
+    # 5 Adzuna snapshots per IP per minute, however generous the general cap.
+    for i in range(8):
+        _snapshot(_generate_server, f"role=Cap{i}")
+    spent_roles = {c[1] for c in snapshot_env["adzuna"].calls}
+    assert len(spent_roles) == 5, spent_roles
+
+
+def test_v3_snapshot_follows_the_location_country_not_a_hardcoded_us(
+    _generate_server: int, snapshot_env
+) -> None:
+    status, body = _snapshot(_generate_server, "role=Nurse&location=London%2C+UK")
+    assert status == 200
+    countries = {c[2] for c in snapshot_env["adzuna"].calls}
+    assert countries == {"gb"}, countries
+    assert body["adzuna_scope"] == {
+        "country": "gb",
+        "kind": "national",
+        "label": "GB nationwide",
+    }
+
+
+def test_v3_no_location_is_national_us_and_says_so(
+    _generate_server: int, snapshot_env
+) -> None:
+    status, body = _snapshot(_generate_server, "role=Nurse")
+    assert status == 200
+    assert {c[2] for c in snapshot_env["adzuna"].calls} == {"us"}
+    assert body["adzuna_scope"]["label"] == "US nationwide"
+
+
+def test_v3_unsupported_location_sends_no_adzuna_request(
+    _generate_server: int, snapshot_env
+) -> None:
+    status, body = _snapshot(_generate_server, "role=Nurse&location=Dubai")
+    assert status == 200
+    assert snapshot_env["adzuna"].calls == []
+    assert body.get("adzuna_unavailable_reason")

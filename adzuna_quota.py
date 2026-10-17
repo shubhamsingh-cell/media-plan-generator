@@ -1,8 +1,8 @@
 """Shared request quota for the Adzuna API key.
 
 Every Adzuna HTTP call -- api_enrichment.fetch_job_market, the
-api_integrations.AdzunaClient (the sync /api/generate path's
-``_call_adzuna``, data_orchestrator, data_refresh), market_signals'
+api_integrations.AdzunaClient (the /api/integrations/market-snapshot
+route, data_orchestrator, data_refresh), market_signals'
 ``_adzuna_live_cpc`` and the data_matrix_monitor health probe -- uses ONE key,
 so they all draw from ONE counter here.
 
