@@ -150,6 +150,14 @@ def _snapshot(port: int, query: str):
         return resp.status, {}
 
 
+def _reset_limiters() -> None:
+    app._rate_limit_store.clear()
+    limiter = getattr(app, "_rl_snapshot", None)  # absent before the V3 fix
+    if limiter is not None:
+        with limiter._lock:
+            limiter._requests.clear()
+
+
 @pytest.fixture
 def snapshot_env(monkeypatch: pytest.MonkeyPatch):
     """Spies for every client the snapshot touches; fresh rate-limit state."""
@@ -167,13 +175,9 @@ def snapshot_env(monkeypatch: pytest.MonkeyPatch):
     for other in ("_api_bea", "_api_census", "_api_usajobs", "_api_jooble"):
         monkeypatch.setattr(app, other, None, raising=False)
     monkeypatch.delenv("ENRICH_ROLE_SOURCES", raising=False)
-    app._rate_limit_store.clear()
-    with app._rl_snapshot._lock:
-        app._rl_snapshot._requests.clear()
+    _reset_limiters()
     yield spies
-    app._rate_limit_store.clear()
-    with app._rl_snapshot._lock:
-        app._rl_snapshot._requests.clear()
+    _reset_limiters()
 
 
 def test_v3_snapshot_spends_no_adzuna_request_when_adzuna_is_not_an_enabled_source(

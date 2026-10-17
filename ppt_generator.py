@@ -2543,7 +2543,12 @@ def _autofit_textframe(tf, width_in: float, max_height_in: float, min_pt: float 
                 continue
             # largest run size in the paragraph drives its line height
             base_pt = max((r.font.size.pt if r.font.size else 10) for r in runs)
-            line_pt = base_pt * scale
+            # Measure at the size _apply will actually set: its per-run
+            # ``min_pt`` floor means a 7pt run stays 8pt however far the scale
+            # drops. Measuring the unfloored size picked a scale (0.92 on the
+            # UK RESOLUTION card) that "fit" on paper, overflowed once the
+            # 7pt rows were floored, and then trimmed the cited ONS line.
+            line_pt = max(min_pt, base_pt * scale)
             ptext = "".join(r.text for r in runs)
             n_lines = _estimate_lines(ptext, usable_w, line_pt, char_em=_wrap_em)
             line_h = (line_pt * _line_h_factor) / 72.0
@@ -4036,6 +4041,14 @@ def _range_value(rng: Dict[str, Any], fmt: Any) -> Optional[str]:
     return f"{fmt(lo)}\u2013{fmt(hi)}"
 
 
+def _kpi_cpa_is_range(budget_alloc: Optional[Dict]) -> bool:
+    """True when slide 2's "Projected CPA" KPI prints a low-high range (the
+    plan's own point figure is the plan-efficiency end of it). Slide 9 prints
+    that point under the SAME label, so it must say which figure it is."""
+    proj = _deck_projection(budget_alloc)
+    return bool(proj and _range_value(proj["cpa"], _fmt_currency))
+
+
 # Slide-2 KPI strip geometry (inches below the bar's top edge): every metric
 # label shares one baseline; the hires-range sublabel sits in its own box
 # beneath the label, one 8pt line per _KPI_SUBLABEL_LINE_IN.
@@ -4153,16 +4166,23 @@ def _first_one_line(
     return variants[-1] if variants else ""
 
 
+_US_SCOPE_LABELS = frozenset({"us", "u.s.", "usa", "united states"})
+
+
 def _posting_scope_phrase(primary: Dict[str, Any], data: Optional[Dict]) -> str:
     """What the headline posting count covers: the queried place for a
-    location-scoped count, "US nationwide" / "nationwide" for a national one,
-    "" when the collector never said (never guessed)."""
+    location-scoped count; for a national one the collector's own country
+    label ("United Kingdom \u00b7 nationwide"), "US nationwide" for the US;
+    "" when the collector never said (never guessed). A national count with no
+    label falls back to "US nationwide" on a US-only plan, else "nationwide"."""
     scope = str(primary.get("scope") or "").strip().lower()
     label = str(primary.get("scope_label") or "").strip()
     if scope == "location" and label:
         return label
     if scope == "national":
-        if isinstance(data, dict) and _is_us_only_campaign(data):
+        if label and label.lower() not in _US_SCOPE_LABELS:
+            return f"{label} \u00b7 nationwide"
+        if label or (isinstance(data, dict) and _is_us_only_campaign(data)):
             return "US nationwide"
         return "nationwide"
     return ""
@@ -8751,7 +8771,14 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                 _cpa_status = "beating" if proj_cpa < cpa_low else "trailing"
             all_comparison_rows.append(
                 {
-                    "metric": "Projected CPA",
+                    # Slide 2 prints this label over a RANGE; this row is the
+                    # plan-efficiency point of it, so the label says so
+                    # (same label, two numbers otherwise).
+                    "metric": (
+                        "Projected CPA (plan efficiency)"
+                        if _kpi_cpa_is_range(budget_alloc)
+                        else "Projected CPA"
+                    ),
                     # The industry column is a published benchmark range, not
                     # a projection (design-judge DJ4): its own label says so.
                     "industry_metric": "Industry CPA (benchmark)",

@@ -406,7 +406,9 @@ def test_slide8_labels_the_industry_cpa_a_benchmark(brief) -> None:
     left = [
         s.text_frame.text for s in _shapes_with_text(slide) if _inch(s, "left") < 6.5
     ]
-    assert "Projected CPA" in left  # the plan's own figure keeps its label
+    # the plan's own figure keeps its label (D1: "(plan efficiency)" is added
+    # where slide 2 prints the same label over a range)
+    assert any(t.startswith("Projected CPA") for t in left)
 
 
 # ---------------------------------------------------------------------- DJ5
@@ -429,12 +431,15 @@ def test_slide8_withholds_hires_on_a_market_with_no_local_cph() -> None:
     assert not re.search(r"\d", shown), shown
     assert shown == "n/a"
     # slides 2 and 6 say the same thing
+    # looked up by title: origin/main inserted a Client Story slide, so
+    # positional indexes silently point at a different slide
     all2 = " ".join(
-        s.text_frame.text for s in _shapes_with_text(_slide_by_index(prs, 2))
+        s.text_frame.text for s in _shapes_with_text(_slide(prs, "Executive Summary"))
     )
     assert "n/a" in all2
     all6 = " ".join(
-        s.text_frame.text for s in _shapes_with_text(_slide_by_index(prs, 6))
+        s.text_frame.text
+        for s in _shapes_with_text(_slide(prs, "Budget Allocation & Projections"))
     )
     assert "hires not projected" in all6
     # and no client-goal band computed from a count that is not projected
@@ -443,12 +448,78 @@ def test_slide8_withholds_hires_on_a_market_with_no_local_cph() -> None:
     )
 
 
-def _slide_by_index(prs, n: int):
-    return list(prs.slides)[n - 1]
-
-
 def test_slide8_still_projects_hires_when_a_local_benchmark_exists() -> None:
     slide8 = _slide8(_deck(_plan(US_ONE_MARKET, observed=False)))
     shown = _value_after(slide8, "Projected Hires")
     assert shown is not None
     assert re.fullmatch(r"[\d,]+", shown.strip()), shown
+
+
+# ----------------------------------------------------- final round: D1, D2, D3
+
+
+def _text_of(slide) -> str:
+    return "\n".join(s.text_frame.text for s in _shapes_with_text(slide))
+
+
+def _kpi_value_before(slide, label: str) -> Optional[str]:
+    """The KPI value printed directly above ``label`` on the slide-2 bar."""
+    shapes = _shapes_with_text(slide)
+    for i, shape in enumerate(shapes):
+        if shape.text_frame.text == label and i:
+            return shapes[i - 1].text_frame.text
+    return None
+
+
+def test_d1_slides_2_and_9_never_carry_one_cpa_label_over_two_numbers() -> None:
+    prs = _deck(_plan(US_TWO_ROLE, observed=False))
+    kpi = _kpi_value_before(_slide(prs, "Executive Summary"), "Projected CPA")
+    assert kpi is not None and "\u2013" in kpi, kpi  # slide 2 prints a range
+    cmp_slide = _slide8(prs)
+    # slide 9's own figure is the plan-efficiency point of that range, and its
+    # label says so; the bare slide-2 label does not appear over a lone point
+    assert _value_after(cmp_slide, "Projected CPA") is None
+    point = _value_after(cmp_slide, "Projected CPA (plan efficiency)")
+    assert point is not None
+    point_num = re.search(r"[\d,.]+", point).group(0)
+    assert kpi.split("\u2013")[0].lstrip("$\u00a3\u20ac").strip() == point_num, (
+        kpi,
+        point,
+    )
+
+
+def test_d1_slide_9_keeps_the_plain_label_when_slide_2_prints_a_point() -> None:
+    prs = _deck(_plan(UK_WAREHOUSE, observed=False))
+    kpi = _kpi_value_before(_slide(prs, "Executive Summary"), "Projected CPA")
+    assert kpi is not None and "\u2013" not in kpi, kpi
+    point = _value_after(_slide8(prs), "Projected CPA")
+    assert point is not None and point.split()[0] == kpi
+
+
+def test_d2_uk_slide_2_keeps_the_sourced_ons_vacancies_line() -> None:
+    # _autofit_textframe measured at the unfloored 7pt size, chose scale 0.92,
+    # then floored the runs to 8pt, overflowed and trimmed the cited ONS line
+    # (~1in of the RESOLUTION card was left empty).
+    text = _text_of(
+        _slide(_deck(_plan(UK_WAREHOUSE, observed=False)), "Executive Summary")
+    )
+    assert "(ONS, 2026)" in text, text
+    assert "705,000" in text
+
+
+def test_d3_national_count_names_its_country_when_the_collector_did() -> None:
+    cell = ppt_generator._observed_postings_cell
+    uk = dict(_ADZUNA, scope="national", scope_label="United Kingdom")
+    text, _, _ = cell(_jm(uk), 3.6, {"locations": ["London, UK", "Leeds, UK"]})
+    assert "United Kingdom \u00b7 nationwide" in text, text
+    # the US keeps its short form, whatever the plan's other markets
+    us = dict(_ADZUNA, scope="national", scope_label="United States")
+    text, _, _ = cell(_jm(us), 3.6, {"locations": ["Columbus, OH", "London, UK"]})
+    assert "US nationwide" in text and "United States" not in text, text
+    # no label: unchanged fallbacks
+    bare = dict(_ADZUNA, scope="national", scope_label="")
+    assert ppt_generator._posting_scope_phrase(bare, None) == "nationwide"
+    assert (
+        ppt_generator._posting_scope_phrase(bare, {"locations": ["Columbus, OH"]})
+        == "US nationwide"
+    )
