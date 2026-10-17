@@ -107,8 +107,83 @@ def test_inversion_is_cheap_and_quiet():
         dp.required_budget(250, "hires", counting, hint=100_000)
     finally:
         lg.removeHandler(h)
-    assert len(calls) < 60  # a bisection, not a scan
+    assert len(calls) < 250  # a coarse grid plus a bisection, not a dollar scan
     assert records == []  # the search mutes its own engine log lines
+
+
+def _stub(fn):
+    """A projector whose hires and applications both follow ``fn(budget)``
+    (low end = 60% of it) -- a stand-in engine with a shape we control."""
+
+    def proj(b):
+        v = fn(b)
+        rng = {"low": int(v * 0.6), "mid": int(v * 0.8), "high": int(v)}
+        return {"ok": True, "hires": dict(rng), "applications": dict(rng)}
+
+    return proj
+
+
+def _dipping(b):
+    # count = budget / 100, but a band of budgets projects 20% fewer (a channel
+    # floor changing): $5,200-$6,199 falls back below what $5,000 reached
+    n = b / 100.0
+    return n * 0.8 if 5200 <= b < 6200 else n
+
+
+def test_dipping_projection_quotes_the_lowest_budget_it_stays_above():
+    proj = _stub(_dipping)
+    req = dp.required_budget(50, "hires", proj, hint=5000)
+    assert req["ok"]
+    # $5,000 reaches 50 (optimistic end) -- but $5,200 does not, so the quote is
+    # the first budget from which everything above also reaches it
+    assert proj(5000)["hires"]["high"] >= 50 > proj(5300)["hires"]["high"]
+    assert 6200 <= req["low"] <= 6200 + req["step_low"]
+    assert req["first_reach_low"] <= 5000 + 1
+    assert req["non_monotone"] is True
+    # the guarantee: nothing above the quoted low falls below the goal
+    for b in range(int(req["low"]), int(req["low"] * 3), 10):
+        assert proj(b)["hires"]["high"] >= 50, b
+    # the conservative end (60%) needs a bigger budget and also never dips below
+    for b in range(int(req["high"]), int(req["high"] * 3), 10):
+        assert proj(b)["hires"]["low"] >= 50, b
+
+
+def test_dip_is_stated_in_the_goal_plan():
+    plan = dp.build_goal_plan(goal=50, budget=3000, projector=_stub(_dipping))
+    assert any("not smooth" in n and "already reaches" in n for n in plan["notes"])
+
+
+def test_smooth_projection_is_not_flagged():
+    req = dp.required_budget(50, "hires", _stub(lambda b: b / 100.0), hint=1000)
+    assert req["non_monotone"] is False
+    assert req["low"] == req["first_reach_low"] or abs(
+        req["low"] - req["first_reach_low"]
+    ) <= req["step_low"]
+
+
+@pytest.mark.parametrize(
+    "location,goals",
+    [
+        ("London, UK", [1000, 1840, 1860]),
+        ("Columbus, OH", [700, 1690, 520]),
+    ],
+)
+def test_real_apply_start_projection_never_dips_below_the_quote(location, goals):
+    brief = dict(BRIEF, locations=[location], industry="logistics_supply_chain")
+    proj = projector_for(brief)
+    for goal in goals:
+        req = dp.required_budget(goal, "apply_starts", proj, hint=10_000)
+        assert req["ok"], (location, goal)
+        for b in range(int(req["low"]), int(req["low"] * 1.5), 25):
+            assert proj(b)["applications"]["high"] >= goal, (location, goal, b)
+        for b in range(int(req["high"]), int(req["high"] * 1.5), 100):
+            assert proj(b)["applications"]["low"] >= goal, (location, goal, b)
+        # and it is the smallest such budget, to within a planning step
+        below = req["low"] - req["step_low"]
+        assert proj(below)["applications"]["high"] < goal or any(
+            proj(b)["applications"]["high"] < goal
+            for b in range(int(below), int(req["low"] * 1.5), 25)
+        )
 
 
 def test_bad_goal_is_refused():

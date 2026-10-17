@@ -52,6 +52,7 @@ _MAX_BUDGET = 1e12
 _MAX_BRACKET_STEPS = 45
 _MAX_BISECT_STEPS = 60
 _ABS_TOLERANCE = 1.0  # dollars
+_GRID_POINTS = 120  # budget grid the non-monotone scan walks
 
 Projector = Callable[[float], Dict[str, Any]]
 
@@ -129,18 +130,14 @@ def city_key(text: Any) -> str:
 # --------------------------------------------------------------------------
 
 
-def _smallest_budget(
+def _bracket(
     value: Callable[[float], Optional[float]], goal: float, hint: float
 ) -> Tuple[Optional[float], str]:
-    """Smallest budget (to ``_ABS_TOLERANCE`` dollars) at which ``value`` --
-    a count that is non-decreasing in the budget -- reaches ``goal``.
-    ``(None, reason)`` when no budget up to the cap gets there or the
-    projection is unavailable.  The returned budget always satisfies
-    ``value(budget) >= goal`` (the true side of the bracket).
-
-    The counts are close to proportional to the budget, so the search jumps
-    by ``goal / value`` instead of blind doubling and then bisects a narrow
-    bracket: ~20 projections, not ~60."""
+    """A budget at which ``value`` reaches ``goal`` (not the smallest), found by
+    proportional jumps from ``hint``: the counts are close to proportional to
+    the budget, so ``goal / value`` lands near it in a step or two.
+    ``(None, reason)`` when none up to the cap reaches it or the projection is
+    unavailable."""
     hi = max(_START_BUDGET, hint)
     v = value(hi)
     if v is None:
@@ -156,19 +153,15 @@ def _smallest_budget(
         steps += 1
     if v < goal:
         return None, "out_of_range"
-    lo = 0.0
-    for _ in range(4):  # tighten the lower edge with the same proportional step
-        est = hi * goal / v * 0.98 if v > 0 else 0.0
-        if est < _START_BUDGET or est >= hi:
-            break
-        r = value(est)
-        if r is None:
-            return None, "not_projected"
-        if r >= goal:
-            hi, v = est, r
-        else:
-            lo = est
-            break
+    return hi, ""
+
+
+def _refine(
+    value: Callable[[float], Optional[float]], goal: float, lo: float, hi: float
+) -> float:
+    """Smallest budget in ``(lo, hi]`` (to ``_ABS_TOLERANCE`` dollars) at which
+    ``value`` reaches ``goal``, given that it does at ``hi`` and does not at
+    ``lo``."""
     for _ in range(_MAX_BISECT_STEPS):
         if hi - lo <= _ABS_TOLERANCE:
             break
@@ -178,7 +171,39 @@ def _smallest_budget(
             hi = mid
         else:
             lo = mid
-    return float(math.ceil(hi)), ""
+    return float(math.ceil(hi))
+
+
+def _scan(
+    value: Callable[[float], Optional[float]],
+    goal: float,
+    points: List[float],
+) -> Tuple[Optional[float], Optional[float], str]:
+    """(safe, first, status) over the ascending budget grid ``points``.
+
+    ``first`` is the smallest budget at which ``value`` reaches ``goal``.  The
+    projections are NOT monotone in the budget -- an application count can step
+    down when a channel floor or a benchmark band changes (a $50 larger budget
+    projecting ~3% fewer applications) -- so ``safe`` is the smallest budget
+    from which EVERY larger budget on the grid also reaches the goal: funding
+    it never lands below the goal because of a dip above it.  ``safe == first``
+    when the counts only rise.  ``(None, None, "out_of_range")`` when even the
+    top of the grid falls short."""
+    vals = [value(p) for p in points]
+    if any(v is None for v in vals):
+        return None, None, "not_projected"
+    n = len(points)
+    k = n
+    while k > 0 and vals[k - 1] >= goal:  # type: ignore[operator]
+        k -= 1
+    if k == n:
+        return None, None, "out_of_range"
+    f = next(i for i, v in enumerate(vals) if v >= goal)  # type: ignore[operator]
+    safe = _refine(value, goal, points[k - 1] if k > 0 else 0.0, points[k])
+    first = safe if f == k else _refine(
+        value, goal, points[f - 1] if f > 0 else 0.0, points[f]
+    )
+    return safe, min(first, safe), ""
 
 
 def planning_step(budget: float) -> float:
@@ -255,21 +280,45 @@ def required_budget(
         return None if m is None else m[0]
 
     with _quiet_engine():
-        low, why = _smallest_budget(optimistic, goal, hint)
-        if low is None:
+        top_lo, why = _bracket(optimistic, goal, hint)
+        if top_lo is None:
             return {"ok": False, "status": why, "low": None, "high": None}
-        high, why = _smallest_budget(conservative, goal, max(low, hint))
-        if high is None:
-            return {"ok": False, "status": why, "low": low, "high": None}
-        low = _settle(optimistic, goal, low)
-        high = _settle(conservative, goal, max(low, high))
+        top_hi, why = _bracket(conservative, goal, max(top_lo, hint))
+        if top_hi is None:
+            return {"ok": False, "status": why, "low": top_lo, "high": None}
+        reach = max(top_lo, top_hi)
+        span = reach * 1.3
+        for _ in range(5):  # widen until the top of the grid reaches the goal
+            points = [span * (i + 1) / _GRID_POINTS for i in range(_GRID_POINTS)]
+            low_safe, low_first, why = _scan(optimistic, goal, points)
+            high_safe, high_first, why2 = _scan(conservative, goal, points)
+            if low_safe is not None and high_safe is not None:
+                break
+            span *= 1.6
+        else:
+            return {
+                "ok": False,
+                "status": why or why2 or "out_of_range",
+                "low": None,
+                "high": None,
+            }
+        low = _settle(optimistic, goal, low_safe)
+        high = _settle(conservative, goal, max(low, high_safe))
+    step_low, step_high = planning_step(low), planning_step(high)
     return {
         "ok": True,
         "status": "",
         "low": low,
         "high": high,
-        "step_low": planning_step(low),
-        "step_high": planning_step(high),
+        "step_low": step_low,
+        "step_high": step_high,
+        # first budget that reaches the goal at all; below ``low`` / ``high``
+        # only when the projection dips (see _scan)
+        "first_reach_low": low_first,
+        "first_reach_high": high_first,
+        "non_monotone": bool(
+            low_first < low - 2 * step_low or high_first < high - 2 * step_high
+        ),
     }
 
 
@@ -575,6 +624,17 @@ def _build_goal_plan(
         return base
 
     req_lo, req_hi = float(req["low"]), float(req["high"])
+    if req.get("non_monotone"):
+        first = min(
+            (req.get("first_reach_low") or req_lo), (req.get("first_reach_high") or req_hi)
+        )
+        notes.append(
+            f"The projection is not smooth in this range: {_money(first, symbol)} "
+            f"already reaches the goal, but a slightly larger budget projects "
+            f"fewer {unit} (a channel floor or benchmark band changes). The "
+            "required budget quoted is the lowest from which every larger "
+            "budget also reaches it."
+        )
     short_lo = max(0.0, goal - proj_hi)  # optimistic end of the projection
     short_hi = max(0.0, goal - proj_lo)  # conservative end
     if proj_lo >= goal:
