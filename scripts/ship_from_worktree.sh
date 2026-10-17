@@ -49,6 +49,11 @@
 #   SHIP_LOCK_TIMEOUT_S   give up waiting for the lock after this many seconds
 #       (default 1800). SHIP_LOCK_WAIT_LOG_S: seconds between "waiting" log
 #       lines (default 30).
+#   SHIP_LOCK_POLL_S      seconds between lock-state polls (default 0.5; a
+#       plain decimal, anything else falls back to the default). Three polls
+#       stack on a freed lock -- the dead holder's parent-pid watch, the
+#       waiter's flock retry, the waiter's status-file read -- so a lock freed
+#       by kill -9 is noticed within ~3 x this. Fixed cadence, never a backoff.
 #   SHIP_SKIP_CI_WATCH=1   skip the post-push CI watch (the skip is logged).
 #   SHIP_CI_APPEAR_POLL_INTERVAL / SHIP_CI_APPEAR_POLL_MAX   seconds between
 #       polls / total wait for the CI run to show up (defaults 10 / 180).
@@ -85,6 +90,10 @@ CI_WATCH_MAX_SECONDS="${SHIP_CI_WATCH_MAX:-1200}"
 SHIP_LOCK_FILE="${SHIP_LOCK_FILE:-/tmp/mpg-ship.lock}"
 SHIP_LOCK_TIMEOUT_S="${SHIP_LOCK_TIMEOUT_S:-1800}"
 SHIP_LOCK_WAIT_LOG_S="${SHIP_LOCK_WAIT_LOG_S:-30}"
+SHIP_LOCK_POLL_S="${SHIP_LOCK_POLL_S:-0.5}"
+case "$SHIP_LOCK_POLL_S" in
+    '' | *[!0-9.]* | *.*.* | . ) SHIP_LOCK_POLL_S=0.5 ;;
+esac
 
 log() {
     printf '[ship] %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >&2
@@ -94,7 +103,8 @@ log() {
 # macOS ships no flock(1) and bash 3.2 has no coproc, so a python3 helper
 # (already a dependency of this script) takes fcntl.flock on SHIP_LOCK_FILE
 # and holds it until this script's shell is gone: it polls its parent pid
-# once a second, so SIGKILL of the script still frees the lock within ~1 s.
+# every SHIP_LOCK_POLL_S (0.5 s), so SIGKILL of the script still frees the
+# lock within a poll; the waiter then needs up to two more polls to see it.
 # The kernel drops a flock when its holder exits -- no stale-lock detection,
 # no steal race. Holder info "pid|since|branch" is written into the lock file
 # after acquiring, so waiters can say who they are queued behind. The helper
@@ -111,8 +121,8 @@ ship_lock_acquire() {
     lock_status_file="$(mktemp "${TMPDIR:-/tmp}/mpg-ship-lock-status.XXXXXX")"
     python3 -c '
 import fcntl, os, sys, time
-path, timeout, parent, wait_log, info = sys.argv[1:6]
-timeout, parent, wait_log = int(timeout), int(parent), int(wait_log)
+path, timeout, parent, wait_log, info, poll = sys.argv[1:7]
+timeout, parent, wait_log, poll = int(timeout), int(parent), int(wait_log), float(poll)
 
 
 def say(line):
@@ -138,14 +148,14 @@ while True:
     if last is None or now - last >= wait_log:
         say("WAIT|" + os.pread(fd, 512, 0).decode("utf-8", "replace").strip())
         last = now
-    time.sleep(1)
+    time.sleep(poll)
 os.ftruncate(fd, 0)
 os.pwrite(fd, info.encode("utf-8"), 0)
 say("ACQUIRED")
 while os.getppid() == parent:
-    time.sleep(1)
+    time.sleep(poll)
 ' "$SHIP_LOCK_FILE" "$SHIP_LOCK_TIMEOUT_S" "$$" "$SHIP_LOCK_WAIT_LOG_S" \
-        "$$|$(date -u '+%Y-%m-%dT%H:%M:%SZ')|$branch" >"$lock_status_file" 2>/dev/null &
+        "$$|$(date -u '+%Y-%m-%dT%H:%M:%SZ')|$branch" "$SHIP_LOCK_POLL_S" >"$lock_status_file" 2>/dev/null &
     lock_helper_pid=$!
     while :; do
         # Sample liveness BEFORE reading: a helper that writes its last line
@@ -183,7 +193,7 @@ while os.getppid() == parent:
             log "WARNING: ship-lock helper exited without acquiring (is $SHIP_LOCK_FILE writable?) -- proceeding WITHOUT the machine-wide lock"
             return 0
         fi
-        sleep 1
+        sleep "$SHIP_LOCK_POLL_S"
     done
 }
 

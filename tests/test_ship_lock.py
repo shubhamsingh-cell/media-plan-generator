@@ -22,6 +22,8 @@ from typing import Dict, Iterator, Optional
 
 import pytest
 
+from tests.timing_budget import wall_budget
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "ship_from_worktree.sh"
 
@@ -145,14 +147,34 @@ def test_lock_is_freed_when_the_holder_is_sigkilled(
     lock_env: Dict[str, str], holder_factory
 ) -> None:
     """No trap runs on SIGKILL; the kernel flock plus the helper's parent-pid
-    watch must still free the lock, or one crashed ship wedges the queue."""
-    holder = holder_factory(lock_env, 60)
+    watch must still free the lock, or one crashed ship wedges the queue.
+
+    A freed lock is noticed by three stacked polls: the dead holder's helper
+    watching its parent, the waiter's helper retrying the flock, and the
+    waiter's shell reading the helper's status file. Each sleeps
+    SHIP_LOCK_POLL_S, so the idle latency is ~3 x poll plus process start-up
+    and the budget is derived from that cadence instead of a hard 10 s (the
+    old constant failed at 47.8 s under a parallel full-suite ship). The lock
+    path is the private tmp one, never /tmp/mpg-ship.lock. If the watch ever
+    stops working the waiter hits its own timeout and exits 7, which the
+    returncode check catches independent of any clock.
+    """
+    poll_s = 0.2
+    timeout_s = 45
+    env = dict(lock_env, SHIP_LOCK_POLL_S=str(poll_s))
+    holder = holder_factory(env, 60)
     holder.proc.kill()
     holder.proc.wait()
-    started = time.time()
-    result = _run(lock_env, timeout_s=15)
+    started = time.monotonic()
+    result = _run(env, timeout_s=timeout_s)
+    elapsed = time.monotonic() - started
     assert result.returncode == 0, result.stderr
-    assert time.time() - started < 10
+    assert f"ship lock acquired ({env['SHIP_LOCK_FILE']}" in result.stderr
+    budget = wall_budget(3 * poll_s + 1.0, regression_s=timeout_s)
+    assert elapsed < budget, (
+        f"freed lock noticed after {elapsed:.1f}s, budget {budget:.1f}s "
+        f"(3 x poll {poll_s}s + 1.0s start-up, load-scaled): {result.stderr}"
+    )
 
 
 def test_unusable_lock_path_warns_but_never_blocks_a_ship(
