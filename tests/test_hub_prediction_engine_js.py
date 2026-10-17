@@ -42,6 +42,8 @@ def _iife() -> str:
 LABELS = {
     "midpoint_basis": "an assumed {mid} all-in cost per hire (Nova table, unsourced)",
     "best_case": "best case",
+    "note_apps": "City changes applications and channel mix; cost per hire follows the industry floor.",
+    "note_mix": "City changes channel mix; cost per hire follows the industry floor.",
 }
 
 
@@ -117,7 +119,7 @@ roles.forEach(([t, ind], i) => card.children.push(el({ "data-role": String(i), "
 ["Houston, TX", "Chicago, IL"].forEach((l, i) => card.children.push(el({ "data-loc": String(i), "aria-pressed": i === 0 ? "true" : "false", "data-pe-location": l }, "pe-chip" + (i === 0 ? " is-on" : ""), l)));
 const range = el({ "data-pe-range": "", min: "30000" }, "pe-range"); range.value = "50000"; card.children.push(range);
 const slots = {};
-["budget", "cph", "hires", "apps", "cpa", "basis", "status", "label-basis", "apps-label", "cpa-label"].forEach((k) => { slots[k] = el({ ["data-pe-" + k]: "" }, "pe-" + k); card.children.push(slots[k]); });
+["budget", "cph", "hires", "apps", "cpa", "basis", "status", "label-basis", "apps-label", "cpa-label", "note"].forEach((k) => { slots[k] = el({ ["data-pe-" + k]: "" }, "pe-" + k); card.children.push(slots[k]); });
 slots.status.hidden = true;
 slots['apps-label'].textContent = 'Est. applications'; slots['cpa-label'].textContent = 'Cost per application';
 ["programmatic_dsp", "global_boards", "niche_boards"].forEach((k) => {
@@ -163,7 +165,7 @@ def _run(scenario_js: str, grid: dict | None, fetch_ok: bool = True) -> dict:
         + scenario_js
         + "\n  const out = { fetchCalls, fetchUrl: FETCH_URL, cph: slots.cph.textContent, hires: slots.hires.textContent,"
         " apps: slots.apps.textContent, cpa: slots.cpa.textContent, appsLabel: slots['apps-label'].textContent,"
-        " cpaLabel: slots['cpa-label'].textContent, basis: slots.basis.textContent, status: slots.status.textContent,"
+        " cpaLabel: slots['cpa-label'].textContent, note: slots.note.textContent, basis: slots.basis.textContent, status: slots.status.textContent,"
         " statusHidden: slots.status.hidden, computing: card.classList.contains('is-computing'),"
         " labelBasisHidden: slots['label-basis'].hidden,"
         " amounts: card.querySelectorAll('[data-pe-amt]').map((e) => e.textContent),"
@@ -367,3 +369,19 @@ def test_m3_chips_keep_aria_pressed_in_sync_with_the_selection() -> None:
     out = _run(js, grid)
     assert out["rolePressed"] == ["false", "false", "true"]
     assert out["locPressed"] == ["false", "true"]
+
+
+def test_the_note_under_the_chips_follows_the_scenarios_cities() -> None:
+    """Applications are named only when they differ between the cities for the
+    selected role and budget (the old static line claimed it for every role)."""
+    moving = {
+        "CDL Driver|Houston, TX|$50,000": _estimate(16, 3125.0, 7819, 6250.0, 8),
+        "CDL Driver|Chicago, IL|$50,000": _estimate(16, 3125.0, 7000, 6250.0, 8),
+    }
+    same = {
+        "CDL Driver|Houston, TX|$50,000": _estimate(16, 3125.0, 7819, 6250.0, 8),
+        "CDL Driver|Chicago, IL|$50,000": _estimate(16, 3125.0, 7819, 6250.0, 8),
+    }
+    click = "  card.querySelector('[data-role=\"2\"]').click();\n" + _settle()
+    assert _run(click, {"scenarios": moving})["note"] == LABELS["note_apps"]
+    assert _run(click, {"scenarios": same})["note"] == LABELS["note_mix"]

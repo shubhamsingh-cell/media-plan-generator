@@ -1731,6 +1731,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var labelBasisEl = card.querySelector("[data-pe-label-basis]");
   var statusEl = card.querySelector("[data-pe-status]");
   var barRows = card.querySelectorAll("[data-pe-ch]");
+  var noteEl = card.querySelector("[data-pe-note]");
   var appsLabelEl = card.querySelector("[data-pe-apps-label]");
   var cpaLabelEl = card.querySelector("[data-pe-cpa-label]");
 
@@ -1837,6 +1838,37 @@ document.addEventListener("DOMContentLoaded", function () {
   var labels = null;
   function takeLabels(l) {
     if (l && typeof l.midpoint_basis === "string") labels = l;
+  }
+
+  // The line about what the city chips change, true of the data: applications
+  // are named only when this role and budget's applications or cost-per-
+  // application ranges differ across the cities (for some roles the engine
+  // prices every city alike). Same rule as proof_claims.pe_chip_note. Returns
+  // "" until all the cities' scenarios are loaded, and the line stays as is.
+  function chipNote(table, words, role, cities, budgetText) {
+    if (!words || !words.note_apps || !words.note_mix) return "";
+    var seen = {};
+    var kinds = 0;
+    for (var i = 0; i < cities.length; i++) {
+      var est = table[role + "|" + cities[i] + "|" + budgetText];
+      if (!est) return "";
+      var r = est.ranges || {};
+      var sig = (r.applications || est.est_applications) + "/" + (r.cpa || est.est_cpa);
+      if (!seen[sig]) {
+        seen[sig] = true;
+        kinds++;
+      }
+    }
+    return kinds > 1 ? words.note_apps : words.note_mix;
+  }
+  function setNote(brief) {
+    if (!noteEl) return;
+    var cities = [];
+    for (var i = 0; i < locChips.length; i++) {
+      cities.push(chipText(locChips[i], "data-pe-location"));
+    }
+    var text = chipNote(scenarios, labels, brief.roles[0], cities, brief.budget);
+    if (text) noteEl.textContent = text;
   }
 
   // "$10.5K" for 10500 (proof_claims.fmt_k_dollars)
@@ -2001,6 +2033,7 @@ document.addEventListener("DOMContentLoaded", function () {
       shownBrief = brief;
       setStatus("");
       paint(est, true);
+      setNote(brief);
       return;
     }
     if (gridLoaded) {

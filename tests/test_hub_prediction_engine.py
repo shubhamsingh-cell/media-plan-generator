@@ -119,7 +119,11 @@ def _get(port: int, path: str) -> tuple[int, str]:
 
 
 def _slot(html: str, attr: str) -> str:
-    m = re.search(rf'<div class="[^"]*" {attr}>\s*(.*?)\s*</div>', html, re.S)
+    m = re.search(
+        rf'<(?:div|span)(?: class="[^"]*")? {attr}>\s*(.*?)\s*</(?:div|span)>',
+        html,
+        re.S,
+    )
     assert m, f"slot {attr} not served"
     return m.group(1)
 
@@ -597,18 +601,23 @@ def test_f1_the_midpoint_figure_names_its_cost_basis_in_visible_text() -> None:
     assert (
         "4 at an assumed $10.5K all-in cost per hire (Nova table, unsourced)" in basis
     )
-    assert "title=" not in re.search(r'<div class="pe-cph-basis"[^>]*>', html).group(0)
-    label = re.search(r'<div class="pe-cph-label">(.*?)</div>', html, re.S)
-    assert label
-    assert "media budget ÷ projected hires" in _text(label.group(1))
-    assert "midpoint (an all-in" not in html and "at its $10,500" not in html
-    footnote = re.search(r'<div class="pe-footnote">(.*?)</div>', html, re.S)
-    assert footnote and "all-in cost per hire (Nova table, unsourced)" in _text(
-        footnote.group(1)
+    # the third tile's measure and basis are ONE visible paragraph
+    para = re.search(
+        r'<div class="pe-cph-secondary">\s*<div class="pe-cph-basis">(.*?)</div>\s*</div>',
+        html,
+        re.S,
     )
+    assert para and "title=" not in para.group(0)
+    visible = _text(para.group(1)).replace("\u00a0", " ")
+    assert (
+        "Modeled cost-per-hire at plan efficiency (media budget \u00f7 projected hires)"
+        in visible
+    )
+    assert "all-in cost per hire (Nova table, unsourced)" in visible
+    assert "midpoint (an all-in" not in html and "at its $10,500" not in html
     # one source: the template's words are the constants' words
     assert proof_claims.HUB_PE_ALL_IN_NOTE in basis
-    assert proof_claims.HUB_PE_CPH_MEASURE in _text(label.group(1))
+    assert proof_claims.HUB_PE_CPH_MEASURE in visible
     assert (
         proof_claims.HUB_PE_LABELS["midpoint_basis"].replace("{mid}", "$10.5K") in basis
     )
@@ -713,3 +722,101 @@ def test_f2_range_tiles_stay_on_one_line_on_a_phone() -> None:
         phone,
     )
     assert rule and "white-space: nowrap" in rule.group(1)
+
+
+# ── 6. the line under the chips is true of every scenario (judge, 2nd pass) ──
+
+OLD_STATIC_NOTE = (
+    "City changes applications and channel mix; cost per hire follows the "
+    "industry floor."
+)
+
+
+def _expected_note(grid: dict[str, Any], role: dict[str, str], budget: int) -> str:
+    """The note the data supports, computed independently of pe_chip_note."""
+    rows = [
+        grid["scenarios"][
+            proof_claims.hub_pe_key(proof_claims.hub_pe_brief(role, loc, budget))
+        ]
+        for loc in proof_claims.HUB_PE_LOCATIONS
+    ]
+    applications_move = len({r["ranges"]["applications"] for r in rows}) > 1
+    assert applications_move == (len({r["ranges"]["cpa"] for r in rows}) > 1)
+    assert (
+        len({tuple((c["key"], c["amount"]) for c in r["channels"]) for r in rows}) > 1
+    )
+    assert len({(r["est_cph"], r["est_hires"]) for r in rows}) == 1
+    return (
+        proof_claims.HUB_PE_LABELS["note_apps"]
+        if applications_move
+        else proof_claims.HUB_PE_LABELS["note_mix"]
+    )
+
+
+def test_the_chip_note_matches_the_data_for_every_scenario() -> None:
+    """The static note claimed cities change applications; for every Sales Rep
+    and Software Engineer scenario (half the grid) the applications and cost-
+    per-application ranges are identical across the four cities. The note names
+    applications only where they differ, and always the channel mix and the
+    floor-following cost per hire (both true of all 560 scenarios)."""
+    grid = proof_claims.hub_pe_grid(force=True)
+    assert grid
+    seen = set()
+    for role in proof_claims.HUB_PE_ROLES:
+        for budget in proof_claims.hub_pe_budgets():
+            text = f"${budget:,}"
+            note = proof_claims.pe_chip_note(grid["scenarios"], role["title"], text)
+            assert note == _expected_note(grid, role, budget), (role, budget)
+            seen.add((role["title"], note))
+            if role["title"] in ("Sales Rep", "Software Engineer"):
+                assert note != OLD_STATIC_NOTE, (role, budget)  # fails pre-fix
+                assert "applications" not in note
+    assert {n for _, n in seen} == {
+        proof_claims.HUB_PE_LABELS["note_apps"],
+        proof_claims.HUB_PE_LABELS["note_mix"],
+    }
+
+
+def test_the_served_note_is_the_default_scenarios_note() -> None:
+    html = _rendered_hub()
+    grid = proof_claims.hub_pe_grid()
+    assert grid
+    b = proof_claims.HUB_PE_DEFAULT_BRIEF
+    assert _slot(html, "data-pe-note") == proof_claims.pe_chip_note(
+        grid["scenarios"], b["roles"][0], b["budget"]
+    )
+
+
+def test_hub_js_chip_note_agrees_with_python_for_all_560_scenarios() -> None:
+    """hub.js's chipNote run in node over the real grid: the same sentence as
+    proof_claims.pe_chip_note for every role x budget (and "" -- leave the line
+    as it is -- when a city's scenario is not loaded yet)."""
+    from tests.wizard_js_harness import NODE, run_node
+
+    if NODE is None:
+        pytest.skip("node not installed")
+    js = HUB_JS.read_text(encoding="utf-8")
+    fn = js[js.index("  function chipNote(") : js.index("  function setNote(")]
+    grid = proof_claims.hub_pe_grid()
+    assert grid
+    script = (
+        fn
+        + "const grid = "
+        + json.dumps(grid)
+        + ";\nconst out = {};\n"
+        + "for (const role of grid.roles) for (let b = grid.budget.min; b <= grid.budget.max; b += grid.budget.step) {\n"
+        + "  const t = '$' + b.toLocaleString('en-US');\n"
+        + "  out[role.title + '|' + t] = chipNote(grid.scenarios, grid.labels, role.title, grid.locations, t);\n}\n"
+        + "const partial = Object.assign({}, grid.scenarios); delete partial['Sales Rep|Phoenix, AZ|$50,000'];\n"
+        + "out.partial = chipNote(partial, grid.labels, 'Sales Rep', grid.locations, '$50,000');\n"
+        + "out.nolabels = chipNote(grid.scenarios, null, 'Sales Rep', grid.locations, '$50,000');\n"
+        + "process.stdout.write(JSON.stringify(out));\n"
+    )
+    out = run_node(script)
+    assert out.pop("partial") == "" and out.pop("nolabels") == ""
+    assert len(out) == len(proof_claims.HUB_PE_ROLES) * len(
+        proof_claims.hub_pe_budgets()
+    )
+    for key, note in out.items():
+        title, text = key.split("|")
+        assert note == proof_claims.pe_chip_note(grid["scenarios"], title, text), key

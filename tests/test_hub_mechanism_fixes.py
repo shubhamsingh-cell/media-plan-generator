@@ -154,13 +154,16 @@ def test_m2_the_card_leads_with_applications_then_cph_and_hires_follow() -> None
     # the cost-per-hire basis label follows, still in visible text
     assert result.index("data-pe-cph>") < result.index("pe-cph-secondary")
     secondary = result[result.index("pe-cph-secondary") :]
-    assert "media budget ÷ projected hires" in html_lib.unescape(secondary)
-    note = re.search(r'<p class="pe-chip-note">(.*?)</p>', card, re.S)
-    assert note and note.group(1).strip() == (
-        "City changes applications and channel mix; cost per hire follows the "
-        "industry floor."
+    assert "media budget \u00f7 projected hires" in html_lib.unescape(secondary)
+    # the line about the city chips is the first sentence of the one footnote
+    foot = re.search(r'<div class="pe-footnote">(.*?)</div>', card, re.S)
+    assert foot
+    assert re.match(
+        r"\s*<span data-pe-note>City changes (applications and )?channel mix"
+        r"|\s*<span data-pe-note>City changes channel mix",
+        foot.group(1),
     )
-    assert card.index("pe-chip-note") < card.index('class="pe-result"')
+    assert "pe-chip-note" not in html  # no separate note line making the card taller
 
 
 # ── M3: chips expose their state ─────────────────────────────────────────────

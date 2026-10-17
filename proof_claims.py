@@ -401,6 +401,12 @@ HUB_PE_LABELS: Dict[str, str] = {
     # a tile whose scenario has no engine range falls back to its best-case
     # figure, and says so
     "best_case": "best case",
+    # The line about what the city chips change.  Whether applications move
+    # with the city depends on the role and budget (for some roles the
+    # engine prices every city alike); the channel mix always moves and the
+    # cost per hire never does -- see pe_chip_note and the grid-wide test.
+    "note_apps": "City changes applications and channel mix; cost per hire follows the industry floor.",
+    "note_mix": "City changes channel mix; cost per hire follows the industry floor.",
 }
 
 
@@ -444,6 +450,32 @@ def _range_texts(est: Dict[str, Any]) -> Dict[str, str]:
         if isinstance(text, str) and text and text != "n/a":
             out[field] = text
     return out
+
+
+def pe_chip_note(
+    scenarios: Dict[str, Dict[str, Any]], role_title: str, budget_text: str
+) -> str:
+    """The sentence under the chips for one role and budget, true of the data.
+
+    The applications clause is printed only when the applications or cost-per-
+    application range differs between the four cities for that role and
+    budget; otherwise the note says the city changes the channel mix only.
+    hub.js applies the same rule to the grid (``chipNote``); the cost-per-hire
+    clause holds for every scenario (tests/test_hub_mechanism_fixes.py).
+    Raises when a city's scenario is missing, so a claim is omitted rather
+    than guessed.
+    """
+    seen = set()
+    for location in HUB_PE_LOCATIONS:
+        est = scenarios[f"{role_title}|{location}|{budget_text}"]
+        ranges = est.get("ranges") or {}
+        seen.add(
+            (
+                ranges.get("applications") or est.get("est_applications"),
+                ranges.get("cpa") or est.get("est_cpa"),
+            )
+        )
+    return HUB_PE_LABELS["note_apps" if len(seen) > 1 else "note_mix"]
 
 
 def hub_pe_grid(force: bool = False) -> Optional[Dict[str, Any]]:
@@ -745,6 +777,22 @@ def _pe_all_in_note() -> ProofClaim:
     )
 
 
+def _pe_chip_note() -> ProofClaim:
+    grid = hub_pe_grid()
+    if not grid:
+        raise RuntimeError("hub prediction grid not available")
+    brief = HUB_PE_DEFAULT_BRIEF
+    return ProofClaim(
+        key="pe_chip_note",
+        value=None,
+        text=pe_chip_note(grid["scenarios"], brief["roles"][0], brief["budget"]),
+        source=(
+            "proof_claims.pe_chip_note over proof_claims.hub_pe_grid for the default "
+            "role and budget: applications are named only when they differ by city"
+        ),
+    )
+
+
 def _pe_cph_measure() -> ProofClaim:
     return ProofClaim(
         key="pe_cph_measure",
@@ -961,6 +1009,7 @@ _SOURCES: Dict[str, Callable[[], ProofClaim]] = {
     "pe_grid_version": _pe_grid_version,
     "pe_all_in_note": _pe_all_in_note,
     "pe_cph_measure": _pe_cph_measure,
+    "pe_chip_note": _pe_chip_note,
     "hub_products": _hub_products,
     "hub_products_title": lambda: _hub_products(title=True),
     "hub_product_names": _hub_product_names_claim,

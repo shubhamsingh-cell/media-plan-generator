@@ -4563,7 +4563,7 @@ html.lenis body {
 .pe-result {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   margin: 16px 0 6px;
   padding-top: 16px;
   border-top: 1px solid rgba(139, 133, 230, 0.16);
@@ -4611,20 +4611,13 @@ html.lenis body {
   white-space: nowrap;
 }
 .pe-cph-label--lead {
-  margin-top: 6px;
+  margin-top: 4px;
 }
-.pe-cph-secondary {
-  padding-top: 2px;
-}
-.pe-cph-secondary .pe-cph-label {
+/* The third tile's measure and basis, as one short paragraph under the
+   tiles (it replaced a two-line label plus a two-line basis, which made the
+   card taller than the single-headline card it came from). */
+.pe-cph-secondary .pe-cph-basis {
   margin-top: 0;
-}
-/* One line under the chips: what a city does and does not change. */
-.pe-chip-note {
-  margin: 10px 0 0;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: #9d9ac2;
 }
 .pe-minis {
   display: grid;

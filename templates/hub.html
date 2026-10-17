@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.15.7" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.15.8" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -487,8 +487,6 @@
               </div>
             </div>
 
-            <p class="pe-chip-note">City changes applications and channel mix; cost per hire follows the industry floor.</p>
-
             <div class="pe-result">
               <!-- Leads with the figures the chips move (applications and
                    cost per application, as the engine's ranges); modeled
@@ -514,9 +512,11 @@
                   <div class="pe-mini-label">Cost per hire</div>
                 </div>
               </div>
+              <!-- One paragraph: what the third tile is (its measure and
+                   basis) and the case it is set beside. Keeps the card the
+                   height it had when the headline was a single figure. -->
               <div class="pe-cph-secondary">
-                <div class="pe-cph-label">Modeled <span class="pe-nowrap">cost-per-hire</span>{{#claim_pe_basis}} <span data-pe-label-basis>at plan efficiency</span>{{/claim_pe_basis}}{{#claim_pe_cph_measure}} <span class="pe-cph-measure">({{claim_pe_cph_measure}})</span>{{/claim_pe_cph_measure}}</div>
-                <div class="pe-cph-basis" data-pe-basis>{{claim_pe_basis}}</div>
+                <div class="pe-cph-basis">Modeled <span class="pe-nowrap">cost-per-hire</span>{{#claim_pe_basis}} <span data-pe-label-basis>at plan efficiency</span>{{/claim_pe_basis}}{{#claim_pe_cph_measure}} <span class="pe-cph-measure">({{claim_pe_cph_measure}})</span>{{/claim_pe_cph_measure}}. <span data-pe-basis>{{claim_pe_basis}}</span></div>
               </div>
             </div>
 
@@ -588,13 +588,8 @@
 
             <p class="pe-status" data-pe-status role="status" aria-live="polite" hidden></p>
             <div class="pe-footnote">
-              Plan efficiency: the media budget over whole hires at the
-              engine&rsquo;s floor, half its assumed industry midpoint{{#claim_pe_all_in_note}},
-              an {{claim_pe_all_in_note}}{{/claim_pe_all_in_note}}. Applications
-              and cost per application show the engine&rsquo;s low-to-high
-              range, the one the plan wizard prints, not only the best case. A
-              real plan prints both cases and adds live market enrichment. No
-              signup.
+              <span data-pe-note>{{claim_pe_chip_note}}</span> Ranges are the
+              engine&rsquo;s low-to-high projection. No signup.
             </div>
           </div>
           <!-- The default scenario's brief + estimate, rendered by the server
@@ -3526,7 +3521,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.9.4"></script>
+    <script src="/static/js/hub.js?v=2.9.5"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,
