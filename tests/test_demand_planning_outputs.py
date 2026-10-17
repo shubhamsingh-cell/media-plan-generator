@@ -286,7 +286,8 @@ def test_deck_gets_one_goal_slide_and_nothing_else_changes():
     assert "Current constraint" in last and "Extend the deadline" in last
     assert "Not viable alone" in last  # a 300-hire goal on this budget
     assert "50-100 weeks" not in last
-    assert with_goal["_budget_allocation"]["goal_plan"]["text"]["callout"] in last
+    gpt = with_goal["_budget_allocation"]["goal_plan"]["text"]
+    assert f"needs {gpt['required']}; the budget covers" in last  # the subtitle
     assert "Dallas, TX" in last
 
 

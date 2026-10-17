@@ -549,6 +549,14 @@ def _range_money(lo: Optional[float], hi: Optional[float], symbol: str) -> str:
     return a if a == b else f"{a}–{b}"
 
 
+def _more_than(lo: float, hi: float, symbol: str) -> str:
+    """"$100,000", "$50,000-$100,000" or "up to $100,000" (when the low end of
+    the range already fits) -- the extra spend over the planned budget."""
+    if lo <= 0:
+        return f"up to {_money(hi, symbol)}"
+    return _range_money(lo, hi, symbol)
+
+
 def _range_count(lo: Optional[float], hi: Optional[float]) -> str:
     if lo is None or hi is None:
         return "n/a"
@@ -729,7 +737,7 @@ def _build_goal_plan(
             f"Fund the goal: {_range_money(req_lo, req_hi, symbol)} delivers "
             f"{count_phrase(goal, goal, kind)}"
             + (
-                f" ({_range_money(gap_lo, gap_hi, symbol)} more than the current budget)."
+                f" ({_more_than(gap_lo, gap_hi, symbol)} more than the current budget)."
                 if gap_hi > 0
                 else " (the current budget already covers it)."
             )

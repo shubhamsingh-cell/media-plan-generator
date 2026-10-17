@@ -3753,7 +3753,21 @@ def _slide_goalplan(prs: Any, data: dict, gp: Dict[str, Any], ppt: Any) -> None:
         prs,
         ppt,
         "Goal Plan: What It Takes",
-        _clip(f"Appendix: {gp['text']['callout']}", 150),
+        _clip(
+            (
+                f"Appendix: goal of "
+                f"{demand_planning.count_phrase(gp['goal'], gp['goal'], gp['kind'])} "
+                f"needs {gp['text']['required']}; the budget covers "
+                f"~{gp['text']['covers']} {unit}"
+                if gp.get("text", {}).get("required")
+                else (
+                    f"Appendix: goal of "
+                    f"{demand_planning.count_phrase(gp['goal'], gp['goal'], gp['kind'])}"
+                    ": not priced for this market"
+                )
+            ),
+            140,
+        ),
     )
     if status not in ("meets", "borderline", "short"):
         _card(slide, ppt, _L, 1.6, _W, 1.6, "Goal not priced")
@@ -3783,7 +3797,11 @@ def _slide_goalplan(prs: Any, data: dict, gp: Dict[str, Any], ppt: Any) -> None:
             _clip(
                 "Fund the goal."
                 + (
-                    f" {mr(a['extra_budget_low'], a['extra_budget_high'])} more than planned."
+                    (
+                        f" Up to {m(a['extra_budget_high'])} more than planned."
+                        if a["extra_budget_low"] <= 0
+                        else f" {mr(a['extra_budget_low'], a['extra_budget_high'])} more than planned."
+                    )
                     if a["extra_budget_high"] > 0
                     else " The planned budget already covers it."
                 ),
