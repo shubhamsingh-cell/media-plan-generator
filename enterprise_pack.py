@@ -51,6 +51,7 @@ REQUEST_KEYS: Tuple[str, ...] = (
     "enterprise_request_lock_day",
     "enterprise_setup_sla_days",
     "site_goals",
+    "apply_start_goal",
 )
 WEEKDAYS: Tuple[str, ...] = (
     "monday",
@@ -160,11 +161,17 @@ def request_problem(data: Any) -> Tuple[str, str]:
     sg_code, sg_msg = demand_planning.site_goals_problem(data.get("site_goals"))
     if sg_code:
         return "site_goals", sg_msg
+    ag_code, ag_msg = demand_planning.goal_problem(
+        data.get("apply_start_goal"), "The apply-start goal"
+    )
+    if ag_code:
+        return "apply_start_goal", ag_msg
     return "", ""
 
 
 _PROBLEM_FIELDS = {
     "site_goals": "site_goals",
+    "apply_start_goal": "apply_start_goal",
     "week_start": "enterprise_week_start",
     "lock_day": "enterprise_request_lock_day",
     "sla": "enterprise_setup_sla_days",
@@ -215,6 +222,11 @@ def normalize_request(data: Any) -> None:
         data["site_goals"] = goals
     else:
         data.pop("site_goals", None)
+    apply_goal = demand_planning.whole_number(data.get("apply_start_goal"))
+    if apply_goal and apply_goal > 0:
+        data["apply_start_goal"] = apply_goal
+    else:
+        data.pop("apply_start_goal", None)
 
 
 def settings(data: Any) -> Dict[str, Any]:
@@ -579,6 +591,15 @@ def stated_goal(data: Any) -> int:
         return 0
 
 
+def stated_apply_goal(data: Any) -> int:
+    """The plan's apply-start goal (0 = none); only while the pack is on."""
+    if not enabled(data) or not isinstance(data, dict):
+        return 0
+    if demand_planning.goal_problem(data.get("apply_start_goal"))[0]:
+        return 0
+    return max(0, demand_planning.whole_number(data.get("apply_start_goal")) or 0)
+
+
 def compute_goal_plan(
     data: dict,
     projector: Any,
@@ -595,23 +616,49 @@ def compute_goal_plan(
     if not enabled(data):
         return None
     goal = stated_goal(data)
-    if goal <= 0:
+    apply_goal = stated_apply_goal(data)
+    if goal <= 0 and apply_goal <= 0:
         return None
     goals = site_goals(data)
     sites = _locations(data)
-    shares, _basis = _site_shares(data, sites) if len(sites) >= 2 or goals else ([], "")
-    plan = demand_planning.build_goal_plan(
-        goal=goal,
-        budget=budget,
-        projector=projector,
-        weeks=demand_planning.campaign_weeks(data),
-        site_goals=goals,
-        sites=sites if shares else [],
-        shares=shares,
-        symbol=symbol,
-        currency_code=currency_code,
+    shares, _basis = (
+        _site_shares(data, sites) if len(sites) >= 2 or goals else ([], "")
     )
-    if plan.get("ok"):
+    weeks = demand_planning.campaign_weeks(data)
+
+    def build(kind: str, n: int, with_sites: bool) -> Dict[str, Any]:
+        return demand_planning.build_goal_plan(
+            goal=n,
+            budget=budget,
+            projector=projector,
+            kind=kind,
+            weeks=weeks,
+            site_goals=goals if with_sites else {},
+            sites=sites if (shares and with_sites) else [],
+            shares=shares if with_sites else [],
+            symbol=symbol,
+            currency_code=currency_code,
+        )
+
+    # A hires goal is the plan's goal when there is one; an apply-start goal
+    # plans in apply starts (alone, or when the market has no local
+    # cost-per-hire benchmark and a hires goal cannot be priced at all).
+    if goal > 0:
+        plan = build(demand_planning.GOAL_HIRES, goal, True)
+        if (
+            plan.get("ok")
+            and plan.get("status") == "not_projected"
+            and apply_goal > 0
+        ):
+            plan = build(demand_planning.GOAL_APPLY_STARTS, apply_goal, False)
+            if plan.get("ok"):
+                plan.setdefault("notes", []).append(
+                    "No local cost-per-hire benchmark for this market, so the hires "
+                    "goal cannot be priced: the plan is built to the apply-start goal."
+                )
+    else:
+        plan = build(demand_planning.GOAL_APPLY_STARTS, apply_goal, False)
+    if plan.get("ok") and plan.get("kind") == demand_planning.GOAL_HIRES:
         volume = str(data.get("hire_volume") or "")
         if not goals and re.search(r"\d\s*(?:-|\u2013|to)\s*\d|\d\s*\+", volume):
             plan.setdefault("notes", []).append(

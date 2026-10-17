@@ -522,3 +522,91 @@ def test_unmatched_goals_never_reach_the_allocation():
     ep.normalize_request(data)
     m = ep.build_model(data, TODAY)
     assert m["shares"] == ep.build_model(make_plan(), TODAY)["shares"]
+
+
+# ---------------------------------------------------------------------------
+# apply-start goal (the wizard / estimate input the unpriceable-market message
+# points at)
+# ---------------------------------------------------------------------------
+UK = dict(BRIEF, locations=["London, UK"], budget_range="£150,000", enterprise_pack=True)
+
+
+def test_apply_start_goal_plans_in_apply_starts_for_a_us_plan():
+    gp = app._compute_plan_estimate(
+        dict(BRIEF, enterprise_pack=True, apply_start_goal=20_000)
+    )["goal_plan"]
+    assert gp["kind"] == "apply_starts" and gp["unit"] == "apply starts"
+    assert gp["goal"] == 20_000 and gp["required"]["low"] <= gp["required"]["high"]
+    assert "Goal of 20,000 apply starts needs" in gp["text"]["callout"]
+    assert gp["sites"] == []  # site goals are hires: no per-site table here
+
+
+def test_uk_estimate_prices_an_apply_start_goal():
+    got = app._compute_plan_estimate(dict(UK, apply_start_goal=5_000))
+    gp = got["goal_plan"]
+    assert gp["kind"] == "apply_starts" and gp["status"] in ("meets", "borderline", "short")
+    assert gp["currency"]["symbol"] == "£"
+    assert "£" in gp["text"]["callout"] and "$" not in gp["text"]["callout"]
+    assert gp["required"]["low"] > 0
+    # the headline the same response carries
+    assert gp["projected"]["low"] == got["projection"]["applications"]["low"]
+
+
+def test_uk_hires_goal_points_at_an_input_that_exists():
+    gp = app._compute_plan_estimate(dict(UK, hire_volume="300 hires"))["goal_plan"]
+    assert gp["status"] == "not_projected"
+    assert "Enter an apply-start goal" in gp["text"]["callout"]
+    html = (PROJECT_ROOT / "templates/partials/index/body_content.html").read_text("utf-8")
+    assert 'id="enterpriseApplyGoal"' in html  # ... and the wizard has it
+
+
+def test_uk_hires_and_apply_goals_plan_in_apply_starts_and_say_why():
+    gp = app._compute_plan_estimate(
+        dict(UK, hire_volume="300 hires", apply_start_goal=5_000)
+    )["goal_plan"]
+    assert gp["kind"] == "apply_starts" and gp["goal"] == 5_000
+    assert any("hires goal cannot be priced" in n for n in gp["notes"])
+
+
+def test_us_hires_goal_wins_over_an_apply_goal():
+    gp = app._compute_plan_estimate(
+        dict(BRIEF, enterprise_pack=True, hire_volume="300 hires", apply_start_goal=5_000)
+    )["goal_plan"]
+    assert gp["kind"] == "hires" and gp["goal"] == 300
+
+
+@pytest.mark.parametrize("bad", [-5, "1e3", 1.5, 100_001, "lots"])
+def test_apply_goal_validation_names_the_field(bad):
+    assert ep.request_problem({"apply_start_goal": bad})[0] == "apply_start_goal"
+    assert ep.problem_field("apply_start_goal") == "apply_start_goal"
+    with pytest.raises(app._EstimateValidationError) as exc:
+        app._compute_plan_estimate(
+            dict(BRIEF, enterprise_pack=True, apply_start_goal=bad)
+        )
+    assert exc.value.field == "apply_start_goal"
+
+
+def test_apply_goal_is_dropped_when_the_pack_is_off_or_blank():
+    off = {"apply_start_goal": 500, "client_name": "X"}
+    ep.normalize_request(off)
+    assert off == {"client_name": "X"}
+    on = {"enterprise_pack": True, "apply_start_goal": "0"}
+    ep.normalize_request(on)
+    assert "apply_start_goal" not in on
+    on = {"enterprise_pack": True, "apply_start_goal": "500"}
+    ep.normalize_request(on)
+    assert on["apply_start_goal"] == 500
+    assert "goal_plan" not in app._compute_plan_estimate(
+        dict(BRIEF, apply_start_goal=500)  # no pack: nothing
+    )
+
+
+def test_apply_goal_workbook_and_slide():
+    data = with_goal_plan(make_plan(apply_start_goal=20_000, hire_volume=""))
+    gp = data["_budget_allocation"]["goal_plan"]
+    assert gp["kind"] == "apply_starts"
+    ws = build_wb(data, data_only=True)[ep.SHEET_GOALPLAN]
+    assert ws.cell(row=find_row(ws, "Goal (apply starts)"), column=3).value == 20_000
+    _, prs = _deck(data)
+    last = _slide_texts(prs)[-1]
+    assert "apply starts" in last and "Goal Plan" in last

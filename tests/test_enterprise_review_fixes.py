@@ -262,6 +262,9 @@ def _enterprise_js() -> str:
         for n in (
             "novaSiteGoalsClean",
             "novaSiteGoalsMessage",
+            "novaApplyGoalRaw",
+            "novaApplyGoalClean",
+            "novaApplyGoalMessage",
             "novaEnterpriseRenderSiteGoals",
             "novaEnterpriseSlaMessage",
             "novaEnterpriseInputs",

@@ -2156,6 +2156,35 @@
               benchmarks: set them to the client's SLA in the workbook.
             </div>
           </div>
+          <div class="form-group">
+            <label for="enterpriseApplyGoal"
+              >Apply-start goal
+              <span
+                style="
+                  font-weight: 400;
+                  color: var(--text-muted);
+                  font-size: 10px;
+                  letter-spacing: 0;
+                "
+                >(optional, whole number)</span
+              ></label
+            >
+            <input
+              type="number"
+              id="enterpriseApplyGoal"
+              min="1"
+              max="100000"
+              step="1"
+              inputmode="numeric"
+              placeholder="e.g. 5000"
+            />
+            <div class="form-hint">
+              Plans backward in apply starts instead of hires: use it when the
+              client sets an apply target, or when a market has no local
+              cost-per-hire benchmark and a hires goal cannot be priced.
+            </div>
+            <div class="field-error-msg" id="enterpriseApplyGoal-error"></div>
+          </div>
           <div class="form-group" id="siteGoalsGroup">
             <label id="siteGoalsLabel"
               >Site hiring goals

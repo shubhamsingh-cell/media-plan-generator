@@ -435,3 +435,50 @@ def test_no_client_names_in_new_files():
             if hashlib.sha256(word.encode()).hexdigest() in _BANNED_SHA256:
                 bad.append((path.name, "<redacted>"))
     assert not bad, bad
+
+
+# ---------------------------------------------------------------------------
+# goals are whole numbers: no exponent notation, signs, decimals, separators
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "val,want",
+    [
+        (250, 250),
+        ("250", 250),
+        (" 250 ", 250),
+        (250.0, 250),
+        ("250.0", 250),
+        (0, 0),
+        ("1e3", None),
+        ("1E3", None),
+        (1e3 + 0.5, None),
+        ("+5", None),
+        ("-5", None),
+        ("5.5", None),
+        ("1,000", None),
+        ("", None),
+        ("abc", None),
+        (True, None),
+        (None, None),
+        (float("nan"), None),
+        (float("inf"), None),
+        ("1234567890", None),
+    ],
+)
+def test_whole_number_only_accepts_plain_whole_numbers(val, want):
+    assert dp.whole_number(val) == want
+
+
+def test_exponent_notation_is_not_a_goal_anywhere():
+    assert dp.site_goals_problem({"Dallas": "1e3"})[0] == "value"
+    assert dp.goal_problem("1e3", "The goal")[0] == "value"
+    assert dp.clean_site_goals({"Dallas": "1e3", "Houston": "7"}) == {"Houston": 7}
+
+
+@pytest.mark.parametrize(
+    "raw,bad",
+    [(None, False), ("", False), (0, False), ("250", False), (100_000, False),
+     (-1, True), ("1e3", True), (1.5, True), (100_001, True), ("x", True)],
+)
+def test_goal_problem(raw, bad):
+    assert bool(dp.goal_problem(raw)[0]) is bad

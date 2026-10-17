@@ -143,6 +143,9 @@ def wizard_payloads(
         js_block(app_src, "function getSelectedRegion()"),
         js_block(app_src, "function novaSiteGoalsClean()"),
         js_block(app_src, "function novaSiteGoalsMessage()"),
+        js_block(app_src, "function novaApplyGoalRaw()"),
+        js_block(app_src, "function novaApplyGoalClean()"),
+        js_block(app_src, "function novaApplyGoalMessage()"),
         js_block(app_src, "function novaEnterpriseGoalInputs()"),
         js_block(app_src, "function novaEnterpriseInputs()"),
     ]

@@ -339,6 +339,40 @@ def required_budget(
 # --------------------------------------------------------------------------
 
 
+_WHOLE_RE = re.compile(r"^\s*\d{1,9}(?:\.0+)?\s*$")
+
+
+def whole_number(val: Any) -> Optional[int]:
+    """``val`` as a whole number of goal units, or None.  Accepts an int (not a
+    bool), an integral finite float, or plain digits ("250"); rejects exponent
+    notation ("1e3"), signs, decimals, thousands separators and everything
+    else -- a goal is never coerced from something it merely resembles."""
+    if isinstance(val, bool) or val is None:
+        return None
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        return int(val) if math.isfinite(val) and val == int(val) else None
+    if isinstance(val, str) and _WHOLE_RE.match(val):
+        return int(float(val.strip()))
+    return None
+
+
+def goal_problem(raw: Any, label: str = "The goal") -> Tuple[str, str]:
+    """("", "") when ``raw`` is absent or a whole number from 1 to MAX_GOAL
+    (0 / blank = no goal), else ("value", message)."""
+    if raw in (None, ""):
+        return "", ""
+    n = whole_number(raw)
+    if n is None:
+        return "value", f"{label} must be a whole number."
+    if n < 0:
+        return "value", f"{label} cannot be negative."
+    if n > MAX_GOAL:
+        return "value", f"{label} exceeds the maximum ({MAX_GOAL:,})."
+    return "", ""
+
+
 def site_goals_problem(raw: Any) -> Tuple[str, str]:
     """("", "") when ``raw`` is an acceptable ``site_goals`` value, else
     (code, message).  ``None`` / ``""`` / ``{}`` are fine (no site goals)."""
@@ -357,15 +391,9 @@ def site_goals_problem(raw: Any) -> Tuple[str, str]:
                 "name",
                 f"A site name is too long (max {MAX_SITE_NAME_CHARS} characters).",
             )
-        if isinstance(val, bool) or val is None or val == "":
+        n = whole_number(val)
+        if n is None:
             return "value", "Each site goal must be a whole number of hires."
-        try:
-            n = float(val)
-        except (TypeError, ValueError):
-            return "value", "Each site goal must be a whole number of hires."
-        if not math.isfinite(n) or n != int(n):
-            return "value", "Each site goal must be a whole number of hires."
-        n = int(n)
         if n < 0:
             return "value", "A site goal cannot be negative."
         if n > MAX_GOAL:
@@ -384,9 +412,8 @@ def clean_site_goals(raw: Any) -> Dict[str, int]:
     out: Dict[str, int] = {}
     seen: Dict[str, str] = {}
     for name, val in raw.items():
-        try:
-            n = int(float(val))
-        except (TypeError, ValueError):
+        n = whole_number(val)
+        if n is None:
             continue
         text = " ".join(re.sub(r"<[^>]+>", "", str(name)).split())
         if not text or n <= 0:
@@ -615,7 +642,7 @@ def _build_goal_plan(
         # goal cannot be priced; apply starts still can
         note = (
             "No local cost-per-hire benchmark for this market — a hires goal "
-            "cannot be priced. Set an apply-start goal to plan backward."
+            "cannot be priced. Enter an apply-start goal to plan backward."
             if kind == GOAL_HIRES
             else "The plan carries no apply-start projection."
         )

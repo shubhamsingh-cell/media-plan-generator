@@ -338,3 +338,65 @@ def test_generate_accepts_a_goal_spelled_differently_from_the_location(
         _generate_payload(site_goals={"houston": 5}),
     )
     assert status == 400 and body.get("field") != "site_goals", body
+
+
+# ---------------------------------------------------------------------------
+# apply-start goal input
+# ---------------------------------------------------------------------------
+def test_section_has_the_apply_start_goal_input_with_the_server_limits():
+    sec = _section()
+    tag = re.search(r'<input[^>]*id="enterpriseApplyGoal"[^>]*>', sec, re.S).group(0)
+    assert 'type="number"' in tag and 'min="1"' in tag
+    assert f'max="{wizard_inputs.INPUT_LIMITS["enterprise_site_goal_max"]}"' in tag
+    assert 'id="enterpriseApplyGoal-error"' in sec
+
+
+@needs_node
+def test_apply_goal_travels_in_generate_and_estimate_only_while_on():
+    on = dict(
+        _STATE, enterpriseEnabled={"checked": True}, enterpriseApplyGoal={"value": " 5000 "}
+    )
+    got = wizard_payloads(on, **_KW)
+    assert got["generate"]["apply_start_goal"] == 5000
+    assert got["estimate"]["apply_start_goal"] == 5000
+    assert got["estimate"]["enterprise_pack"] is True
+    assert ep.request_problem(got["generate"]) == ("", "")
+    off = wizard_payloads(
+        dict(_STATE, enterpriseApplyGoal={"value": "5000"}), **_KW
+    )
+    assert "apply_start_goal" not in off["generate"]
+    assert "apply_start_goal" not in off["estimate"]
+
+
+@needs_node
+@pytest.mark.parametrize(
+    "typed,fragment",
+    [("1e3", "whole number"), ("12.5", "whole number"), ("-4", "whole number"),
+     ("100001", "cannot exceed"), ("5000", ""), ("", "")],
+)
+def test_apply_goal_is_never_coerced(typed, fragment):
+    from tests.wizard_js_harness import APP_JS, js_block, run_node
+
+    src = APP_JS.read_text(encoding="utf-8")
+    script = "\n".join(
+        [
+            "var STATE = " + __import__("json").dumps({"enterpriseApplyGoal": {"value": typed}}) + ";",
+            "var document = { getElementById: function (id) { return STATE[id] || {value: ''}; } };",
+            js_block(src, "function novaApplyGoalRaw()"),
+            js_block(src, "function novaApplyGoalClean()"),
+            js_block(src, "function novaApplyGoalMessage()"),
+            "process.stdout.write(JSON.stringify({m: novaApplyGoalMessage(), c: novaApplyGoalClean()}));",
+        ]
+    )
+    got = run_node(script)
+    assert (fragment in got["m"]) if fragment else got["m"] == ""
+    # whatever is typed, only a plain whole number is ever sent
+    assert got["c"] == (int(typed) if typed.isdigit() and 0 < int(typed) <= 100000 else 0)
+
+
+def test_generate_400_names_apply_start_goal(live_port):  # noqa: F811
+    for bad in ("1e3", -5, 100_001):
+        status, body = post_json(
+            live_port, "/api/generate", _generate_payload(apply_start_goal=bad)
+        )
+        assert status == 400 and body.get("field") == "apply_start_goal", (bad, body)

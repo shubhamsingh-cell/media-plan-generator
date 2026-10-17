@@ -110,7 +110,9 @@
   function novaEnterpriseValidate() {
     const on = document.getElementById("enterpriseEnabled");
     if (!on || !on.checked) return "";
-    return novaEnterpriseSlaMessage() || novaSiteGoalsMessage();
+    return (
+      novaEnterpriseSlaMessage() || novaApplyGoalMessage() || novaSiteGoalsMessage()
+    );
   }
   function novaEnterpriseCheckSla() {
     const el = document.getElementById("enterpriseSetupSla");
@@ -133,7 +135,40 @@
     if (!isNaN(sla)) out.enterprise_setup_sla_days = sla;
     const goals = novaSiteGoalsClean();
     if (Object.keys(goals).length) out.site_goals = goals;
+    const applyGoal = novaApplyGoalClean();
+    if (applyGoal > 0) out.apply_start_goal = applyGoal;
     return out;
+  }
+  // ── Apply-start goal (demand-first) ──
+  // Whole apply starts, 1 to 100,000. Never coerced: a malformed entry is named
+  // by novaApplyGoalMessage() and Generate stops there; the server validates the
+  // same rule (exponent notation such as "1e3" is not a number of apply starts).
+  function novaApplyGoalRaw() {
+    return String(
+      ((document.getElementById("enterpriseApplyGoal") || {}).value || ""),
+    ).trim();
+  }
+  function novaApplyGoalClean() {
+    const raw = novaApplyGoalRaw();
+    const n = /^\d{1,9}$/.test(raw) ? parseInt(raw, 10) : 0;
+    return n > 0 && n <= 100000 ? n : 0;
+  }
+  function novaApplyGoalMessage() {
+    const raw = novaApplyGoalRaw();
+    if (raw === "") return "";
+    if (!/^\d+$/.test(raw)) return "The apply-start goal must be a whole number.";
+    if (parseInt(raw, 10) > 100000)
+      return "The apply-start goal cannot exceed 100,000.";
+    return "";
+  }
+  function novaApplyGoalShowError() {
+    const el = document.getElementById("enterpriseApplyGoal-error");
+    const field = document.getElementById("enterpriseApplyGoal");
+    if (!el) return;
+    const msg = novaApplyGoalMessage();
+    el.textContent = msg;
+    el.style.display = msg ? "block" : "none";
+    if (field && field.setAttribute) field.setAttribute("aria-invalid", msg ? "true" : "false");
   }
   // ── Site hiring goals (demand-first) ──
   // One optional goal per location tag. novaSiteGoals holds what was typed
@@ -185,6 +220,8 @@
     const out = {};
     const goals = novaSiteGoalsClean();
     if (Object.keys(goals).length) out.site_goals = goals;
+    const applyGoal = novaApplyGoalClean();
+    if (applyGoal > 0) out.apply_start_goal = applyGoal;
     const hv = document.getElementById("hireVolume");
     if (hv && hv.value) {
       const exact = ((document.getElementById("exactHires") || {}).value || "").trim();
@@ -255,6 +292,7 @@
       lockDay: g("enterpriseLockDay").value || "",
       setupSla: g("enterpriseSetupSla").value || "",
       siteGoals: Object.assign({}, novaSiteGoals),
+      applyGoal: g("enterpriseApplyGoal").value || "",
     };
   }
   function novaEnterpriseRestore(s) {
@@ -268,6 +306,7 @@
     set("enterpriseSystemOfRecord", s.systemOfRecord || "");
     set("enterpriseLockDay", s.lockDay || "");
     set("enterpriseSetupSla", s.setupSla || "");
+    set("enterpriseApplyGoal", s.applyGoal || "");
     novaSiteGoals =
       s.siteGoals && typeof s.siteGoals === "object" ? Object.assign({}, s.siteGoals) : {};
     novaEnterpriseRenderSiteGoals();
@@ -282,6 +321,10 @@
     novaEnterpriseRestore({ on: false });
     const el = document.getElementById("enterpriseSetupSla");
     if (el && typeof _clearFieldError === "function") _clearFieldError(el);
+    const ae = document.getElementById("enterpriseApplyGoal-error");
+    if (ae) ae.textContent = "";
+    const se = document.getElementById("siteGoals-error");
+    if (se) se.textContent = "";
   }
   document.addEventListener("change", (e) => {
     if (!e.target) return;
@@ -295,6 +338,7 @@
   });
   document.addEventListener("input", (e) => {
     if (e.target && e.target.id === "enterpriseSetupSla") novaEnterpriseCheckSla();
+    if (e.target && e.target.id === "enterpriseApplyGoal") novaApplyGoalShowError();
   });
   document.addEventListener(
     "change",
