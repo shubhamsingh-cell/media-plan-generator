@@ -17,6 +17,7 @@ import pytest
 
 import llm_router
 import nova
+import nova_memory
 
 SECRET = "Acme Hospital, Dallas"
 HIST = [
@@ -25,6 +26,25 @@ HIST = [
 ]
 LONG_ID_A = "conv-aaaaaaaaaaaaaaaaaaaaaaaa"
 LONG_ID_B = "conv-bbbbbbbbbbbbbbbbbbbbbbbb"
+
+
+@pytest.fixture(autouse=True)
+def _isolated_conversation_state():
+    """Give each test an empty per-conversation memory and restore it after.
+
+    ``LONG_ID_B`` is a fixed id, so a first run leaves memory behind that turns
+    B's "stateless first turn" into a history-bearing one on any later run in
+    the same process (e.g. the file collected twice), changing its router
+    cache key.
+    """
+    mems = nova_memory._conversation_memories
+    saved = dict(mems)
+    mems.clear()
+    try:
+        yield
+    finally:
+        mems.clear()
+        mems.update(saved)
 
 
 @pytest.fixture()
