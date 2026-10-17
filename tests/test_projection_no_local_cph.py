@@ -150,7 +150,7 @@ def test_workbook_and_deck_project_no_hires_for_a_market_without_a_local_benchma
     assert not any("Hiring-goal gap" in v and "/hire" in v for v in flat)
     s2 = " || ".join(deck[2])
     assert NOTE in s2 and "n/a" in s2 and "This plan projects" not in s2
-    s6 = " || ".join(deck[6])
+    s6 = " || ".join(deck[7])
     assert "hires not projected" in s6 and "Hires: no local cost-per-hire benchmark" in s6
     assert "average cost-per-hire" not in s6
 

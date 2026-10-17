@@ -135,7 +135,7 @@ def test_no_label_is_left_empty_in_a_suppressed_bundle(loc):
     empties = [(i, t) for i, t in _deck(prs) if EMPTY_LABEL.match(t)]
     assert not empties, empties
     # the risk slide: every card still has a non-empty impact statement
-    risk = [t for i, t in _deck(prs) if i == 9]
+    risk = [t for i, t in _deck(prs) if i == 10]
     impacts = [t for t in risk if t.startswith("Impact:")]
     assert len(impacts) >= 3 and all(len(t) > len("Impact: ") + 8 for t in impacts), risk
     assert not any(re.search(r"\bhires?\b", t, re.I) for t in impacts), impacts

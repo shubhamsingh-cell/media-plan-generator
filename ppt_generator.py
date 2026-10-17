@@ -20,6 +20,7 @@ import math
 import os
 import re
 
+import client_story
 import plan_projection
 import datetime
 from pathlib import Path
@@ -11157,6 +11158,78 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
 # ===================================================================
 
 
+# Client Story slide grid: (section key, x, y, w, h) in inches. Two wide cards on
+# top, three on the bottom; the text is the plan's own client_story sections.
+_STORY_CARDS = (
+    ("what_we_will_do", 0.55, 1.45, 6.0, 2.75),
+    ("what_to_expect", 6.75, 1.45, 6.0, 2.75),
+    ("pacing", 0.55, 4.4, 3.95, 2.5),
+    ("needs", 4.69, 4.4, 3.95, 2.5),
+    ("next_steps", 8.83, 4.4, 3.95, 2.5),
+)
+
+
+def _build_slide_client_story(prs: Presentation, data: Dict) -> None:
+    """One slide: the plan's plain-language Client Story (client_story.py), five
+    cards. Text comes only from the story dict (the plan's own fields); the slide
+    is skipped when the plan has nothing to tell."""
+    story = client_story.build_client_story(data)
+    if not story.get("ok"):
+        return
+    by_key = {sec["key"]: sec for sec in story["sections"]}
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    today = datetime.date.today().strftime("%B %d, %Y")
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "CLIENT STORY", today)
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.4),
+        text="What this plan does, what to expect, and what we need from you",
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+    for idx, (key, cx, cy, cw, ch) in enumerate(_STORY_CARDS):
+        sec = by_key.get(key)
+        if not sec:
+            continue
+        x, y, w, h = Inches(cx), Inches(cy), Inches(cw), Inches(ch)
+        accent = INV_ACCENTS[idx % len(INV_ACCENTS)]
+        card = _add_rounded_rect(slide, x, y, w, h, WHITE)
+        try:
+            card.line.color.rgb = WARM_GRAY
+            card.line.width = Pt(0.75)
+        except Exception:
+            pass
+        _add_filled_rect(slide, x, y, w, Inches(0.08), accent)
+        _add_textbox(
+            slide,
+            x + Inches(0.18),
+            y + Inches(0.18),
+            w - Inches(0.36),
+            Inches(0.32),
+            text=sec["heading"],
+            font_size=13,
+            bold=True,
+            color=NAVY,
+        )
+        _box, _tf = _add_textbox(
+            slide,
+            x + Inches(0.18),
+            y + Inches(0.58),
+            w - Inches(0.36),
+            h - Inches(0.7),
+            text=sec["text"],
+            font_size=12 if idx < 2 else 11,
+            color=DARK_TEXT,
+        )
+        _set_body_font(_tf)
+    _add_footer(slide, today)
+
+
 def _build_slide_methodology(prs: Presentation, data: Dict, deck: Dict) -> None:
     """Build the 'Our Methodology' slide — Joveo's 6-step campaign management.
 
@@ -13401,6 +13474,13 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
 
         # Slide 2: Executive Summary (hero stats + SCR + market context)
         _build_slide_executive_summary(prs, data)
+
+        # Slide 3: Client Story -- plain-language summary from the plan's own
+        # fields (never blocks generation)
+        try:
+            _build_slide_client_story(prs, data)
+        except Exception as _story_exc:
+            logger.debug("Client Story slide failed (non-fatal): %s", _story_exc)
 
         # Slide 3: Our Methodology (deck narrative -- never blocks generation)
         try:

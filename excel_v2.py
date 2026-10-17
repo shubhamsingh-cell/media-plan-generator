@@ -84,6 +84,7 @@ import geo_market
 import plan_geo
 import plan_trust
 import publisher_filter
+import client_story
 import plan_projection
 import company_blurb
 import competitor_claims
@@ -3867,6 +3868,7 @@ def _set_column_widths(ws, widths: Dict[int, float]):
 # used for tabs -- those read as state, not brand.
 _TAB_COLORS: Dict[str, str] = {
     "Executive Summary": NAVY,
+    "Client Story": TEAL_HEX,
     "Channels & Strategy": SAPPHIRE,
     "Market Intelligence": TEAL_HEX,
     "Sources & Confidence": PURPLE_LIGHT_HEX,
@@ -5997,6 +5999,10 @@ def _strip_hires_from_workbook(wb: Any) -> None:
     carries the one note that says why."""
     na = "n/a"
     for ws in wb.worksheets:
+        if ws.title == "Client Story":
+            # built by client_story.py: hires appear only where projected and the
+            # copy block's line breaks must survive
+            continue
         cells = [c for row in ws.iter_rows() for c in row if c.value is not None]
         for c in cells:
             if isinstance(c.value, str) and len(c.value) < 40 and _HIRES_HEADER.match(c.value.strip()):
@@ -10736,6 +10742,51 @@ def _write_client_history_note(ws, data: dict, row: int) -> int:
     if not text:
         return row
     return _write_kv_row(ws, row, "Client history (as provided)", text)
+
+
+def _story_row_height(text: str, chars_per_line: float, line_pt: float = 14.0) -> float:
+    """Row height for a wrapped, MERGED paragraph (Excel does not auto-fit
+    merged cells): one ``line_pt`` per wrapped line plus padding."""
+    lines = sum(
+        max(1, math.ceil(len(part) / chars_per_line)) for part in str(text).split("\n")
+    )
+    return round(lines * line_pt + 6, 1)
+
+
+def _build_sheet_client_story(ws, story: dict) -> None:
+    """Client Story sheet: the plain-language summary (client_story.py, built
+    only from this plan's own fields) as headed paragraphs, then the same text
+    as ONE copy-friendly block."""
+    ws.title = "Client Story"
+    ws.sheet_properties.tabColor = TEAL_HEX
+    widths = {1: 3, 2: 24, 3: 16, 4: 16, 5: 16, 6: 16, 7: 16, 8: 22}
+    _set_column_widths(ws, widths)
+    per_line = sum(widths[c] for c in range(COL_START, COL_END + 1)) * 1.05
+
+    def paragraph(row: int, text: str, font=None) -> int:
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        cell = ws.cell(row=row, column=COL_START, value=text)
+        cell.font = font or _FONT_BODY
+        cell.alignment = _ALIGN_WRAP
+        ws.row_dimensions[row].height = _story_row_height(text, per_line)
+        return row + 1
+
+    row = _write_section_header(ws, 2, str(story.get("title") or "Client story"))
+    row = _write_footnote(
+        ws,
+        row,
+        "Plain-language summary written only from this plan's own figures. "
+        "Estimates are modelled from benchmarks, not commitments.",
+    )
+    row += 1
+    for sec in story.get("sections") or []:
+        row = _write_subsection_header(ws, row, str(sec.get("heading") or ""))
+        row = paragraph(row, str(sec.get("text") or ""))
+        row += 1
+    row = _write_subsection_header(ws, row, "Copy-friendly text")
+    paragraph(row, str(story.get("text") or ""))
 
 
 def _build_sheet_sources(ws, data: dict):
@@ -15577,6 +15628,18 @@ def _generate_excel_v2_inner(
         logger.error("Executive Summary sheet failed: %s", exc, exc_info=True)
         # Critical sheet -- re-raise to fail the generation
         raise RuntimeError(f"Failed to build Executive Summary: {exc}") from exc
+
+    # ── Client Story: plain-language summary right after the Executive Summary ──
+    # Built only from the plan's own fields (client_story.py); a failure or a
+    # plan with nothing to tell never blocks the workbook.
+    try:
+        _story = client_story.build_client_story(data)
+        if _story.get("ok"):
+            _build_sheet_client_story(wb.create_sheet(index=1), _story)
+    except Exception as exc:  # noqa: BLE001 - optional sheet
+        logger.error("Client Story sheet failed (non-fatal): %s", exc, exc_info=True)
+        if "Client Story" in wb.sheetnames and wb["Client Story"].max_row <= 1:
+            del wb["Client Story"]
 
     # ── Sheet 2: Channels & Strategy ──
     ws2 = wb.create_sheet()

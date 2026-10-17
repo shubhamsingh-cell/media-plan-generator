@@ -391,10 +391,10 @@ class TestBenchmarkHeader:
             industry="food_beverage",
             industry_label=NAICS_LABEL_HERSHEY,
         )
-        slide = prs.slides[4]
+        slide = prs.slides[5]
         header = self._header_shape(slide)
         assert len(textlayout.layout_textframe(header)) == 1, header.text_frame.text
-        findings = collide.analyze_slide(slide, 5)
+        findings = collide.analyze_slide(slide, 6)
         assert not findings, findings
 
     @pytest.mark.parametrize(
@@ -410,9 +410,9 @@ class TestBenchmarkHeader:
     )
     def test_header_never_wraps_whatever_the_label(self, label):
         prs = _deck(industry="food_beverage", industry_label=label)
-        header = self._header_shape(prs.slides[4])
+        header = self._header_shape(prs.slides[5])
         assert len(textlayout.layout_textframe(header)) == 1, header.text_frame.text
-        assert not collide.analyze_slide(prs.slides[4], 5)
+        assert not collide.analyze_slide(prs.slides[5], 6)
 
     def test_head_name_steps_down_to_fit_instead_of_the_generic_word(self):
         """"Automotive & Manufacturing Range" is 2.32in at 9pt in a 2.3in cell:
@@ -420,16 +420,16 @@ class TestBenchmarkHeader:
         "Industry Range" (the 3M / VW sweep decks) -- and never go under the
         8pt floor."""
         prs = _deck(industry="automotive", industry_label=NAICS_LABEL_3M)
-        header = self._header_shape(prs.slides[4])
+        header = self._header_shape(prs.slides[5])
         assert header.text_frame.text == "Automotive & Manufacturing Range"
         size = header.text_frame.paragraphs[0].runs[0].font.size.pt
         assert 8.0 <= size < 9.0, size
         assert len(textlayout.layout_textframe(header)) == 1
-        assert not collide.analyze_slide(prs.slides[4], 5)
+        assert not collide.analyze_slide(prs.slides[5], 6)
 
     def test_short_label_header_text_is_unchanged(self):
         prs = _deck(industry="retail_consumer", industry_label="Retail & Consumer")
-        assert self._header_shape(prs.slides[4]).text_frame.text == "Retail & Consumer Range"
+        assert self._header_shape(prs.slides[5]).text_frame.text == "Retail & Consumer Range"
 
     def test_industry_head_name(self):
         assert ppt._industry_head_name(NAICS_LABEL_HERSHEY) == "Food & Beverage"
