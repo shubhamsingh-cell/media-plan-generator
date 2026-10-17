@@ -105,7 +105,6 @@ try:
     from standardizer import (
         normalize_industry as _std_normalize_industry,
         normalize_location as _std_normalize_location,
-        get_soc_code as _std_get_soc_code,
         CANONICAL_INDUSTRIES as _CANON_INDUSTRIES,
         COUNTRY_MAP as _STD_COUNTRY_MAP,
         US_STATE_MAP as _STD_US_STATE_MAP,
@@ -280,6 +279,15 @@ SOC_CODES: Dict[str, str] = {
     "customer service rep": "43-4051",
     "cashier": "41-2011",
     "stocker": "53-7065",
+    # Sales titles that used to fall through to the standardizer's Sales
+    # Managers (11-2022): a Chicago "Sales Representative" median went
+    # $90,000 -> $138,060. Exact-only (see _EXACT_ONLY_SOC_TITLES).
+    "sales representative": "41-4012",
+    "sales rep": "41-4012",
+    "outside sales representative": "41-4012",
+    "territory sales representative": "41-4012",
+    "account executive": "41-3091",
+    "business development representative": "41-3091",
     # C2 FIX: Add blue-collar / skilled trades SOC codes
     "construction worker": "47-2061",
     "construction laborer": "47-2061",
@@ -2198,6 +2206,21 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+# Titles that must match a role EXACTLY. As substrings they would capture
+# neighbouring occupations ("Pharmaceutical Sales Representative" is technical
+# sales, a different SOC from wholesale/manufacturing).
+_EXACT_ONLY_SOC_TITLES = frozenset(
+    {
+        "sales representative",
+        "sales rep",
+        "outside sales representative",
+        "territory sales representative",
+        "account executive",
+        "business development representative",
+    }
+)
+
+
 def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
     """Fetch salary data for a list of role titles via BLS."""
     salary_data: Dict[str, Any] = {}
@@ -2206,22 +2229,23 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
         role_lower = role.strip().lower()
         soc = SOC_CODES.get(role_lower)
         if not soc:
-            # Try partial matching — check if any known title is contained
-            # in the role or vice versa
+            # A known title contained in the role ("Senior Software Engineer").
+            # Never the reverse direction: a bare "Manager" or "Associate" is
+            # contained in many titles and picked the first one (Product
+            # Manager 11-2021, Warehouse Associate 53-7065).
             for title, code in SOC_CODES.items():
-                if title in role_lower or role_lower in title:
+                if title in _EXACT_ONLY_SOC_TITLES:
+                    continue
+                if title in role_lower:
                     soc = code
                     break
         # No word-overlap fallback: one shared word ("associate", "manager",
         # "service") used to pick the first matching SOC, which mapped Sales
         # Associate -> Sales Managers, Store Manager -> Marketing Managers and
         # Customer Service Representative -> Fast Food workers. No confident
-        # SOC means no BLS wage for that role, not a wrong one.
-        if not soc and _HAS_STANDARDIZER:
-            # Try canonical standardizer (covers more role aliases)
-            std_soc = _std_get_soc_code(role)
-            if std_soc:
-                soc = std_soc
+        # SOC means no BLS wage for that role, not a wrong one. The
+        # standardizer's alias table is deliberately NOT consulted here: it
+        # maps Sales Representative / Account Executive / BDR to 11-2022.
         if not soc:
             _log_warn(f"No SOC code mapping for role: {role}")
             continue
