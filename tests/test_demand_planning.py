@@ -253,6 +253,11 @@ def test_option_c_is_flagged_when_the_extension_is_not_sane():
     assert "can't close this gap" in c["summary"]
     assert "not viable" in c["title"]
     assert "Add budget" in c["summary"]
+    # past a year the raw week count is noise ("about 1900 weeks"): say so plainly
+    assert "more than a year" in c["summary"]
+    assert not re.search(r"\d{3,}\s*weeks", c["summary"])
+    assert dp.duration_phrase(33_333) == "more than a year"
+    assert dp.duration_phrase(30.4) == "about 30 weeks"
     # past a year is not an option even when only ~2.5x the window
     plan = dp.build_goal_plan(goal=40, budget=100_000, projector=proj, weeks=30)
     assert plan["options"][2]["viable"] is False  # 75 weeks > 52

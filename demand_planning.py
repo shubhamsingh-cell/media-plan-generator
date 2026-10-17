@@ -123,6 +123,14 @@ def unit_label(kind: str, singular: bool = False) -> str:
     return "apply start" if singular else "apply starts"
 
 
+def duration_phrase(weeks: float) -> str:
+    """Plain duration for an extension figure: past a year the exact week
+    count is noise (a near-zero weekly yield gives 33,333 weeks), so say so."""
+    if weeks > _MAX_EXTENSION_WEEKS:
+        return "more than a year"
+    return f"about {weeks:.0f} weeks"
+
+
 def count_phrase(lo: Any, hi: Any, kind: str) -> str:
     """"1 hire", "300 hires", "24\u201348 hires": a count or range with its unit,
     singular only for exactly one."""
@@ -814,8 +822,8 @@ def _build_goal_plan(
             option_c["summary"] = (
                 "Extending the deadline alone can't close this gap: at the "
                 f"current weekly spend ({_money(budget / weeks, symbol)}/week) the "
-                f"goal would take about {w_hi:.0f} weeks against a {weeks:g}-week "
-                "window. Add budget (option A) or lower the goal."
+                f"goal would take {duration_phrase(w_hi)} against the current "
+                f"{weeks:g}-week window. Add budget (option A) or lower the goal."
                 + (
                     " At plan efficiency it already fits the current window."
                     if fits_now

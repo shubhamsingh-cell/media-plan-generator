@@ -3822,8 +3822,9 @@ def _slide_goalplan(prs: Any, data: dict, gp: Dict[str, Any], ppt: Any) -> None:
         if not c.get("viable", True):
             c_title = "C. Extend the deadline"
             c_text = (
-                f"Not viable alone: about {c['weeks_high']:.0f} weeks at today's "
-                f"weekly spend (window is {c['weeks_now']:g}). Add budget or lower the goal."
+                f"Not viable alone: {demand_planning.duration_phrase(c['weeks_high'])} "
+                f"at today's weekly spend (window is {c['weeks_now']:g} weeks). "
+                "Add budget or lower the goal."
             )
         elif c.get("fits_now"):
             c_title = "C. Extend the deadline"
