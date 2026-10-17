@@ -6931,6 +6931,11 @@
     .np-estimate-bar[data-state="ready"] .neb-basis:not(:empty) {
       display: block;
     }
+    /* the Budget Reality Check banner states the same basis in the form column:
+       one statement on screen, not the bar's line over the banner's */
+    body:has(#budgetFeasibilityWarning) .np-estimate-bar .neb-basis {
+      display: none;
+    }
     .np-estimate-bar[data-state="loading"] .neb-item span {
       display: none;
     }

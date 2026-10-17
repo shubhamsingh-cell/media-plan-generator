@@ -127,9 +127,13 @@
     // server sent none (no hires projected), so no basis is ever invented here.
     // A ranged hires figure runs from the midpoint (low end) to the plan-
     // efficiency floor (high end), and the note says so.
+    function hireBasisAmount(v) {
+      return sym() + (v >= 1000 ? trim(v / 1000, 2) + "K" : String(Math.round(v)));
+    }
     function hireBasisText(est) {
       var hb = est && est.hire_basis;
       if (!hb || !(hb.midpoint_cph > 0)) return "";
+      // (self-contained: tests lift this function alone)
       var k = function (v) { return sym() + (v >= 1000 ? trim(v / 1000, 2) + "K" : String(Math.round(v))); };
       // A cited local range names its source (the server's label); Nova's own
       // table says so. Never "Nova table" over a figure that has a source.
@@ -562,16 +566,16 @@
         var shown = hiresTxt || String(intc(est.est_hires));
         if (m.targetHires > hiHi) {
           // even the optimistic end falls short
-          var gap = budgetGap(m, est, hiHi);
-          var gapBasis = hireBasisText(est);
-          ins.push({ tone: "warn", text: "Budget supports an estimated <b>" + escapeHtml(shown) + " hires</b> against your " + goalText(m) + " — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." + (gapBasis ? " Hires: " + escapeHtml(gapBasis) + "." : "") });
+          // (the pane's basis line, right above, states what the hires and this
+          // gap rest on -- not repeated here)
+          var gap = typeof budgetGap === "function" ? budgetGap(m, est, hiHi) : m.total * (m.targetHires / hiHi - 1);
+          ins.push({ tone: "warn", text: "Budget supports an estimated <b>" + escapeHtml(shown) + " hires</b> against your " + goalText(m) + " — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." });
         } else if (m.targetHires <= hiLo) {
           // No green reassurance: the count rests on an assumed all-in cost per
           // hire, so the sentence either names that figure or claims nothing.
           var hbIns = est.hire_basis && est.hire_basis.midpoint_cph > 0 ? est.hire_basis : null;
-          if (hbIns) {
-            var hbV = hbIns.midpoint_cph;
-            var hbK = sym() + (hbV >= 1000 ? trim(hbV / 1000, 2) + "K" : String(Math.round(hbV)));
+          var hbK = hbIns && typeof hireBasisAmount === "function" ? hireBasisAmount(hbIns.midpoint_cph) : "";
+          if (hbK) {
             var hbWho = hbIns.basis === "local_kb"
               ? "the cited local " + hbK + " each (" + escapeHtml((hbIns.sources || []).join(", ") || "local source") + ")"
               : (hbIns.basis === "kb_row" || hbIns.basis === "cross_industry_default") && hbIns.label
@@ -655,6 +659,12 @@
     if (typeof window !== "undefined" && window.addEventListener) {
       window.addEventListener("resize", syncEstimateBarHeight);
       window.addEventListener("load", syncEstimateBarHeight);
+      // any change of the bar's own height (the basis line wrapping, or dropping
+      // out while the Reality Check banner is up) re-measures the offsets
+      if (typeof ResizeObserver === "function") {
+        var barForRo = $("npEstimateBar");
+        if (barForRo) new ResizeObserver(syncEstimateBarHeight).observe(barForRo);
+      }
     }
     function paintEstimateBar(m) {
       var bar = $("npEstimateBar");
@@ -700,7 +710,7 @@
       bar.setAttribute("aria-busy", state === "loading" ? "true" : "false");
       // what the hires range divides the budget by, on its own line under the
       // figures (ready state only; empty otherwise)
-      var basisTxt = state === "ready" ? hireBasisText(est) : "";
+      var basisTxt = state === "ready" && typeof hireBasisText === "function" ? hireBasisText(est) : "";
       var basisEl = $("nebBasis");
       if (basisEl) {
         basisEl.textContent = basisTxt ? "Hires: " + basisTxt : "";
@@ -725,7 +735,7 @@
         label = "Plan estimate: set a budget and a role to see it." + tail;
       }
       bar.setAttribute("aria-label", label);
-      syncEstimateBarHeight();
+      if (typeof syncEstimateBarHeight === "function") syncEstimateBarHeight();
     }
     // Tap on the bar: bring the full preview into view (instant under
     // prefers-reduced-motion) and move focus there for keyboard users.
@@ -772,9 +782,9 @@
         goal: goalText(m),
         cph: txt && txt.cph && txt.cph !== "n/a" ? txt.cph : hero(est.est_cph),
         ranged: !!(txt && txt.hires),
-        gap: hero(budgetGap(m, est, hiHigh)),
+        gap: hero(typeof budgetGap === "function" ? budgetGap(m, est, hiHigh) : m.total * (m.targetHires / hiHigh - 1)),
         // what the hire counts and the gap rest on ("" when the server sent none)
-        basis: hireBasisText(est),
+        basis: typeof hireBasisText === "function" ? hireBasisText(est) : "",
       };
     }
 
@@ -830,7 +840,7 @@
         } else if (proj && proj.text) {
           var bits = ["Est. cost / hire <b>" + escapeHtml(proj.text.cph) + "</b> (" + escapeHtml(proj.text.cph_short || "total cost-per-hire basis") + ")."];
           bits.push(escapeHtml(proj.text.hires_short || "Hires are an estimate from industry cost per hire; no client hire history provided."));
-          var hbPane = hireBasisText(est);
+          var hbPane = typeof hireBasisText === "function" ? hireBasisText(est) : "";
           if (hbPane) bits.push("Hire range: " + escapeHtml(hbPane) + (est.hire_basis.basis && est.hire_basis.basis !== "nova_table" ? "." : "; the table has no external source."));
           if (proj.text.cpa_note) bits.push(escapeHtml(proj.text.cpa_note));
           basis.innerHTML = bits.join(" ");
@@ -857,6 +867,9 @@
       if (typeof checkBudgetFeasibility === "function") {
         try { checkBudgetFeasibility(); } catch (e) { /* banner is advisory */ }
       }
+      // the banner carries the basis clause, so the bar drops its own line
+      // while the banner is up (CSS): re-measure the bar for the scroll offsets
+      if (typeof syncEstimateBarHeight === "function") syncEstimateBarHeight();
 
       // Nova insights — proactive advice from the model
       var box = $("npInsights");

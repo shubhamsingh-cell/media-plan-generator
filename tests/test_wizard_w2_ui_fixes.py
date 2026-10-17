@@ -1771,6 +1771,7 @@ def _insights(goal_range: str, target: int, est_hires: float, est_cph: float = 3
         [
             _INSIGHT_STUB,
             js_block(PREVIEW, "function goalText("),
+            js_block(PREVIEW, "function hireBasisAmount("),
             js_block(PREVIEW, "function hireBasisText("),
             js_block(PREVIEW, "function budgetGap("),
             js_block(PREVIEW, "function computeInsights("),
@@ -1804,6 +1805,7 @@ def test_the_q1_seasonality_insight_quotes_no_unsourced_percentage():
         [
             _INSIGHT_STUB,
             js_block(PREVIEW, "function goalText("),
+            js_block(PREVIEW, "function hireBasisAmount("),
             js_block(PREVIEW, "function hireBasisText("),
             js_block(PREVIEW, "function budgetGap("),
             js_block(PREVIEW, "function computeInsights("),
@@ -2367,7 +2369,8 @@ def test_reality_check_gap_is_target_times_assumed_cost_minus_budget():
     assert legacy["gap"] == "$403K"
     # the Nova insight quotes the same gap
     ins = _insights("", 75, 6.0, hire_basis=_HIRE_BASIS, projection={"hires": {"low": 3, "mid": 6, "high": 6}})[0]
-    assert "$" in ins and "Hires: " in ins
+    assert "$" in ins and "raising budget by" in ins
+    assert "Hires: " not in ins  # the pane's basis line states it once, right above
     _no_us_only_marker(ins)
 
 
@@ -2437,3 +2440,57 @@ def test_a_kb_row_basis_is_named_in_the_wizard_without_the_nova_table_claim():
     assert "Nova table" not in text and "all-in" not in text
     ins = _insights("", 10, 30.0, hire_basis=hb, projection=proj)[0]
     assert "food manufacturing" in ins and "Nova table" not in ins and "all-in" not in ins
+
+
+@needs_node
+def test_insight_and_banner_blocks_run_when_lifted_without_the_basis_helpers():
+    """Tests (and 265e4cf) lift computeInsights / feasibility standalone: every
+    helper call inside them is typeof-guarded, so a lift without the helpers
+    still words the old, neutral text instead of throwing."""
+    m = {
+        "role": "Nurse", "total": 35000, "targetHires": 10, "goalRange": "", "roleClass": "skilled",
+        "rows": [{}, {}], "recommended": True, "channelsTouched": False, "startMonth": 0,
+    }
+    est = {"est_hires": 11.0, "est_cph": 3500, "hire_basis": _HIRE_BASIS,
+           "projection": {"hires": {"low": 11, "mid": 22, "high": 22}}}
+    texts = run_node(
+        "\n".join(
+            [
+                "function escapeHtml(s) { return String(s); }",
+                "function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }",
+                "function intc(v) { return Math.round(v).toLocaleString('en-US'); }",
+                "function channelOn() { return false; }",
+                js_block(PREVIEW, "function goalText("),
+                js_block(PREVIEW, "function computeInsights("),
+                f"process.stdout.write(JSON.stringify(computeInsights({json.dumps(m)}, {json.dumps(est)}).map(function (i) {{ return i.text; }})));",
+            ]
+        )
+    )
+    assert texts and "even at the conservative end" not in texts[0] and "covers" not in texts[0].lower()
+    got = run_node(
+        "\n".join(
+            [
+                "var latestEstimate = " + json.dumps(dict(est, est_hires=6.0, projection={"hires": {"low": 3, "mid": 6, "high": 6}})) + ";",
+                "var latestEstimateSig = JSON.stringify({ budget: 35000 });",
+                "function gather() { return { total: 35000, targetHires: 75, goalRange: '', inputs: { budget: 35000 } }; }",
+                "function estimatePayload(m) { return m.inputs; }",
+                "function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }",
+                "function intc(v) { return Math.round(v).toLocaleString('en-US'); }",
+                js_block(PREVIEW, "function estimateFor("),
+                js_block(PREVIEW, "function goalText("),
+                js_block(PREVIEW, "function feasibility("),
+                "process.stdout.write(JSON.stringify(feasibility()));",
+            ]
+        )
+    )
+    assert got["basis"] == "" and got["gap"] == "$403K"
+
+
+def test_the_bar_drops_its_basis_line_while_the_banner_states_it():
+    """One statement on screen: the Reality Check banner carries the clause, the
+    sticky bar's own line steps aside (CSS), and a ResizeObserver re-measures
+    the bar so the scroll offsets follow."""
+    assert "body:has(#budgetFeasibilityWarning) .np-estimate-bar .neb-basis" in STYLES
+    assert "new ResizeObserver(syncEstimateBarHeight)" in PREVIEW
+    # the warn insight does not repeat the pane's basis line
+    assert '" Hires: "' not in js_block(PREVIEW, "function computeInsights(")
