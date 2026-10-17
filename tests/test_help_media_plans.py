@@ -306,3 +306,50 @@ def test_guide_contains_no_unbacked_numbers_or_promises():
         "will soon",
     ):
         assert forbidden not in body, forbidden
+
+
+# --- the "estimates" claims name their real basis (design-judge veto F5) -----
+
+import html as _html  # noqa: E402
+
+ESTIMATES_SENTENCE = (
+    "Projected hires and costs are estimates, not promises: they divide the "
+    "media budget by an assumed cost per hire — Nova's own industry table "
+    "(an all-in figure with no external source) or, where one exists, a cited "
+    "local range — and the plan names which."
+)
+
+
+def _help_text(raw=None):
+    raw = _help_html() if raw is None else raw
+    raw = re.sub(r"<style>.*?</style>|<!--.*?-->", " ", raw, flags=re.S)
+    return " ".join(_html.unescape(re.sub(r"<[^>]+>", " ", raw)).split())
+
+
+def test_help_estimates_sentence_names_the_real_basis():
+    assert ESTIMATES_SENTENCE in _help_text()
+
+
+def test_help_never_calls_the_estimates_industry_benchmarks():
+    status, body = _get(HELP_PATH)[1:]
+    assert status == 200
+    assert "industry benchmarks" not in _help_text(body).lower()
+    assert "industry benchmarks" not in _help_html().lower()
+
+
+def test_help_example_is_the_checklist_wording_verbatim():
+    import plan_trust
+
+    # No plan data -> the Nova-table basis, the case the example describes.
+    checklist_item = plan_trust.review_items({})[0]
+    assert "cost-per-hire table" in checklist_item
+    assert checklist_item in _help_text()  # the whole item, word for word
+
+
+def test_new_help_sentences_hold_no_us_only_marker():
+    import plan_trust
+    from us_only_markers import _US_ONLY_MARKERS
+
+    for s in (ESTIMATES_SENTENCE, plan_trust.review_items({})[0]):
+        assert s in _help_text()
+        assert not [m for m in _US_ONLY_MARKERS if m.lower() in s.lower()], s
