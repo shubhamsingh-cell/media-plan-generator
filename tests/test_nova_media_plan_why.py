@@ -85,10 +85,13 @@ def test_annotate_adds_why_only_where_supported_and_excludes_brand_from_average(
     # weighted average over A, B, C = 30000 / 3000 = 10.0 (brand ignored)
     assert budget_engine.plan_average_cpa(allocs) == 10.0
     budget_engine.annotate_channel_reasons(allocs)
-    assert allocs["A"]["why"] == "CPA 50% below the plan average"
-    assert allocs["B"]["why"] == "CPA 50% above the plan average"
-    assert "why" not in allocs["C"]
-    assert "why" not in allocs["Brand"]  # no rationale supplied -> nothing invented
+    # the annotated column is the client-safe reason: budget share only here
+    # (no comparison with the plan average, no ROI score, no flag)
+    assert "why" not in allocs["A"] and "why" not in allocs["B"]  # no share carried
+    allocs["A"]["percentage"] = 12.5
+    budget_engine.annotate_channel_reasons(allocs)
+    assert allocs["A"]["why"] == "12.5% of budget"
+    assert "why" not in allocs["Brand"]  # no rationale or share supplied -> nothing invented
 
 
 def test_media_plan_template_has_a_why_column_and_forbids_inventing():
@@ -117,15 +120,10 @@ def test_budget_projection_tool_result_carries_why_from_real_engine_fields():
     assert reasons, "no channel got a grounded reason"
     for name, why in reasons.items():
         entry = allocs[name]
-        grounded = (
-            "plan average" in why
-            or "ROI score" in why
-            or "trending" in why
-            or "Flagged" in why
-            or why == entry.get("rationale")
-        )
+        grounded = why.startswith(f"{entry['percentage']:g}% of budget")
         assert grounded, (name, why)
+        assert not any(w in why for w in ("ROI", "Flagged", "plan average")), why
     # a channel whose fields support nothing is left without a why
     for name, entry in allocs.items():
         if "why" not in entry:
-            assert budget_engine.channel_why(entry, budget_engine.plan_average_cpa(allocs)) == ""
+            assert budget_engine.channel_reason_client(entry) == ""

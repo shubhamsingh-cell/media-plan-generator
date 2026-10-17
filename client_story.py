@@ -150,10 +150,9 @@ def _funded_channels(alloc: Dict[str, Any]) -> List[Dict[str, Any]]:
     try:
         import budget_engine
 
-        avg = budget_engine.plan_average_cpa(chans)
-        why_fn = budget_engine.channel_why
+        reason_fn = budget_engine.channel_reason_client
     except (ImportError, AttributeError):
-        avg, why_fn = None, None
+        reason_fn = None
     rows = []
     for key, entry in chans.items():
         if not isinstance(entry, dict):
@@ -164,9 +163,7 @@ def _funded_channels(alloc: Dict[str, Any]) -> List[Dict[str, Any]]:
             continue
         if amount <= 0:
             continue
-        why = str(entry.get("why") or "")
-        if not why and why_fn is not None:
-            why = why_fn(entry, avg)
+        why = reason_fn(entry) if reason_fn is not None else ""
         pct = entry.get("percentage")
         rows.append(
             {
@@ -178,7 +175,7 @@ def _funded_channels(alloc: Dict[str, Any]) -> List[Dict[str, Any]]:
                     if isinstance(pct, (int, float)) and not isinstance(pct, bool)
                     else None
                 ),
-                "why": why.strip().rstrip("."),
+                "why": why.strip(),
             }
         )
     rows.sort(key=lambda r: -r["amount"])
@@ -263,10 +260,15 @@ def _what_we_will_do(data, alloc, proj, channels) -> str:
     symbol = (proj.get("currency") or {}).get("symbol") or "$"
     budget = f"{symbol}{proj['budget']:,.0f}"
     markets = _capped(_markets(data), _MAX_MARKETS, "; ")
-    roles = _capped(_roles(data), _MAX_ROLES)
+    role_names = _roles(data)
+    roles = ""
+    if role_names:
+        roles = _join(role_names[:_MAX_ROLES]) + " roles"
+        if len(role_names) > _MAX_ROLES:
+            roles += f" (and {len(role_names) - _MAX_ROLES} more)"
     lead = f"For {_client_name(data)}, this plan puts {budget} to work"
     if roles:
-        lead += f" recruiting {roles}"
+        lead += f" recruiting for {roles}"
     remote = _has_remote(data)
     if markets and remote:
         lead += f" in {markets}, plus remote candidates"
@@ -279,10 +281,9 @@ def _what_we_will_do(data, alloc, proj, channels) -> str:
     )
     parts = [lead]
     for i, ch in enumerate(channels[:_MAX_CHANNELS]):
-        share = f", {ch['pct']:g}% of budget" if ch["pct"] is not None else ""
         why = f" ({ch['why']})" if ch["why"] else ""
         lead_in = "Largest channel: " if i == 0 else "Next: "
-        parts.append(f"{lead_in}{ch['label']}{share}{why}.")
+        parts.append(f"{lead_in}{ch['label']}{why}.")
     return " ".join(parts)
 
 
@@ -380,8 +381,9 @@ def _what_we_need(data: Dict[str, Any], alloc: Dict[str, Any]) -> str:
 
 
 _NEXT_STEPS = (
-    "Review and approve this plan, share tracking access, and we confirm the launch "
-    "date; results are reviewed against these estimates as data comes in."
+    "Review and approve this plan and share tracking access, with the launch date "
+    "to be confirmed together. Results are then reviewed against these estimates "
+    "as data comes in."
 )
 
 
@@ -405,7 +407,7 @@ def build_client_story(plan_data: Any) -> Dict[str, Any]:
         sections = [
             (
                 "what_we_will_do",
-                "What we will do",
+                "What this plan does",
                 _what_we_will_do(plan_data, alloc, proj, channels),
             ),
             ("what_to_expect", "What to expect", _what_to_expect(proj)),

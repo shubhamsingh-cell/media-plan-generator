@@ -3836,11 +3836,51 @@ def channel_why(entry: Dict[str, Any], plan_avg_cpa: Optional[float] = None) -> 
     return text[0].upper() + text[1:]
 
 
+# Internal phrasing a client-facing reason must never carry: efficiency flags,
+# the engine's unsourced ROI score, and above/below-average comparisons.
+_CLIENT_UNSAFE_REASON = re.compile(
+    r"ROI|flag|efficien|average|\b(?:above|below)\b|\bscore\b", re.I
+)
+
+
+def channel_reason_client(entry: Dict[str, Any]) -> str:
+    """A client-safe reason for a channel's place in the plan.
+
+    Unlike :func:`channel_why` (an internal diagnostic), this never emits an
+    efficiency flag, an ROI score or an above/below-average comparison. It uses
+    only what the plan supports and a client can check: the channel's budget
+    share, the market trend when the trend engine sourced it, and a brand
+    channel's own rationale (dropped if it carries internal scoring language).
+    Returns "" when nothing supportable exists -- a reason is never invented.
+    """
+    if not isinstance(entry, dict):
+        return ""
+    clauses: List[str] = []
+    pct = entry.get("percentage")
+    if isinstance(pct, (int, float)) and not isinstance(pct, bool) and pct > 0:
+        clauses.append(f"{pct:g}% of budget")
+    direction = entry.get("trend_direction")
+    trend = entry.get("trend_pct_yoy")
+    if (
+        entry.get("cpc_source") == "trend_engine"
+        and direction in ("rising", "falling")
+        and isinstance(trend, (int, float))
+        and not isinstance(trend, bool)
+    ):
+        word = "up" if direction == "rising" else "down"
+        clauses.append(f"market trending {word} {abs(trend):.0f}% YoY")
+    if entry.get("channel_role") == "brand":
+        rationale = str(entry.get("rationale") or "").strip().rstrip(".")
+        if rationale and not _CLIENT_UNSAFE_REASON.search(rationale):
+            clauses.append(rationale)
+    return "; ".join(clauses)
+
+
 def annotate_channel_reasons(channel_allocations: Dict[str, Dict]) -> None:
-    """Add a grounded ``why`` to each channel that has one (in place)."""
-    avg = plan_average_cpa(channel_allocations)
+    """Add a client-safe ``why`` (:func:`channel_reason_client`) to each channel
+    that has one (in place). Nova's media_plan "Why" column copies it."""
     for entry in (channel_allocations or {}).values():
-        reason = channel_why(entry, avg)
+        reason = channel_reason_client(entry)
         if reason and isinstance(entry, dict):
             entry["why"] = reason
 

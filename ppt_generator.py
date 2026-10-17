@@ -13482,22 +13482,22 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
         except Exception as _story_exc:
             logger.debug("Client Story slide failed (non-fatal): %s", _story_exc)
 
-        # Slide 3: Our Methodology (deck narrative -- never blocks generation)
+        # Slide 4: Our Methodology (deck narrative -- never blocks generation)
         try:
             _build_slide_methodology(prs, data, deck)
         except Exception as _meth_exc:
             logger.debug("Methodology slide failed (non-fatal): %s", _meth_exc)
 
-        # Slide 4: Push Meets Pull (deck narrative -- never blocks generation)
+        # Slide 5: Push Meets Pull (deck narrative -- never blocks generation)
         try:
             _build_slide_push_meets_pull(prs, data, deck)
         except Exception as _pmp_exc:
             logger.debug("Push Meets Pull slide failed (non-fatal): %s", _pmp_exc)
 
-        # Slide 5: Channel Strategy with benchmarks + attribution
+        # Slide 6: Channel Strategy with benchmarks + attribution
         _build_slide_channel_strategy(prs, data)
 
-        # Slide 6: Budget Allocation & ROI with embedded pie chart
+        # Slide 7: Budget Allocation & ROI with embedded pie chart
         #          (or Quality Outcomes as fallback when budget_allocation is empty)
         budget_alloc_data = data.get("_budget_allocation", {})
         if isinstance(budget_alloc_data, dict) and budget_alloc_data:
@@ -13519,7 +13519,7 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
         else:
             _build_slide_quality_outcomes(prs, data)
 
-        # Slide 7: CPA Reference — industry-keyed KB content (only AI-training
+        # Slide 8: CPA Reference — industry-keyed KB content (only AI-training
         # is populated); _build_slide_cpa_reference itself drops the slide
         # entirely when this plan's industry key has no KB content.
         _slides_before_cpa = len(prs.slides)
@@ -13539,22 +13539,22 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
             except Exception as _rb_exc:
                 logger.debug("Role breakdown slide failed (non-fatal): %s", _rb_exc)
 
-        # Slide 8: Competitive Landscape (always shown)
+        # Slide 9: Competitive Landscape (always shown)
         _build_slide_competitive_landscape(prs, data)
 
-        # Slide 9: Implementation Timeline + Competitive Context
+        # Slide 10: Implementation Timeline + Competitive Context
         _build_slide_comparison_timeline(prs, data)
 
-        # Slide 10: Risk Analysis -- always included for C-suite readiness
+        # Slide 11: Risk Analysis -- always included for C-suite readiness
         _build_slide_risk_analysis(prs, data)
 
-        # Slide 11: The Joveo Advantage -- value-prop close (non-fatal)
+        # Slide 12: The Joveo Advantage -- value-prop close (non-fatal)
         try:
             _build_slide_why_joveo(prs, data, deck)
         except Exception as _wj_exc:
             logger.debug("The Joveo Advantage slide failed (non-fatal): %s", _wj_exc)
 
-        # Slide 12: Case Study & Next Steps (deck narrative -- never blocks generation)
+        # Slide 13: Case Study & Next Steps (deck narrative -- never blocks generation)
         try:
             _build_slide_case_study_next_steps(prs, data, deck)
         except Exception as _cs_exc:

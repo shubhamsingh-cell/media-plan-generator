@@ -6968,7 +6968,7 @@ def _build_sheet_executive_summary(
                 # Flat benchmarks (no regional breakdown)
                 # Design-judge item 2 (2026-10-01): the cost-per-hire row is
                 # the plan's ONE resolver figure with the SAME label and text
-                # as deck slide 5 (budget_engine.industry_cph_display), except
+                # as deck slide 6 (budget_engine.industry_cph_display), except
                 # where the plan's industry has no range of its own -- then
                 # the KB's own industry row stays, which is what the deck
                 # shows too.
@@ -7018,7 +7018,7 @@ def _build_sheet_executive_summary(
                         ).get("text")
                         if key == "cph" and _shown_row:
                             # Round 4 (F5): the ONE industry row the deck's
-                            # slide 5 and the hires range use, not the KB's
+                            # slide 6 and the hires range use, not the KB's
                             # whole cost-per-hire dict (three bases in one
                             # cell: media-only, total, a sister sector).
                             row = _write_kv_row(
@@ -7075,7 +7075,7 @@ def _build_sheet_executive_summary(
                             if _get_active_currency() != "USD" and "$" in val_str:
                                 _bm_label = f"{_bm_label} (USD)"
                                 # ...and on the figures themselves, as the
-                                # deck's slide 5 does ("US$11-US$25"): a bare
+                                # deck's slide 6 does ("US$11-US$25"): a bare
                                 # "$11-$25" beside the plan's own "C$"/"£"
                                 # figures is ambiguous (sweep 2026-10-16 #8).
                                 val_str = _mark_usd(val_str)
@@ -7083,7 +7083,7 @@ def _build_sheet_executive_summary(
                 if _cph_disp is not None and not _cph_row_written:
                     # The KB has no cost-per-hire row for this industry (or
                     # no entry at all): still print the plan's figure so the
-                    # workbook states what slide 5 states.
+                    # workbook states what slide 6 states.
                     row = _write_kv_row(ws, row, _cph_disp["label"], _cph_disp["text"])
                 if _omitted_us_bench:
                     row = _write_kv_row(

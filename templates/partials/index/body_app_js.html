@@ -571,6 +571,34 @@
     return div.innerHTML;
   }
 
+  // Copy text to the clipboard; the textarea fallback (clipboard API denied or
+  // unavailable) hands keyboard focus back to the element that had it, so a
+  // keyboard user is not dropped at the top of the page.
+  async function novaCopyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      const previous = document.activeElement;
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      let copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } catch (err2) {
+        copied = false;
+      }
+      ta.remove();
+      if (previous && typeof previous.focus === "function") previous.focus();
+      return copied;
+    }
+  }
+
   // ============================================
   // 22. Toast notification system
   // ============================================
@@ -1023,25 +1051,7 @@
     const copyStoryBtn = document.getElementById("copyClientStoryBtn");
     if (copyStoryBtn && story) {
       copyStoryBtn.addEventListener("click", async function () {
-        let copied = false;
-        try {
-          await navigator.clipboard.writeText(story.text);
-          copied = true;
-        } catch (err) {
-          const ta = document.createElement("textarea");
-          ta.value = story.text;
-          ta.setAttribute("readonly", "");
-          ta.style.position = "fixed";
-          ta.style.opacity = "0";
-          document.body.appendChild(ta);
-          ta.select();
-          try {
-            copied = document.execCommand("copy");
-          } catch (err2) {
-            copied = false;
-          }
-          ta.remove();
-        }
+        const copied = await novaCopyText(story.text);
         showToast(
           copied ? "Client story copied." : "Could not copy. Select the text above and copy it.",
           copied ? "success" : "error",

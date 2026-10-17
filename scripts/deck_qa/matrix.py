@@ -14,7 +14,7 @@ name, a 70-char role title, 0/3/6/12 synthesized competitors (short vs. long
 names), micro ($5,000) and macro ($10,000,000) budgets, a typed non-USD
 budget ("£2,000,000"), a bare-number budget needing market inference, 8 mixed
 markets, 12 roles, two industries, an "Ongoing" duration, a 5-platform
-synthesized deep-intelligence bundle (drives the slide-5 benchmark table AND
+synthesized deep-intelligence bundle (drives the slide-6 benchmark table AND
 the funnel strip), the GBP+synthesized combo, and a kitchen-sink of
 everything at once.
 
@@ -133,7 +133,7 @@ def _synth_competitors(names):
 
 def _synth_deep_platforms():
     """5-platform deep-intelligence bundle + job market demand -- drives both
-    the slide-5 benchmark table and the funnel strip."""
+    the slide-6 benchmark table and the funnel strip."""
     platforms = {}
     long_names = [
         "Programmatic Demand-Side Platform Network",

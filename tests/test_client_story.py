@@ -133,7 +133,7 @@ def plan_numbers(plan: dict) -> set:
     for entry in funded.values():
         for field in ("percentage", "roi_score", "trend_pct_yoy"):
             _add(allowed, entry.get(field))
-        allowed.update(story_numbers(budget_engine.channel_why(entry, avg)))
+        allowed.update(story_numbers(budget_engine.channel_reason_client(entry)))
     n_locs = len(plan.get("locations") or [])
     n_roles = len(plan.get("target_roles") or plan.get("roles") or [])
     _add(allowed, max(n_locs - client_story._MAX_MARKETS, 0))
@@ -165,7 +165,7 @@ def test_story_present_and_sized(plans, key):
         "next_steps",
     ]
     assert 120 <= story["word_count"] <= 280, story["word_count"]
-    assert story["text"].startswith("What we will do")
+    assert story["text"].startswith("What this plan does")
 
 
 @pytest.mark.parametrize("key", PLAN_KEYS)
@@ -393,4 +393,5 @@ def test_results_screen_has_an_accessible_copy_button():
     )
     handler = src[src.index('getElementById("copyClientStoryBtn")') :]
     handler = handler[: handler.index("Render Sankey")]
-    assert "navigator.clipboard.writeText" in handler and "showToast(" in handler
+    assert "novaCopyText(" in handler and "showToast(" in handler
+    assert "navigator.clipboard.writeText" in src[src.index("async function novaCopyText("):]

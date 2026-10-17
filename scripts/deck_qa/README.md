@@ -8,7 +8,7 @@ substitute a PIL-based render pipeline built on the deck's own shipped fonts.
 ## Commands
 
 ```
-python3 scripts/deck_qa/collide.py <pptx>... [--slides 5,7]   # ink-collision sweep, exit 1 on findings
+python3 scripts/deck_qa/collide.py <pptx>... [--slides 6,8]   # ink-collision sweep, exit 1 on findings
 python3 scripts/deck_qa/matrix.py <outdir>                     # ~40-deck stress envelope
 python3 scripts/deck_qa/render.py <pptx> <outdir> [--dpi 110]  # PNG rasterization + report.json
 ```
@@ -23,9 +23,9 @@ python3 scripts/deck_qa/render.py <pptx> <outdir> [--dpi 110]  # PNG rasterizati
 2. **Envelope decks must use real channel keys
    (`programmatic_dsp`/`global_boards`/`niche_boards`/`regional_boards`/
    `social_media`/`employer_branding`/`apac_regional`/`emea_regional`) plus
-   `_synthesized` data, or slides 5 and 7 never get stressed.** Display names
+   `_synthesized` data, or slides 6 and 8 never get stressed.** Display names
    silently fall through to `ppt_generator`'s 3-channel fallback, and an
-   empty `_synthesized` means slide 5's benchmark table and slide 7's
+   empty `_synthesized` means slide 6's benchmark table and slide 8's
    competitor cards stay at their trivial minimum -- a "clean" run against
    either mistake proves nothing.
 

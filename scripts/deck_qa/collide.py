@@ -12,7 +12,7 @@ ruler) and reports, per slide:
     13.353x7.52in to allow for sub-hairline rounding).
 
 Usage:
-    python3 scripts/deck_qa/collide.py <pptx>... [--slides 5,7]
+    python3 scripts/deck_qa/collide.py <pptx>... [--slides 6,8]
 
 Exit code is 1 if any finding is reported across the given deck(s), 0
 otherwise. Always prints ``TOTAL FINDINGS: n`` as its last line.
