@@ -40,14 +40,18 @@ BENCHMARKS_LABEL = "Joveo benchmarks (CPC / CPA)"
 # "Industry Benchmarks" slide read this same string, so the two can never say
 # different things about where the ranges come from). The ranges are Nova's
 # own typed estimates -- an audit (2026-10-17) found no row's CPA / CPH /
-# apply-rate headline traceable to one primary source -- so the note says so
-# instead of naming a source the figures do not trace to. It is printed on
-# client deliverables for every market, so it must stay free of the
-# ``us_only_markers`` vocabulary (a test pins that).
+# apply-rate headline traceable to one primary source, and only 2 of 22 rows
+# carry a figure that really is Appcast's -- so the note claims exactly that:
+# the ranges are estimates, and only a figure that NAMES a source traces to a
+# published report. It must not say the ranges are "informed by" a report: it
+# sits under apply rates (telecom 5.5-7.5%, finance 9.5-10%, government 7-11%)
+# that no Appcast figure supports, and under blocks with no apply-rate row.
+# It is printed on client deliverables for every market, so it must stay free
+# of the ``us_only_markers`` vocabulary (a test pins that).
 BENCHMARK_FOOTNOTE = (
-    "Industry ranges are Nova working estimates informed by public industry "
-    "reports (e.g. Appcast apply-rate data); indicative, not independently "
-    "audited."
+    "Industry ranges are Nova working estimates; indicative, not independently "
+    "audited. Only figures that name a source (e.g. 'Appcast 2026') trace to a "
+    "published report."
 )
 
 # Column / row label for any figure beside the plan that is Nova's own coded

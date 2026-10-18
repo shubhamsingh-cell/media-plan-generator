@@ -25,6 +25,7 @@ code half -- what the deliverables PRINT of those rows:
 
 from __future__ import annotations
 
+import copy
 import io
 import logging
 import tempfile
@@ -38,6 +39,8 @@ from pptx import Presentation
 import budget_engine
 import bundle_qa
 import excel_v2
+import kb_loader
+import plan_projection
 import plan_trust
 import ppt_generator
 import tools_regen_bundles as regen
@@ -79,6 +82,48 @@ def healthcare() -> Dict[str, Any]:
 @pytest.fixture(scope="module")
 def telecom() -> Dict[str, Any]:
     return _bundle(dict(regen.ATRIA_BRIEF, industry="Telecommunications"))
+
+
+@pytest.fixture()
+def telecom_media_only() -> Dict[str, Any]:
+    """A telecom plan whose KB row carries ONLY the media-only cost per hire
+    ($800-$1,500): neither surface may print it as the industry cost per hire.
+    Function-scoped on purpose: the patched loader must be undone before any
+    module-scoped bundle (``telecom``) is built."""
+    real = kb_loader.load_knowledge_base
+
+    def patched(*args, **kwargs):
+        kb = copy.deepcopy(real(*args, **kwargs))
+        row = kb["recruitment_benchmarks"]["industry_benchmarks"]["telecommunications"]
+        row["cph"] = {"recruitment_marketing_only": "$800-$1,500", "notes": "media spend only"}
+        return kb
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(kb_loader, "load_knowledge_base", patched)
+    try:
+        yield _bundle(dict(regen.ATRIA_BRIEF, industry="Telecommunications"))
+    finally:
+        mp.undo()
+
+
+@pytest.fixture(scope="module")
+def berlin_no_figures() -> Dict[str, Any]:
+    """A non-US plan whose benchmark block can print only "No local
+    benchmark for this market" (no industry row for it, no US figures)."""
+    brief = dict(regen.ATRIA_BRIEF)
+    brief.update(
+        {
+            "client_name": "Schwarzwald Automotive Systems GmbH",
+            "industry": "Automotive & Manufacturing",
+            "budget": "\u20ac300,000",
+            "locations": ["Berlin, Germany", "Munich, Germany"],
+            "roles": ["Assembly Technician"],
+            "target_roles": [{"title": "Assembly Technician", "count": 20, "tier": "Hourly"}],
+            "hire_volume": "50 hires",
+            "competitors": [],
+        }
+    )
+    return _bundle(brief)
 
 
 @pytest.fixture(scope="module")
@@ -164,14 +209,25 @@ def test_workbook_prints_one_shared_footnote_under_the_block(healthcare):
     assert rows[first_note][0] == _SECTION_FOOTNOTE, rows
 
 
-def test_telecom_cph_row_is_all_in_never_media_only(telecom):
-    rows = dict(_block_rows(telecom["xlsx_bytes"]))
-    cph = rows["Industry Cost-per-Hire"]
-    assert "800" not in cph and "1,500" not in cph, cph
-    assert "5,000" in cph, cph
-    deck = _deck_slide(telecom["pptx_bytes"], "Channel Strategy & Investment")
-    deck_text = " | ".join(_texts(deck))
-    assert "$800-$1,500" not in deck_text, deck_text
+def test_telecom_without_an_all_in_row_never_shows_the_media_only_figure(telecom_media_only):
+    block = _block_rows(telecom_media_only["xlsx_bytes"])
+    cph_rows = [v for lbl, v in block if "Cost-per-Hire" in lbl]
+    assert cph_rows, block
+    assert not [v for v in cph_rows if "800" in v or "1,500" in v], cph_rows
+    deck = " | ".join(
+        _texts(_deck_slide(telecom_media_only["pptx_bytes"], "Channel Strategy & Investment"))
+    )
+    assert "$800" not in deck and "1,500" not in deck, deck
+
+
+def test_telecom_cph_row_is_the_all_in_total_on_both_surfaces(telecom):
+    block = _block_rows(telecom["xlsx_bytes"])
+    assert _SECTION_FOOTNOTE, "plan_trust.BENCHMARK_FOOTNOTE is missing"
+    assert (_SECTION_FOOTNOTE, "") in block, block  # the row sits under the shared note
+    rows = dict(block)
+    assert "5,000" in rows["Industry Cost-per-Hire"], rows
+    deck = " | ".join(_texts(_deck_slide(telecom["pptx_bytes"], "Channel Strategy & Investment")))
+    assert "5,000" in deck and "$800-$1,500" not in deck, deck
 
 
 def test_write_kv_row_sizes_a_wrapped_merged_value():
@@ -187,14 +243,56 @@ def test_write_kv_row_sizes_a_wrapped_merged_value():
     )
 
 
+def test_write_kv_row_sizes_a_long_label_over_the_key_cells():
+    ws = Workbook().active
+    for col, width in zip("ABCDEFGHI", (3, 18, 18, 18, 18, 18, 18, 18, 3)):
+        ws.column_dimensions[col].width = width
+    # the key sits in the merged B:C (36 units): 41 bold characters wrap to two
+    # lines, the one-line value does not -- the row must still show both lines
+    excel_v2._write_kv_row(ws, 1, "Apply Rate (US benchmark \u2014 no local data)", "9.5-10%")
+    excel_v2._write_kv_row(ws, 2, "Industry Cost-per-Hire", "$9,000")
+    assert ws.row_dimensions[1].height is not None and ws.row_dimensions[1].height >= 29, (
+        ws.row_dimensions[1].height
+    )
+    assert ws.row_dimensions[2].height is None
+
+
+def test_benchmark_block_figure_detector():
+    ws = Workbook().active
+
+    def put(r, label, value):
+        ws.cell(r, 2, label)
+        ws.cell(r, 4, value)
+
+    put(1, "Industry Cost-per-Hire", "No local benchmark for this market")
+    put(2, "Seasonal Patterns", "Peak Months: October; Basis: 2026-10 calendar (October to December)")
+    put(3, "Industry CPA / CPC", "No local benchmark for this market (US figures are not shown).")
+    assert excel_v2._benchmark_block_has_figure(ws, 1, 4) is False
+    put(4, "CPA", "Range: $35-$58+; Median: $35.00")
+    assert excel_v2._benchmark_block_has_figure(ws, 1, 5) is True
+
+
+def test_footnote_is_not_orphaned_under_a_block_with_no_figure(berlin_no_figures):
+    rows = _block_rows(berlin_no_figures["xlsx_bytes"])
+    assert rows and all(not lbl.startswith("Industry ranges") for lbl, _ in rows), rows
+    assert [v for lbl, v in rows if "No local benchmark" in v], rows
+
+
 # ------------------------------------------------- footnote / marker contract
 def test_footnotes_clear_the_us_only_marker_gate():
     assert _SECTION_FOOTNOTE, "plan_trust.BENCHMARK_FOOTNOTE is missing"
     assert not us_only_markers.has_us_only_marker(_SECTION_FOOTNOTE)
     assert not us_only_markers.has_us_only_marker(plan_trust.INDUSTRY_REFERENCE_LABEL)
-    # wording the brief fixed: names the estimate basis, no invented source
+    # wording the verifier fixed (2026-10-18): says the ranges are estimates and
+    # that only a figure naming its source traces to a report -- it must not
+    # claim the ranges are informed by a report (or by Appcast apply-rate data:
+    # the apply rates beside it, telecom 5.5-7.5% / finance 9.5-10% /
+    # government 7-11%, exceed anything Appcast reports; max 7.14%).
     assert "Nova working estimates" in _SECTION_FOOTNOTE
     assert "not independently audited" in _SECTION_FOOTNOTE
+    assert "Only figures that name a source" in _SECTION_FOOTNOTE
+    assert "informed by" not in _SECTION_FOOTNOTE
+    assert "apply-rate data" not in _SECTION_FOOTNOTE
 
 
 def test_non_us_plan_prints_the_footnote_and_passes_the_us_marker_gate(uk_plan):
@@ -225,6 +323,66 @@ def test_benchmark_slide_source_line_is_the_shared_footnote(fixture, request):
         (note.top + note.height) / 914400,
         heading.top / 914400,
     )
+
+
+def test_slide_10_calls_nova_s_own_constant_an_estimate_not_a_benchmark(healthcare):
+    texts = _texts(_deck_slide(healthcare["pptx_bytes"], "Plan Comparison & Implementation"))
+    assert "Industry CPA (Nova estimate)" in texts, texts
+    assert not [t for t in texts if "benchmark" in t.lower() and "not an industry benchmark" not in t], texts
+    legend = next(t for t in texts if "On par" in t)
+    assert "Ahead" in legend and "Behind" in legend, legend
+    assert "Beating" not in legend and "Trailing" not in legend, legend
+
+
+@pytest.mark.parametrize("confidence", ["curated", "platform_benchmark", "market_intelligence_kb"])
+def test_unnamed_source_confidences_all_print_the_shared_footnote(confidence):
+    for ad_rows in (False, True):
+        text, lines = ppt_generator._bench_source_text(
+            {"confidence": confidence}, ad_rows, [], 4.9, 8.0
+        )
+        assert text == _SECTION_FOOTNOTE, text
+        assert "Industry benchmarks" not in text and "Ad Platform" not in text
+        assert lines == 2
+
+
+def test_named_sources_keep_their_line_and_name_ad_platform_only_when_a_row_shows():
+    without, n0 = ppt_generator._bench_source_text({"confidence": "trend_engine"}, False, [], 4.9, 8.0)
+    with_ad, n1 = ppt_generator._bench_source_text({"confidence": "trend_engine"}, True, [], 4.9, 8.0)
+    assert without == "Sources: Nova Trend Engine (platform CPC/CPA data)", without
+    assert with_ad == without + ", Nova Ad Platform Intelligence", with_ad
+    assert n0 == n1 == 1
+
+
+def test_static_table_deck_prints_the_footnote_and_no_invented_source():
+    real = ppt_generator._get_benchmarks
+
+    def static(industry, data=None):
+        out = dict(real(industry, data))
+        out["confidence"] = "curated"
+        return out
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(ppt_generator, "_get_benchmarks", static)
+    try:
+        bundle = _bundle(dict(regen.ATRIA_BRIEF, industry="Healthcare & Medical"))
+    finally:
+        mp.undo()
+    slide_text = " | ".join(_texts(_deck_slide(bundle["pptx_bytes"], "Channel Strategy & Investment")))
+    assert "Industry benchmarks 20" not in slide_text, slide_text
+    assert "Ad Platform Intelligence" not in slide_text, slide_text
+    assert _SECTION_FOOTNOTE in slide_text, slide_text
+
+
+def test_competitive_landscape_no_longer_names_a_curated_knowledge_base():
+    ctx = {
+        "company_profile": {"wikipedia_url": "https://en.wikipedia.org/wiki/X"},
+        "hiring_trends": {"kb_context": {"outlook": "x"}, "market_context": {"market_state": "y"}},
+        "_meta": {"competitor_evidence_count": 0},
+    }
+    line = ppt_generator._competitive_landscape_sources_line(ctx)
+    assert "curated knowledge base" not in line, line
+    assert "Nova industry notes (unaudited estimates)" in line, line
+    assert "Wikipedia" in line and "no competitor-level sources" in line, line
 
 
 def test_competitive_landscape_fallback_rows_get_the_shared_footnote():
@@ -283,18 +441,95 @@ def _alloc(info: Dict[str, Any]) -> Dict[str, Any]:
     return {"metadata": {"industry_cph": info}}
 
 
-def test_methodology_and_niche_wording_name_the_nova_table(healthcare):
-    nova_table = _alloc({"basis": "us_benchmark", "industry_matched": True})
-    methodology = excel_v2._roi_methodology_note(nova_table)
-    assert "assumed all-in industry cost per hire (Nova table, unsourced)" in methodology, methodology
-    assert "benchmark" not in methodology.lower(), methodology
-    local = _alloc(
-        {"basis": "local_kb", "source_names": ["Eurojob-Consulting"], "value_label": "midpoint of cited range"}
-    )
-    assert "Eurojob-Consulting" in excel_v2._roi_methodology_note(local)
-    assert "benchmark" not in excel_v2._roi_methodology_note(local).lower()
+_KIND_INFOS = {
+    "nova_table": {"basis": "us_benchmark", "industry_matched": True, "low": 9000, "high": 12000, "currency": "USD"},
+    "kb_row": {
+        "basis": "us_benchmark",
+        "industry_matched": False,
+        "low": 6000,
+        "high": 9000,
+        "currency": "USD",
+        "display_row": {
+            "text": "$5,000-$8,000 (general roles; technical roles $10,000-$20,000)",
+            "low": 5000.0,
+            "high": 8000.0,
+            "mid": 6500.0,
+        },
+    },
+    "cross_industry_default": {
+        "basis": "us_benchmark",
+        "industry_matched": False,
+        "low": 6000,
+        "high": 9000,
+        "currency": "USD",
+    },
+    "local_kb": {
+        "basis": "local_kb",
+        "currency": "EUR",
+        "low": 48000,
+        "high": 64000,
+        "source_names": ["Eurojob-Consulting"],
+        "value_label": "midpoint of cited range",
+    },
+}
+_KIND_FIGURE = {
+    "nova_table": "$9,000\u2013$12,000",
+    "kb_row": "$5,000\u2013$8,000",
+    "cross_industry_default": "$6,000\u2013$9,000",
+    "local_kb": "\u20ac48,000\u2013\u20ac64,000",
+}
 
-    wb = load_workbook(io.BytesIO(healthcare["xlsx_bytes"]))
+
+@pytest.fixture
+def _plan_money():
+    """Set the active plan currency the way the workbook does, restore after."""
+    def _set(code: str, budget: str) -> None:
+        excel_v2._set_active_currency({"currency": code, "budget": budget})
+
+    yield _set
+    if hasattr(excel_v2._currency_tls, "code"):
+        del excel_v2._currency_tls.code
+
+
+@pytest.mark.parametrize("kind", sorted(_KIND_INFOS))
+def test_anchor_clause_is_one_plain_clause_per_basis_kind(kind, _plan_money):
+    info = _KIND_INFOS[kind]
+    _plan_money("EUR" if kind == "local_kb" else "USD", "\u20ac100,000" if kind == "local_kb" else "$100,000")
+    assert plan_projection.cph_basis(info)["kind"] == kind
+    clause = excel_v2._cph_anchor_clause(info)
+    assert _KIND_FIGURE[kind] in clause, clause
+    # one parenthetical, no internal wording, never a "benchmark"
+    assert clause.count("(") == 1 and clause.count(")") == 1, clause
+    for jargon in ("knowledge base", "floor", "cross-industry default", "benchmark", "row"):
+        assert jargon not in clause, (jargon, clause)
+    if kind == "local_kb":
+        assert clause.endswith("(Eurojob-Consulting)"), clause
+        assert "cited local cost-per-hire range" in clause, clause
+    else:
+        assert clause.startswith("based on an assumed "), clause
+        assert clause.endswith("(Nova estimate)"), clause
+    # the same words the methodology line and the niche-board purpose line print
+    method = excel_v2._roi_methodology_note(_alloc(info))
+    assert f"hire totals are {clause}, not on this funnel;" in method, method
+    assert method.count("(") == 1, method
+
+
+def test_methodology_wording_for_the_four_kinds_matches_the_wizard_basis(_plan_money):
+    """The workbook clause never contradicts plan_projection.cph_basis, which the
+    wizard hire_basis label and the plan_trust checklist print."""
+    _plan_money("USD", "$100,000")
+    for kind in ("nova_table", "kb_row", "cross_industry_default"):
+        basis = plan_projection.cph_basis(_KIND_INFOS[kind])
+        assert basis["kind"] == kind
+        assert "Nova" in basis["label"] or "Nova" in basis["phrase"]
+        assert "(Nova estimate)" in excel_v2._cph_anchor_clause(_KIND_INFOS[kind])
+    local = plan_projection.cph_basis(_KIND_INFOS["local_kb"])
+    assert "Eurojob-Consulting" in local["label"]
+    assert "Nova" not in excel_v2._cph_anchor_clause(_KIND_INFOS["local_kb"])
+
+
+def test_telecom_copy_in_the_bundle_is_one_plain_clause(telecom):
+    wb = load_workbook(io.BytesIO(telecom["xlsx_bytes"]))
     cells = [
         str(c.value)
         for ws in wb.worksheets
@@ -302,8 +537,33 @@ def test_methodology_and_niche_wording_name_the_nova_table(healthcare):
         for c in row
         if isinstance(c.value, str)
     ]
-    assert not [t for t in cells if "anchored to industry cost-per-hire" in t], "ROI methodology"
-    assert not [t for t in cells if "anchors total hires to cost-per-hire benchmarks" in t], "niche purpose"
+    method = next(t for t in cells if t.startswith("Methodology: hire totals are"))
+    assert "based on an assumed industry cost per hire of $5,000\u2013$8,000 (Nova estimate), not on this funnel" in method, method
+    purpose = next(t for t in cells if t.startswith("Specialty job boards matched"))
+    assert "total hires are based on an assumed industry cost per hire of $5,000\u2013$8,000 (Nova estimate)" in purpose, purpose
+    for t in (method, purpose):
+        assert "knowledge base" not in t and "floor:" not in t and "anchored to" not in t, t
+    assert not [t for t in cells if "cost-per-hire benchmarks" in t]
+
+
+def test_narrative_facts_call_nova_figures_estimates_and_still_ground():
+    kb = kb_loader.load_knowledge_base()["recruitment_benchmarks"]["industry_benchmarks"]
+    facts = excel_v2._build_narrative_facts_block(
+        {"ind_bench": kb["healthcare_medical"], "client_name": "X", "budget_num": 250000}
+    )
+    industry_lines = [ln for ln in facts.splitlines() if ln.startswith(("Industry", "Assumed"))]
+    assert industry_lines, facts
+    assert not [ln for ln in industry_lines if "enchmark" in ln], industry_lines
+    assert "Assumed industry cost per hire (Nova table, unsourced): $10,500" in industry_lines
+    # the untraceable-figure gate reads the numbers, not the labels: a draft
+    # citing the CPH estimate still grounds, an invented figure does not
+    allowed = excel_v2._allowed_numbers_from_facts_text(facts)
+    ok, bad = excel_v2._narrative_is_grounded(
+        "Industry cost per hire is assumed at about $10,500 and CPA runs $35.", allowed
+    )
+    assert ok and not bad, bad
+    ok, bad = excel_v2._narrative_is_grounded("The industry benchmark is $11,900 per hire.", allowed)
+    assert not ok and bad, (ok, bad)
 
 
 def test_funnel_assumption_note_does_not_call_the_table_a_benchmark():

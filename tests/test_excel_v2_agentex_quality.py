@@ -355,13 +355,12 @@ def test_niche_board_narrative_uses_live_implied_rate():
         # (findings strategy:atria#1 residual / strategy:manpower niche
         # framing) instead of a bare "models niche boards at X%" line that
         # read as self-indictment.
-        # Phase B (2026-10-18): the anchor is named by its real basis -- the
-        # plan's assumed all-in Nova table figure -- never as "cost-per-hire
-        # benchmarks", which reads as a published source the table lacks.
-        assert (
-            "anchors total hires to an assumed all-in industry cost per hire"
-            in purpose_text.lower()
-        )
+        # Phase B (2026-10-18): the anchor is one plain clause naming its real
+        # basis -- an assumed cost per hire that is Nova's own estimate --
+        # never "cost-per-hire benchmarks", which reads as a published source
+        # the table lacks.
+        assert "total hires are based on an assumed" in purpose_text.lower()
+        assert "(nova estimate)" in purpose_text.lower()
         assert "cost-per-hire benchmarks" not in purpose_text.lower()
         assert "conservative lower bound" in purpose_text.lower()
     else:

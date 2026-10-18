@@ -4178,32 +4178,37 @@ _BENCH_NAMED_SOURCES = {
 
 def _bench_source_text(
     benchmarks: Dict[str, Any],
-    has_ad_platform: bool,
+    ad_platform_rows_shown: bool,
     cph_local_sources: List[str],
     width_in: float,
     font_pt: float,
+    max_lines: Optional[int] = None,
 ) -> Tuple[str, int]:
     """``(text, n_lines)`` for the line under slide 6's "Industry Benchmarks"
     table.
 
-    * Knowledge-base rows (``confidence == "market_intelligence_kb"``): the
-      shared estimate note (``plan_trust.BENCHMARK_FOOTNOTE``) -- never the
-      table citing itself -- followed by the cited local cost-per-hire
-      publisher(s) when the plan has them (a real source beside the
-      estimate). The note alone already fills two lines of this 4.9in box,
-      so the old ", Nova Ad Platform Intelligence" suffix (Nova's own
-      product, not an external source) no longer fits beside it; the
-      ad-platform rows name their platform in their own labels. The fuller
-      variant that measures onto at most two lines wins; the local publisher
-      is never dropped to make room.
-    * Every other confidence keeps its single-line "Sources: ..." form (the
-      Appcast report, the Trend Engine, or the generic "Industry benchmarks
-      <year>"), exactly as before.
+    * A source the data NAMES keeps its single-line "Sources: ..." form: the
+      Appcast report (``appcast_kb``) or the Trend Engine (``trend_engine``),
+      plus ", Nova Ad Platform Intelligence" only when an ad-platform row is
+      actually on the slide (``ad_platform_rows_shown``).
+    * Everything else -- the knowledge-base rows (``market_intelligence_kb``),
+      the hardcoded static table ("curated") and the static ad-platform range
+      (``platform_benchmark``) -- is Nova's own working estimate, so the line
+      is the shared estimate note (``plan_trust.BENCHMARK_FOOTNOTE``), the
+      same string the workbook prints under its benchmark block; never the
+      table citing itself, never an "Industry benchmarks <year>" source that
+      does not exist. A cited local cost-per-hire publisher(s) follows it when
+      the plan has one (a real source beside the estimate). The fuller variant
+      that measures onto at most two lines wins; the local publisher is never
+      dropped to make room.
+
+    ``max_lines`` caps the result at an already-reserved line count (the
+    rows were fitted for it): a variant that would need more is not used.
     """
     confidence = benchmarks.get("confidence", "curated")
-    if confidence == "market_intelligence_kb":
+    named = _BENCH_NAMED_SOURCES.get(confidence)
+    if not named:
         note = plan_trust.BENCHMARK_FOOTNOTE.rstrip(".")
-        variants: List[str] = []
         if cph_local_sources:
             full = ", ".join(cph_local_sources)
             # last resort: the publisher alone ("Eurojob-Consulting") -- the
@@ -4214,19 +4219,15 @@ def _bench_source_text(
             variants = [f"{note}; local CPH: {full}.", f"{note}; local CPH: {pub}."]
         else:
             variants = [plan_trust.BENCHMARK_FOOTNOTE]
+        cap = max_lines if max_lines is not None else 2
         text = next(
-            (v for v in variants if _measure_lines(v, width_in, font_pt) <= 2),
+            (v for v in variants if _measure_lines(v, width_in, font_pt) <= cap),
             variants[-1],
         )
         return text, max(1, min(3, _measure_lines(text, width_in, font_pt)))
 
-    named = _BENCH_NAMED_SOURCES.get(confidence)
-    text = (
-        f"Sources: {named}"
-        if named
-        else f"Sources: Industry benchmarks {datetime.date.today().year}"
-    )
-    if has_ad_platform:
+    text = f"Sources: {named}"
+    if ad_platform_rows_shown:
         text += ", Nova Ad Platform Intelligence"
     if cph_local_sources:
         # design-judge item 3: a local cost-per-hire figure names its own
@@ -6667,16 +6668,28 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         *,
         observed: bool = False,
         fixed_cell: Optional[Tuple[float, int]] = None,
+        ad_platform: bool = False,
     ) -> None:
         """``fixed_cell`` = (font_pt, n_lines) for a value already fitted."""
         bench_rows.append((metric, value))
         bench_meta.append(
-            {"rank": rank, "observed": observed, "fixed_cell": fixed_cell}
+            {
+                "rank": rank,
+                "observed": observed,
+                "fixed_cell": fixed_cell,
+                "ad_platform": ad_platform,
+            }
         )
 
     def _bench_add_curated(row: Tuple[str, str]) -> None:
         """Curated ad-platform / LinkedIn rows: first to be evicted."""
         _bench_add(row[0], row[1], 4)
+
+    def _bench_add_curated_ad(row: Tuple[str, str]) -> None:
+        """A curated row that comes from the ad-platform analysis: when one is
+        still on the slide after the row fit, the source line may name
+        "Nova Ad Platform Intelligence" (and never otherwise)."""
+        _bench_add(row[0], row[1], 4, ad_platform=True)
 
     _bench_add(_cpa_label, cpa_val, 0)
     _bench_add(_cpc_label, cpc_val, 0)
@@ -6770,13 +6783,13 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 plat_reach = plat_data.get("estimated_reach") or 0
                 fit_score = plat_data.get("fit_score") or 0
                 if plat_cpc and plat_cpc > 0:
-                    _bench_add_curated((f"{plat_label} CPC", _fmt_currency(plat_cpc)))
+                    _bench_add_curated_ad((f"{plat_label} CPC", _fmt_currency(plat_cpc)))
                 if plat_cpa and plat_cpa > 0:
-                    _bench_add_curated((f"{plat_label} CPA", _fmt_currency(plat_cpa)))
+                    _bench_add_curated_ad((f"{plat_label} CPA", _fmt_currency(plat_cpa)))
                 if plat_reach and plat_reach > 0:
-                    _bench_add_curated((f"{plat_label} Est. Reach", f"{plat_reach:,}"))
+                    _bench_add_curated_ad((f"{plat_label} Est. Reach", f"{plat_reach:,}"))
                 if fit_score and fit_score > 0:
-                    _bench_add_curated(
+                    _bench_add_curated_ad(
                         (f"{plat_label} Fit Score", _fmt_pct(fit_score, decimals=0))
                     )
                 # Deep intelligence data (91-platform KB enrichment)
@@ -6784,12 +6797,12 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 if isinstance(deep, dict) and deep:
                     visitors = deep.get("monthly_visitors")
                     if visitors:
-                        _bench_add_curated(
+                        _bench_add_curated_ad(
                             (f"{plat_label} Monthly Visitors", str(visitors))
                         )
                     best_for = deep.get("best_for") or []
                     if isinstance(best_for, list) and best_for:
-                        _bench_add_curated(
+                        _bench_add_curated_ad(
                             (
                                 f"{plat_label} Best For",
                                 ", ".join(str(b) for b in best_for[:3]),
@@ -6812,7 +6825,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                             )
                         else:
                             desc = str(bv)
-                        _bench_add_curated((f"Bidding: {label}", str(desc)[:40]))
+                        _bench_add_curated_ad((f"Bidding: {label}", str(desc)[:40]))
             except (TypeError, AttributeError):
                 pass
 
@@ -6971,7 +6984,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     _bench_src_w_in = table_w / 914400 - 0.2
     _bench_src_pt = 8.0  # _set_font floors the 7pt request to 8
     source_text, _bench_src_lines = _bench_source_text(
-        benchmarks, bool(ad_plat), _cph_local_sources, _bench_src_w_in, _bench_src_pt
+        benchmarks, False, _cph_local_sources, _bench_src_w_in, _bench_src_pt
     )
     _bench_src_box_h_in = _bench_src_lines * (_bench_src_pt * 1.35) / 72.0 + 0.05
 
@@ -7017,6 +7030,19 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         _bench_kept = _bench_kept_compact
     bench_rows = [bench_rows[k] for k in _bench_kept]
     bench_meta = [bench_meta[k] for k in _bench_kept]
+    # "Nova Ad Platform Intelligence" is named only when an ad-platform row
+    # survived the fit; the line count stays what the rows were fitted for.
+    if any(m.get("ad_platform") for m in bench_meta):
+        _ad_text, _ad_lines = _bench_source_text(
+            benchmarks,
+            True,
+            _cph_local_sources,
+            _bench_src_w_in,
+            _bench_src_pt,
+            max_lines=_bench_src_lines,
+        )
+        if _ad_lines <= _bench_src_lines:
+            source_text = _ad_text
     _bench_cell_h_in = [_bench_cell_h_in[k] for k in _bench_kept]
     _bench_row_font_pt = [_bench_row_font_pt[k] for k in _bench_kept]
     _bench_row_h_in = [max(_bench_body_base_in, h) for h in _bench_cell_h_in]
@@ -8618,8 +8644,12 @@ def _cmp_status_in_range(
 
 
 _CMP_STATUS_STYLE = {
-    "beating": (GREEN, "▲", "Beating benchmark"),
-    "trailing": (AMBER_TEXT, "▼", "Trailing benchmark"),
+    # The reference column is Nova's own coded estimate (not a published
+    # statistic), so the plan is "ahead of" / "behind" it -- never "beating a
+    # benchmark". The arrow marks the FAVOURABLE direction (a lower CPA is
+    # ahead), so the words are ahead / behind, not above / below.
+    "beating": (GREEN, "▲", "Ahead of Nova estimate"),
+    "trailing": (AMBER_TEXT, "▼", "Behind Nova estimate"),
     "on_par": (MUTED_TEXT, "—", "On par / within range"),
     "none": (MUTED_TEXT, "", ""),
 }
@@ -8875,7 +8905,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                     ),
                     # The industry column is a published benchmark range, not
                     # a projection (design-judge DJ4): its own label says so.
-                    "industry_metric": "Industry CPA (benchmark)",
+                    "industry_metric": "Industry CPA (Nova estimate)",
                     "client_val": _fmt_currency(proj_cpa),
                     "industry_val": _cpa_industry_val,
                     "status": _cpa_status,
@@ -9213,7 +9243,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     legend_w_in = 6.0  # unchanged -- the box the legend has always used
     legend_measure_w = legend_w_in - 0.2  # box width minus default 0.1in L/R insets
     legend_full = (
-        "\u25b2 Beating benchmark    \u25bc Trailing benchmark    "
+        "\u25b2 Ahead of Nova estimate    \u25bc Behind Nova estimate    "
         "\u2014 On par / within range"
     )
     # Compact wording used only when a currency-basis note must share the
@@ -9224,7 +9254,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # own at this box width, so it can never join the legend on one line
     # -- only the note's first clause can, and only once the legend
     # itself is this compact. Verified by direct measurement, not assumed.
-    legend_compact = "\u25b2 Beating   \u25bc Trailing   \u2014 On par"
+    legend_compact = "\u25b2 Ahead   \u25bc Behind   \u2014 On par"
 
     _cur_basis_note_s8 = _currency_basis_note(data)
     _legend_text_s8 = legend_full
@@ -9265,13 +9295,13 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         r1.text = "\u25b2 "
         _set_font(r1, size=8, bold=True, color=GREEN)
         r2 = p.add_run()
-        r2.text = "Beating benchmark    "
+        r2.text = "Ahead of Nova estimate    "
         _set_font(r2, size=8, color=MUTED_TEXT)
         r3 = p.add_run()
         r3.text = "\u25bc "
         _set_font(r3, size=8, bold=True, color=AMBER_TEXT)
         r4 = p.add_run()
-        r4.text = "Trailing benchmark    "
+        r4.text = "Behind Nova estimate    "
         _set_font(r4, size=8, color=MUTED_TEXT)
         r5 = p.add_run()
         r5.text = "\u2014 "
@@ -9284,13 +9314,13 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         r1.text = "\u25b2 "
         _set_font(r1, size=8, bold=True, color=GREEN)
         r2 = p.add_run()
-        r2.text = "Beating   "
+        r2.text = "Ahead   "
         _set_font(r2, size=8, color=MUTED_TEXT)
         r3 = p.add_run()
         r3.text = "\u25bc "
         _set_font(r3, size=8, bold=True, color=AMBER_TEXT)
         r4 = p.add_run()
-        r4.text = "Trailing   "
+        r4.text = "Behind   "
         _set_font(r4, size=8, color=MUTED_TEXT)
         r5 = p.add_run()
         r5.text = "\u2014 "
@@ -10019,7 +10049,11 @@ def _competitive_landscape_sources_line(comp_intel: Dict) -> str:
     if trends.get("employment_count") is not None:
         names.append(f"{trends.get('source') or 'BLS'} industry employment")
     if trends.get("kb_context") or trends.get("market_context"):
-        names.append("curated knowledge base")
+        # What these two blocks are: Nova's own industry outlook / demand
+        # driver notes and market-trend notes (data_synthesizer
+        # fuse_competitive_intelligence) -- not a published source. Say that
+        # in plain words instead of "curated knowledge base".
+        names.append("Nova industry notes (unaudited estimates)")
     # The knowledge-base industry-row fallback (time-to-fill, offer
     # acceptance, source mix -- see the fallback in
     # _build_slide_competitive_landscape) is Nova's own working estimate, not
@@ -10033,7 +10067,7 @@ def _competitive_landscape_sources_line(comp_intel: Dict) -> str:
     meta = comp_intel.get("_meta")
     meta = meta if isinstance(meta, dict) else {}
     suffix = (
-        " (client and industry context; no competitor-level sources)"
+        " \u2014 client and industry context; no competitor-level sources"
         if meta.get("competitor_evidence_count") == 0
         else ""
     )

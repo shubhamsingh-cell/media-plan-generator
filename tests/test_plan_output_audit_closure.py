@@ -784,14 +784,14 @@ class TestSlide8ProjectedCpaNeverFabricatesABeat:
                 sh
                 for sh in usd_slide8.shapes
                 if sh.has_text_frame
-                and "Beating benchmark" in sh.text_frame.text
+                and "Ahead of Nova estimate" in sh.text_frame.text
                 and "On par / within range" in sh.text_frame.text
             ),
             None,
         )
         assert usd_legend is not None, (
             "USD deck's slide 8 legend must keep its full original wording "
-            "('Beating benchmark' / 'On par / within range')"
+            "('Ahead of Nova estimate' / 'On par / within range')"
         )
 
         usd_row_shapes = _projected_cpa_row_shapes(usd_slide8)
@@ -801,12 +801,12 @@ class TestSlide8ProjectedCpaNeverFabricatesABeat:
             for para in shape.text_frame.paragraphs
             if "".join(r.text for r in para.runs).strip()
             # row labels: the plan's own, and the industry column's (relabelled
-            # "Industry CPA (benchmark)" -- it is a range, not a projection)
+            # "Industry CPA (Nova estimate)" -- it is a range, not a projection)
             and "".join(r.text for r in para.runs).strip()
             not in (
                 "Projected CPA",
                 "Projected CPA (plan efficiency)",
-                "Industry CPA (benchmark)",
+                "Industry CPA (Nova estimate)",
             )
         ]
         assert value_texts, "no Projected CPA value text found on the USD slide 8"

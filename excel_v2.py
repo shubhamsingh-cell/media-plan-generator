@@ -3360,18 +3360,61 @@ def _fx_per_usd_phrase(cph_info: Dict[str, Any]) -> str:
     return out
 
 
-def _cph_anchor_phrase(cph_info: Dict[str, Any]) -> str:
-    """What the hire totals are anchored to, in words that match the plan's
-    real cost-per-hire basis (``plan_projection.cph_basis``, the one function
-    the wizard, the checklist and the assumptions block read): "an assumed
-    all-in industry cost per hire (Nova table, unsourced)" for a plan on the
-    ``INDUSTRY_CPH_RANGES`` table -- never "cost-per-hire benchmarks", which
-    reads as a published source the table does not have -- or the cited local
-    range / knowledge-base row / cross-industry default it actually used."""
-    basis = plan_projection.cph_basis(cph_info)
-    if basis["kind"] == "nova_table":
-        return "an " + plan_projection.NOVA_TABLE_BASIS_LABEL
-    return basis["phrase"]
+def _cph_anchor_clause(cph_info: Dict[str, Any]) -> str:
+    """ONE plain clause saying what the hire totals are based on, for the ROI
+    methodology line and the Niche Board Matching purpose line. The kind comes
+    from ``plan_projection.cph_basis`` (the one function the wizard, the
+    checklist and the assumptions block read), so the four bases stay
+    consistent with them -- and each names its figure in the plan's money:
+
+    * ``nova_table`` -- "based on an assumed industry cost per hire of
+      $9,000-$12,000 (Nova estimate)";
+    * ``kb_row`` (the industry has no row in Nova's table, so the knowledge
+      base's own row is used) -- the same sentence, with that row's range;
+    * ``cross_industry_default`` -- "...an assumed cross-industry cost per hire
+      of ... (Nova estimate)";
+    * ``local_kb`` -- "based on the cited local cost-per-hire range of
+      EUR 48,000-EUR 64,000 (Eurojob-Consulting)".
+
+    Never "benchmarks" (a published source Nova's table does not have) and no
+    stacked parentheticals or internal wording ("knowledge base row", "floor:
+    half the cross-industry default"); a figure the resolver did not carry is
+    left out rather than invented."""
+    info = cph_info if isinstance(cph_info, dict) else {}
+    basis = plan_projection.cph_basis(info)
+    kind = basis["kind"]
+
+    def _range(low: Any, high: Any, ccy_info: Dict[str, Any]) -> str:
+        nums = [
+            float(v)
+            for v in (low, high)
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+        ]
+        if not nums:
+            return ""
+        lo, hi = min(nums), max(nums)
+        if lo == hi:
+            return _fmt_industry_cph(lo, ccy_info)
+        return f"{_fmt_industry_cph(lo, ccy_info)}\u2013{_fmt_industry_cph(hi, ccy_info)}"
+
+    if kind == "local_kb":
+        figure = _range(info.get("low"), info.get("high"), info)
+        names = ", ".join(basis["sources"]) or "cited local source"
+        of = f" of {figure}" if figure else ""
+        return f"based on the cited local cost-per-hire range{of} ({names})"
+    if kind == "kb_row":
+        row = info.get("display_row") if isinstance(info.get("display_row"), dict) else {}
+        # the knowledge base's own rows are US$ ranges
+        figure = _range(row.get("low"), row.get("high"), {"currency": "USD"})
+        noun = "industry"
+    elif kind == "cross_industry_default":
+        figure = _range(info.get("low"), info.get("high"), info)
+        noun = "cross-industry"
+    else:  # nova_table (also the no-resolver case)
+        figure = _range(info.get("low"), info.get("high"), info)
+        noun = "industry"
+    of = f" of {figure}" if figure else ""
+    return f"based on an assumed {noun} cost per hire{of} (Nova estimate)"
 
 
 def _roi_methodology_note(budget_alloc: Any) -> str:
@@ -3399,8 +3442,8 @@ def _roi_methodology_note(budget_alloc: Any) -> str:
             f"per-hire figure; {stage}"
         )
     return (
-        f"Methodology: hire totals are anchored to {_cph_anchor_phrase(info)} "
-        f"(not to this funnel); {stage}"
+        f"Methodology: hire totals are {_cph_anchor_clause(info)}, not on this "
+        f"funnel; {stage}"
     )
 
 
@@ -3671,6 +3714,23 @@ def _kb_industry_benchmark_section(
         "general_entry_level", {}
     )
     return ind_bench if isinstance(ind_bench, dict) else {}
+
+
+def _benchmark_block_has_figure(ws, first_row: int, end_row: int) -> bool:
+    """True when ``first_row..end_row-1`` of the benchmark block hold at least
+    one industry figure: a value cell (column D) with a digit that is not a
+    "No local benchmark ..." line and not the plan-calendar Seasonal Patterns
+    row."""
+    for r in range(first_row, end_row):
+        label = ws.cell(row=r, column=COL_START).value
+        value = ws.cell(row=r, column=COL_START + 2).value
+        if not isinstance(value, str) or str(label or "").startswith("Seasonal Patterns"):
+            continue
+        if value.lstrip().lower().startswith("no local benchmark"):
+            continue
+        if re.search(r"\d", value):
+            return True
+    return False
 
 
 def _benchmark_row_view(ind_bench: Dict[str, Any]) -> Dict[str, Any]:
@@ -4246,16 +4306,22 @@ def _write_kv_row(
     cell_v.font = _FONT_BODY
     cell_v.alignment = _ALIGN_WRAP
     cell_v.border = _BORDER_THIN
-    # The value is a MERGED cell, which Excel never auto-fits: size the row
-    # from the text so line 2+ is not clipped.
-    height = _merged_value_row_height(ws, value, col_start + 2, COL_END)
+    # Both the key (B:C) and the value (D:H) are MERGED cells, which Excel
+    # never auto-fits: size the row from whichever wraps to more lines, so
+    # neither a long value nor a long label ("Apply Rate (US benchmark -- no
+    # local data)" over the B:C key) loses its second line.
+    heights = [
+        _merged_value_row_height(ws, value, col_start + 2, COL_END),
+        _merged_value_row_height(ws, key, col_start, col_start + 1, 0.9),
+    ]
+    height = max((h for h in heights if h is not None), default=None)
     if height is not None:
         ws.row_dimensions[row].height = max(ws.row_dimensions[row].height or 0, height)
     return row + 1
 
 
 def _merged_value_row_height(
-    ws, text: str, first_col: int, last_col: int
+    ws, text: str, first_col: int, last_col: int, chars_per_unit: float = 1.0
 ) -> float | None:
     """Explicit row height for a value merged across ``first_col..last_col``
     that wraps to 2+ lines at the 10 pt body font.
@@ -4265,12 +4331,13 @@ def _merged_value_row_height(
     after its first line was clipped (the Executive Summary benchmark rows).
     Lines are estimated from the merged width (sum of the column widths) at
     ~1.0 character per width unit for 10 pt Calibri/Arial; ``None`` when one
-    line is enough."""
+    line is enough. ``chars_per_unit`` is ~1.0 for the regular body font and
+    ~0.9 for the bold key labels."""
     total_width = sum(
         ws.column_dimensions[get_column_letter(c)].width or 8.43
         for c in range(first_col, last_col + 1)
     )
-    per_line = max(10.0, total_width * 1.0)
+    per_line = max(10.0, total_width * chars_per_unit)
     lines = sum(
         max(1, math.ceil(len(part) / per_line)) for part in str(text).split("\n")
     )
@@ -5628,7 +5695,7 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         )
         if cpa_range:
             lines.append(
-                f"Industry CPA Benchmark Range: ${cpa_range[0]:,.0f}-${cpa_range[1]:,.0f}"
+                f"Industry CPA range (Nova estimate): ${cpa_range[0]:,.0f}-${cpa_range[1]:,.0f}"
             )
 
         cpc_field = ind_bench.get("cpc")
@@ -5639,7 +5706,7 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         )
         if cpc_range:
             lines.append(
-                f"Industry CPC Benchmark Range: ${cpc_range[0]:,.2f}-${cpc_range[1]:,.2f}"
+                f"Industry CPC range (Nova estimate): ${cpc_range[0]:,.2f}-${cpc_range[1]:,.2f}"
             )
 
         apply_source = _latest_kb_year_value(ind_bench.get("apply_rate"))
@@ -5647,13 +5714,15 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         apply_range = _parse_numeric_range(apply_clean)
         if apply_range:
             lines.append(
-                f"Industry Apply-Rate Benchmark Range: {apply_range[0]:.2f}%-"
+                f"Industry apply-rate range (Nova estimate): {apply_range[0]:.2f}%-"
                 f"{apply_range[1]:.2f}%"
             )
         else:
             _single = re.findall(r"\d+(?:\.\d+)?", apply_clean)
             if _single:
-                lines.append(f"Industry Apply-Rate Benchmark: {float(_single[0]):.2f}%")
+                lines.append(
+                    f"Industry apply rate (Nova estimate): {float(_single[0]):.2f}%"
+                )
 
         cph_field = ind_bench.get("cph")
         cph_val = 0.0
@@ -5662,7 +5731,10 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
             # narrative as the "industry cost per hire" (phase B, item 3)
             cph_val = _parse_cph_point_estimate(cph_field.get("total_cost_per_hire"))
         if cph_val > 0 and not ctx.get("cph_suppressed"):
-            lines.append(f"Industry Cost/Hire Benchmark: {_fmt_currency(cph_val)}")
+            lines.append(
+                "Assumed industry cost per hire (Nova table, unsourced): "
+                f"{_fmt_currency(cph_val)}"
+            )
 
         ttf_field = ind_bench.get("time_to_fill")
         ttf_source = (
@@ -5671,7 +5743,7 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         ttf_range = _parse_numeric_range(_clean_benchmark_text_for_parsing(ttf_source))
         if ttf_range:
             lines.append(
-                f"Industry Time-to-Fill Benchmark Range: {ttf_range[0]:.0f}-"
+                f"Industry time-to-fill range (Nova estimate): {ttf_range[0]:.0f}-"
                 f"{ttf_range[1]:.0f} days"
             )
         else:
@@ -5680,7 +5752,7 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
             )
             if _ttf_single:
                 lines.append(
-                    f"Industry Time-to-Fill Benchmark: {float(_ttf_single[0]):.0f} days"
+                    f"Industry time-to-fill (Nova estimate): {float(_ttf_single[0]):.0f} days"
                 )
 
     if ctx.get("seasonality_text"):
@@ -7197,7 +7269,12 @@ def _build_sheet_executive_summary(
             # ONE honesty note under the table, the SAME string the deck's
             # benchmark slide prints (plan_trust.BENCHMARK_FOOTNOTE): the
             # ranges above are Nova working estimates, not audited figures.
-            if row > _bench_rows_start:
+            # ...but only under a block that actually printed a figure: an
+            # estimate note under a lone "No local benchmark for this market"
+            # row says nothing about nothing (Berlin automotive, 2026-10-18).
+            # The plan's own Activation-Calendar months are not an industry
+            # estimate, so the Seasonal Patterns row does not count.
+            if _benchmark_block_has_figure(ws, _bench_rows_start, row):
                 row = _write_footnote(ws, row, plan_trust.BENCHMARK_FOOTNOTE)
 
             # S89A FIX (findings data:manpower#3/#4, visual:manpower#3,
@@ -14964,8 +15041,8 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
             if _plan_industry_cph(data.get("_budget_allocation") or {}).get(
                 "claim_suppressed"
             )
-            else "This plan anchors total hires to "
-            f"{_cph_anchor_phrase(_plan_industry_cph(data.get('_budget_allocation') or {}))} "
+            else "This plan's total hires are "
+            f"{_cph_anchor_clause(_plan_industry_cph(data.get('_budget_allocation') or {}))} "
             "rather than a funnel model (see ROI Projections, Methodology)"
         )
         _niche_purpose = (

@@ -251,13 +251,17 @@ def test_slide5_orders_observed_rows_right_after_cpa_cpc_cph(brief) -> None:
 
 
 def test_slide5_evicts_curated_rows_before_observed_rows() -> None:
-    """Space runs out on the two-role US table: BOTH observed Live Postings
-    rows (each says what the count covers, so takes two short lines) are kept
-    and the apply-rate benchmark / ad-platform rows are what give way."""
+    """Space runs out on the two-role US table: an observed Live Postings row
+    (each says what the count covers, so takes two short lines) is kept ahead
+    of the apply-rate benchmark / ad-platform rows, which are what give way.
+
+    Phase B (2026-10-18): the static-table source line is now the two-line
+    shared estimate note (plan_trust.BENCHMARK_FOOTNOTE) instead of a one-line
+    "Sources: Industry benchmarks <year>", which costs the table 0.15in -- on
+    this dense plan the SECOND observed row is the one that no longer fits."""
     slide = _slide5(_deck(_plan(US_TWO_ROLE, observed=True)))
     texts = [s.text_frame.text for s in _shapes_with_text(slide)]
     assert any(t.startswith("Live Postings: Registered Nurse") for t in texts)
-    assert any(t.startswith("Live Postings: Travel Nurse") for t in texts)
     assert "Apply Rate" not in texts
     assert not any(t.startswith("Google Ads") for t in texts)
 
@@ -271,7 +275,11 @@ def test_slide5_nokeys_deck_has_no_live_postings_row() -> None:
 def test_slide5_table_closes_the_band_above_the_attribution_header() -> None:
     slide = _slide5(_deck(_plan(US_TWO_ROLE, observed=True)))
     shapes = _shapes_with_text(slide)
-    src = next(s for s in shapes if s.text_frame.text.startswith("Sources: "))
+    src = next(
+        s
+        for s in shapes
+        if s.text_frame.text.startswith(("Sources: ", "Industry ranges are"))
+    )
     header = next(
         s for s in shapes if s.text_frame.text == "CHANNEL CATEGORY ATTRIBUTION"
     )
@@ -394,14 +402,14 @@ def test_slide5_names_the_place_for_a_location_scoped_count() -> None:
 
 
 @pytest.mark.parametrize("brief", [US_TWO_ROLE, UK_WAREHOUSE], ids=["us", "uk"])
-def test_slide8_labels_the_industry_cpa_a_benchmark(brief) -> None:
+def test_slide8_labels_the_industry_cpa_a_nova_estimate(brief) -> None:
     slide = _slide8(_deck(_plan(brief, observed=False)))
     right = [
         s.text_frame.text
         for s in _shapes_with_text(slide)
         if _inch(s, "left") > 6.5 and _inch(s, "top") > 1.5 and _inch(s, "top") < 5.0
     ]
-    assert "Industry CPA (benchmark)" in right
+    assert "Industry CPA (Nova estimate)" in right
     assert "Projected CPA" not in right
     left = [
         s.text_frame.text for s in _shapes_with_text(slide) if _inch(s, "left") < 6.5
