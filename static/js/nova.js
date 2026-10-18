@@ -1199,6 +1199,8 @@
         messages: conv.messages.slice(-MAX_STORED_MESSAGES),
         createdAt: conv.createdAt,
         updatedAt: conv.updatedAt,
+        serverId: conv.serverId || "",
+        sessionToken: conv.sessionToken || "",
       };
     });
     return toSave;
@@ -2839,9 +2841,12 @@
       }
     });
 
+    // The server binds a turn to a conversation only with that conversation's
+    // session token; it may answer with a different conversation id.
     var payload = {
       message: text,
-      conversation_id: conv.id,
+      conversation_id: conv.serverId || conv.id,
+      session_token: conv.sessionToken || "",
       history: history.slice(-MAX_HISTORY),
     };
     // Attach file if present
@@ -2896,6 +2901,8 @@
     // ── Finalize stream response (shared by WS and SSE) ──
     function _finalizeStream(metadata, fullText) {
       if (_isStale()) return;
+      if (metadata.conversation_id) conv.serverId = metadata.conversation_id;
+      if (metadata.session_token) conv.sessionToken = metadata.session_token;
       var cur = document.getElementById("streaming-cursor");
       if (cur) cur.remove();
       // A11y: clear the streaming busy flag so the finalized answer (appended
@@ -3224,7 +3231,7 @@
           "Content-Type": "application/json",
           "X-CSRF-Token": window.__csrfToken,
         },
-        body: JSON.stringify({ conversation_id: conv.id }),
+        body: JSON.stringify({ conversation_id: conv.serverId || conv.id }),
       }).catch(function (err) {
         console.warn("[Nova] Stop generation failed:", err);
       });

@@ -11,16 +11,18 @@ Handles all Supabase operations for Nova chatbot:
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
+import re
 import threading
 import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from secrets import token_hex
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -649,44 +651,57 @@ def get_or_create_conversation(
         return None
 
 
+def _fetch_session_token_row(conversation_id: str) -> Optional[Dict[str, Any]]:
+    """The stored row (session_token only) for a conversation, None if absent.
+
+    Picks the same row ``get_or_create_conversation`` would. Raises on any
+    lookup error so each caller decides what an unverifiable row means.
+    """
+    sb = _get_supabase()
+    if not sb:
+        raise RuntimeError("persistence unavailable")
+    _detect_schema()  # sets the lookup column
+    result = (
+        sb.table("nova_conversations")
+        .select("session_token")
+        .eq(_conversation_lookup_column, conversation_id)
+        .order("id", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def _tokens_match(stored_token: str, client_token: Any) -> bool:
+    """Constant-time comparison; False for an empty or non-string token."""
+    if not stored_token or not isinstance(client_token, str) or not client_token:
+        return False
+    return hmac.compare_digest(
+        stored_token.encode("utf-8"), client_token.encode("utf-8")
+    )
+
+
 def verify_conversation_token(
     conversation_id: str,
     session_token: str,
 ) -> bool:
-    """Verify that the session_token matches the conversation's stored token.
+    """True only when ``session_token`` matches the conversation's stored token.
 
-    If the conversation has no session_token stored (legacy), allow access.
+    Used by paths that serve a conversation's stored state, so anything that
+    cannot be verified is denied: an empty token, no persistence, no such
+    conversation, a conversation without a stored token, or a lookup error.
 
     Args:
-        conversation_id: UUID of the conversation.
-        session_token: Token from the client.
+        conversation_id: Conversation identifier.
+        session_token: Token presented by the client.
 
     Returns:
-        True if token matches or no token is set on the conversation.
+        True if the presented token matches the stored one, else False.
     """
-    if not session_token:
+    if not conversation_id or not session_token:
         return False
-
-    sb = _get_supabase()
-    if not sb:
-        return True  # Allow if persistence unavailable
-
     try:
-        _col = _conversation_lookup_column
-        result = (
-            sb.table("nova_conversations")
-            .select("session_token")
-            .eq(_col, conversation_id)
-            .execute()
-        )
-        if not result.data:
-            return True  # Conversation doesn't exist yet; allow creation
-
-        stored_token = result.data[0].get("session_token") or ""
-        if not stored_token:
-            return True  # Legacy conversation without token
-
-        return stored_token == session_token
+        row = _fetch_session_token_row(conversation_id)
     except Exception as exc:
         logger.error(
             "verify_conversation_token(%s) failed: %s",
@@ -694,7 +709,73 @@ def verify_conversation_token(
             exc,
             exc_info=True,
         )
-        return True  # Fail open if verification itself errors
+        return False
+    if row is None:
+        return False
+    return _tokens_match(row.get("session_token") or "", session_token)
+
+
+_CONVERSATION_ID_PREFIX_RE = re.compile(r"[A-Za-z]{1,16}-")
+
+
+def _start_fresh_conversation(requested_id: str) -> Tuple[str, str]:
+    """Create a new conversation and return (conversation_id, session_token).
+
+    The new id keeps the requested id's short alphabetic prefix (for example
+    ``nova-``) so client-side id format checks keep accepting it.
+    """
+    prefix_match = _CONVERSATION_ID_PREFIX_RE.match(requested_id or "")
+    prefix = prefix_match.group(0) if prefix_match else ""
+    new_id = f"{prefix}{uuid.uuid4()}"
+    row = get_or_create_conversation(new_id)
+    return new_id, ((row or {}).get("session_token") or "")
+
+
+def resolve_chat_conversation(
+    conversation_id: str,
+    client_token: Any,
+) -> Tuple[str, str]:
+    """The conversation a chat turn may use, and that conversation's token.
+
+    A turn binds to ``conversation_id`` only when the client presents that
+    conversation's stored session token, or when the conversation does not
+    exist yet (it is created here and its new token returned). In every other
+    case -- no or wrong token, a stored row without a token, an old-schema
+    table, or a lookup error -- the turn gets a brand-new conversation, so it
+    never reads or writes another conversation's state. Callers return the
+    resulting id and token to the client.
+
+    Without persistence there are no stored conversations or tokens, and the
+    requested id is returned unchanged with an empty token.
+
+    Args:
+        conversation_id: Conversation id requested by the client.
+        client_token: Session token presented by the client.
+
+    Returns:
+        (conversation_id, session_token) for the turn to use.
+    """
+    if not _get_supabase():
+        return conversation_id, ""
+    if not _detect_schema():
+        return _start_fresh_conversation(conversation_id)
+    try:
+        row = _fetch_session_token_row(conversation_id)
+    except Exception as exc:
+        logger.error(
+            "resolve_chat_conversation(%s) lookup failed: %s",
+            conversation_id,
+            exc,
+            exc_info=True,
+        )
+        return _start_fresh_conversation(conversation_id)
+    if row is None:
+        created = get_or_create_conversation(conversation_id)
+        return conversation_id, ((created or {}).get("session_token") or "")
+    stored_token = row.get("session_token") or ""
+    if _tokens_match(stored_token, client_token):
+        return conversation_id, stored_token
+    return _start_fresh_conversation(conversation_id)
 
 
 def _append_message_old_schema(

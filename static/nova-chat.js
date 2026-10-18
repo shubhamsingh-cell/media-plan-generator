@@ -144,8 +144,11 @@
     return msg === "WebSocket error" || msg === "WebSocket closed";
   }
 
-  // SSE answers 403; the socket answers {"error": "Unauthorized: invalid
-  // session token"}. Both mean the stored token belongs to another conversation.
+  // Fallback only. The server now answers a missing or wrong token with a NEW
+  // conversation (id + token in the done event, adopted by adoptServerSession)
+  // instead of an error. Older servers answered 403 over SSE and
+  // {"error": "Unauthorized: invalid session token"} over the socket; both mean
+  // the stored token belongs to another conversation.
   function isStaleAuthError(msg) {
     var m = String(msg == null ? "" : msg);
     return /^HTTP 403/.test(m) || /invalid session token/i.test(m);
@@ -1681,6 +1684,29 @@
       return sid && /^nova-[0-9a-f-]{32,36}$/.test(sid) ? sid : mintSessionId();
     } catch (e) {
       return "nova-" + secureRandomId();
+    }
+  }
+
+  // The server binds a turn to a conversation only with that conversation's
+  // session token, and may answer with a different conversation id: keep
+  // both, unless the visitor has started a new chat since the turn was sent.
+  function adoptServerSession(meta, sentConversationId) {
+    if (!meta || state.sessionId !== sentConversationId) return;
+    var cid = meta.conversation_id;
+    if (typeof cid === "string" && /^nova-[0-9a-f-]{32,36}$/.test(cid)) {
+      state.sessionId = cid;
+      try {
+        localStorage.setItem(CONFIG.sessionKey, cid);
+      } catch (e) {
+        /* localStorage write failed -- the id still lives in state */
+      }
+    }
+    if (meta.session_token) {
+      try {
+        localStorage.setItem(CONFIG.sessionTokenKey, meta.session_token);
+      } catch (e) {
+        /* localStorage write failed */
+      }
     }
   }
 
@@ -3665,9 +3691,8 @@
     state.messages = [];
     try {
       localStorage.removeItem(CONFIG.storageKey);
-      // The stored session token is bound to the OLD conversation id. Sent
-      // with the new id the server rejects it (403 invalid session token), so
-      // the first message after "New chat" would fail and so would every Retry.
+      // The stored session token is bound to the OLD conversation id; the new
+      // id gets its own token from the server on its first turn.
       localStorage.removeItem(CONFIG.sessionTokenKey);
     } catch (e) {
       /* localStorage unavailable */
@@ -3922,14 +3947,7 @@
               var finalKbFiles = metadata.kb_files_queried || [];
               var finalTimingMs =
                 metadata.timing_ms != null ? metadata.timing_ms : null;
-              if (metadata.session_token) {
-                try {
-                  localStorage.setItem(
-                    CONFIG.sessionTokenKey,
-                    metadata.session_token,
-                  );
-                } catch (e) {}
-              }
+              adoptServerSession(metadata, payload.conversation_id);
               var cursors = wsStreamEl.querySelectorAll(
                 ".nova-streaming-cursor",
               );
@@ -4228,16 +4246,7 @@
                 metadata.timing_ms != null ? metadata.timing_ms : null;
 
               // Store session token if returned by server (Issue 4)
-              if (metadata.session_token) {
-                try {
-                  localStorage.setItem(
-                    CONFIG.sessionTokenKey,
-                    metadata.session_token,
-                  );
-                } catch (e) {
-                  /* localStorage write failed */
-                }
-              }
+              adoptServerSession(metadata, payload.conversation_id);
 
               // Remove blinking cursor
               var cursors = streamEl.querySelectorAll(".nova-streaming-cursor");
@@ -4376,6 +4385,7 @@
                   return res.json();
                 })
                 .then(function (data) {
+                  adoptServerSession(data, payload.conversation_id);
                   appendMessage({
                     role: "assistant",
                     content: data.response || "No response received.",
@@ -4455,6 +4465,7 @@
           hideTyping();
           // Unwrap API envelope: _send_json wraps as {success, data, error}
           var result = data && data.data ? data.data : data;
+          adoptServerSession(result, payload.conversation_id);
           // PostHog: track non-streaming response received
           if (window.posthog && typeof window.posthog.capture === "function") {
             window.posthog.capture("nova_chat_response_received", {

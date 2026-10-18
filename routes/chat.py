@@ -32,13 +32,44 @@ def handle_chat_get_routes(handler, path: str, parsed: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
+SESSION_TOKEN_HEADER = "X-Nova-Session-Token"
+
+
+def request_has_conversation_token(handler, conversation_id: str) -> bool:
+    """True when the request presents ``conversation_id``'s session token.
+
+    Convention for every endpoint that reads a stored conversation: the token
+    the chat endpoints returned with the conversation id is sent in the
+    ``X-Nova-Session-Token`` request header (never in the URL, so it stays
+    out of access logs and Referer headers).
+    """
+    token = handler.headers.get(SESSION_TOKEN_HEADER) or ""
+    try:
+        from nova_persistence import verify_conversation_token
+    except ImportError:
+        logger.error("nova_persistence unavailable for token check", exc_info=True)
+        return False
+    return verify_conversation_token(conversation_id, token)
+
+
 def _handle_chat_history(handler, path: str, parsed: Any) -> None:
-    """/api/chat/history -- load conversation history from Supabase."""
+    """/api/chat/history -- load one conversation's stored messages.
+
+    Requires the conversation's session token in the ``X-Nova-Session-Token``
+    header; answers 403 without a matching token.
+    """
     qs = urllib.parse.parse_qs(parsed.query)
     conv_id = (qs.get("conversation_id") or [None])[0]
     if not conv_id:
         handler._send_json(
             {"error": "conversation_id parameter required"}, status_code=400
+        )
+        return
+    if not request_has_conversation_token(handler, conv_id):
+        handler._send_error(
+            "A valid session token is required for this conversation",
+            "FORBIDDEN",
+            403,
         )
         return
     _app = sys.modules.get("app") or sys.modules.get("__main__")
@@ -49,7 +80,10 @@ def _handle_chat_history(handler, path: str, parsed: Any) -> None:
 
 
 def _handle_chat_conversations(handler, path: str, parsed: Any) -> None:
-    """/api/chat/conversations -- list recent conversations from Supabase."""
+    """/api/chat/conversations -- list recent conversations (admin only)."""
+    if not handler._check_admin_auth():
+        handler._send_error("Admin authentication required", "AUTH_REQUIRED", 401)
+        return
     qs = urllib.parse.parse_qs(parsed.query)
     limit_str = (qs.get("limit") or ["50"])[0]
     try:
@@ -64,7 +98,10 @@ def _handle_chat_conversations(handler, path: str, parsed: Any) -> None:
 
 
 def _handle_chat_conversations_search(handler, path: str, parsed: Any) -> None:
-    """/api/nova/conversations/search -- search conversations by query term."""
+    """/api/nova/conversations/search -- search conversations (admin only)."""
+    if not handler._check_admin_auth():
+        handler._send_error("Admin authentication required", "AUTH_REQUIRED", 401)
+        return
     qs = urllib.parse.parse_qs(parsed.query)
     query = (qs.get("q") or [""])[0].strip()
     if not query:

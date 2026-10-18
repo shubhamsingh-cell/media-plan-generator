@@ -8044,7 +8044,7 @@ _OPENAPI_SPEC = {
         "/api/chat/history": {
             "get": {
                 "summary": "Load conversation history",
-                "description": "Load all messages for a conversation by ID from Supabase.",
+                "description": "Load all messages for a conversation by ID. Requires the conversation's session token in the X-Nova-Session-Token header.",
                 "operationId": "novaChatHistory",
                 "tags": ["Chat"],
                 "parameters": [
@@ -8061,7 +8061,7 @@ _OPENAPI_SPEC = {
         "/api/chat/conversations": {
             "get": {
                 "summary": "List recent conversations",
-                "description": "List the most recent Nova chat conversations (last 50 by default).",
+                "description": "List the most recent Nova chat conversations (last 50 by default). Admin only.",
                 "operationId": "novaChatConversations",
                 "tags": ["Chat"],
                 "parameters": [
@@ -12210,6 +12210,43 @@ def _supabase_rest(
         return None
 
 
+def _bind_chat_conversation(data: dict, mint_when_missing: bool = True) -> str:
+    """Point ``data["conversation_id"]`` at a conversation this turn may use.
+
+    The requested conversation is used only when the request carries its
+    session token, or when it does not exist yet (it is created). Otherwise
+    the turn is moved to a new conversation (see
+    ``nova_persistence.resolve_chat_conversation``). The caller sends the
+    resulting ``conversation_id`` and the returned token back to the client.
+
+    Args:
+        data: Parsed chat request; ``conversation_id`` is rewritten in place.
+        mint_when_missing: Start a new conversation when the request names
+            none (streaming paths); when False the request stays without one.
+
+    Returns:
+        The session token for ``data["conversation_id"]`` ("" when none).
+    """
+    requested = data.get("conversation_id")
+    requested = requested.strip() if isinstance(requested, str) else ""
+    if not requested:
+        if not mint_when_missing:
+            data["conversation_id"] = ""
+            return ""
+        requested = str(uuid.uuid4())
+    try:
+        from nova_persistence import resolve_chat_conversation
+
+        conversation_id, session_token = resolve_chat_conversation(
+            requested, data.get("session_token")
+        )
+    except Exception as exc:
+        logger.error("Chat conversation binding failed: %s", exc, exc_info=True)
+        conversation_id, session_token = str(uuid.uuid4()), ""
+    data["conversation_id"] = conversation_id
+    return session_token
+
+
 def _save_conversation_turn(
     conversation_id: str,
     user_message: str,
@@ -15206,43 +15243,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 data["message"] = _sanitize_chat_input(data.get("message"))
                 data["message"] = _dedup_repetitive_input(data["message"])
 
-                conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+                # The turn binds to the requested conversation only with its
+                # session token; otherwise it gets a new conversation.
+                _conv_session_token = _bind_chat_conversation(data)
+                conversation_id = data["conversation_id"]
                 ws_conn.conversation_id = conversation_id
-
-                # Session token verification
-                _conv_session_token = ""
-                client_session_token = data.get("session_token") or ""
-                try:
-                    from nova_persistence import (
-                        get_or_create_conversation,
-                        verify_conversation_token,
-                    )
-
-                    conv_row = get_or_create_conversation(conversation_id)
-                    if conv_row:
-                        _conv_session_token = conv_row.get("session_token") or ""
-                        if (
-                            _conv_session_token
-                            and client_session_token
-                            and not verify_conversation_token(
-                                conversation_id, client_session_token
-                            )
-                        ):
-                            ws_conn.send_json(
-                                {
-                                    "error": "Unauthorized: invalid session token",
-                                    "done": True,
-                                }
-                            )
-                            continue
-                except ImportError:
-                    pass
-                except Exception as _auth_err:
-                    logger.error(
-                        "WS conversation auth check failed: %s",
-                        _auth_err,
-                        exc_info=True,
-                    )
 
                 cancel_event = _register_stream(conversation_id)
 
@@ -23407,6 +23412,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "Chat history exceeds 50 messages limit", "VALIDATION_ERROR", 400
                 )
                 return
+            # The turn binds to the requested conversation only with its
+            # session token; otherwise it gets a new conversation.
+            _chat_session_token = _bind_chat_conversation(data, mint_when_missing=False)
             _CHAT_REQUEST_TIMEOUT: float = (
                 110.0  # seconds -- S40: 90s still too tight for 6+ tool queries
                 # 6 tools x 8s = 48s tools + 25s synthesis + enrichment = needs ~80-90s
@@ -23647,6 +23655,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "tools_used": [],
                     "error": "Internal error processing request",
                 }
+            if data.get("conversation_id") and isinstance(response, dict):
+                response["conversation_id"] = data["conversation_id"]
+                response["session_token"] = _chat_session_token
             self._send_json(response)
 
             # ── PostHog: Track chat message ──
@@ -23776,43 +23787,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 },
             )
 
-            conversation_id = data.get("conversation_id") or str(uuid.uuid4())
-            client_session_token = data.get("session_token") or ""
-
-            # Issue 4: Verify session token for conversation ownership
-            _conv_session_token = ""
-            try:
-                from nova_persistence import (
-                    get_or_create_conversation,
-                    verify_conversation_token,
-                )
-
-                conv_row = get_or_create_conversation(conversation_id)
-                if conv_row:
-                    _conv_session_token = conv_row.get("session_token") or ""
-                    # If conversation is new (just created), pass back the token
-                    # If existing, verify the client's token matches
-                    if (
-                        _conv_session_token
-                        and client_session_token
-                        and not verify_conversation_token(
-                            conversation_id, client_session_token
-                        )
-                    ):
-                        logger.warning(
-                            "Session token mismatch for conversation %s",
-                            _conv_log_tag(conversation_id),
-                        )
-                        self._send_error(
-                            "Unauthorized: invalid session token", "AUTH_ERROR", 403
-                        )
-                        return
-            except ImportError:
-                pass
-            except Exception as _auth_err:
-                logger.error(
-                    "Conversation auth check failed: %s", _auth_err, exc_info=True
-                )
+            # The turn binds to the requested conversation only with its
+            # session token; otherwise it gets a new conversation.
+            _conv_session_token = _bind_chat_conversation(data)
+            conversation_id = data["conversation_id"]
 
             cancel_event = _register_stream(conversation_id)
 
@@ -24171,6 +24149,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             _sum_conv_id = data.get("conversation_id") or ""
             if not _sum_conv_id or not isinstance(_sum_conv_id, str):
                 self._send_error("conversation_id is required", "VALIDATION_ERROR", 400)
+                return
+            # Same convention as /api/chat/history: the conversation's session
+            # token in the X-Nova-Session-Token header.
+            from routes.chat import request_has_conversation_token
+
+            if not request_has_conversation_token(self, _sum_conv_id):
+                self._send_error(
+                    "A valid session token is required for this conversation",
+                    "FORBIDDEN",
+                    403,
+                )
                 return
 
             # Optional: pass messages directly (for client-side conversations)
@@ -27326,7 +27315,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
     # and the API portal.
     _NOVA_WIDGET_SNIPPET = (
         b"\n<!-- Nova AI Chat Widget (auto-injected) -->"
-        b'\n<script src="/static/nova-chat.js?v=nux2"></script>'
+        b'\n<script src="/static/nova-chat.js?v=nux3"></script>'
         b'\n<script>(function(){if(typeof NovaChat!=="undefined")NovaChat.init({containerId:null})})();</script>\n'
     )
     _NOVA_WIDGET_SKIP_PAGES = {

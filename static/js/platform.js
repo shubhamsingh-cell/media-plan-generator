@@ -1344,6 +1344,7 @@ const NovaDrawer = (() => {
   let _isOpen = false;
   const CHAT_KEY = "nova_chat_v1";
   const CONV_KEY = "nova_drawer_conv";
+  const CONV_TOKEN_KEY = "nova_drawer_conv_token";
 
   /* Module-specific suggestion chips */
   const MODULE_SUGGESTIONS = {
@@ -1514,6 +1515,7 @@ const NovaDrawer = (() => {
     const id = "drawer-" + _secureRandomId();
     try {
       localStorage.setItem(CONV_KEY, id);
+      localStorage.removeItem(CONV_TOKEN_KEY);
     } catch (e) {
       /* storage unavailable -- the id still lives in _convId */
     }
@@ -1530,6 +1532,36 @@ const NovaDrawer = (() => {
     /* Ids minted by older builds (Math.random) are guessable: replace them. */
     if (!/^drawer-[0-9a-f-]{32,36}$/.test(_convId)) _convId = _mintConversationId();
     return _convId;
+  }
+
+  /* The server binds a turn to a conversation only with that conversation's
+     session token, and may answer with a different conversation id: keep both. */
+  function _conversationToken() {
+    try {
+      return localStorage.getItem(CONV_TOKEN_KEY) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function _adoptServerConversation(data) {
+    if (!data) return;
+    const cid = data.conversation_id;
+    if (typeof cid === "string" && /^drawer-[0-9a-f-]{32,36}$/.test(cid)) {
+      _convId = cid;
+      try {
+        localStorage.setItem(CONV_KEY, cid);
+      } catch (e) {
+        /* storage unavailable -- the id still lives in _convId */
+      }
+    }
+    if (typeof data.session_token === "string" && data.session_token) {
+      try {
+        localStorage.setItem(CONV_TOKEN_KEY, data.session_token);
+      } catch (e) {
+        /* storage unavailable */
+      }
+    }
   }
 
   function _loadChatHistory() {
@@ -1830,6 +1862,7 @@ const NovaDrawer = (() => {
         body: JSON.stringify({
           message: text,
           conversation_id: conversationId,
+          session_token: _conversationToken(),
           history: _chatHistory
             .filter((m) => m.role === "user" || m.role === "nova")
             .slice(-10)
@@ -1865,6 +1898,7 @@ const NovaDrawer = (() => {
                   body: JSON.stringify({
                     message: text,
                     conversation_id: conversationId,
+                    session_token: _conversationToken(),
                     history: _chatHistory
                       .filter((m) => m.role === "user" || m.role === "nova")
                       .slice(-10)
@@ -1890,6 +1924,7 @@ const NovaDrawer = (() => {
           /* Remove typing indicator */
           if (typingEl.parentNode) typingEl.remove();
           if (generation !== _generation) return; /* New chat started */
+          _adoptServerConversation(data);
 
           const responseText =
             data.response ||
