@@ -321,7 +321,7 @@
               type="button"
               class="topbar-btn"
               id="topbar-new-chat-btn"
-              title="New chat"
+              title="New chat: clear this conversation and start over"
               aria-label="New chat"
             >
               <svg
@@ -336,6 +336,7 @@
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
+              <span class="topbar-btn-label">New chat</span>
             </button>
             <!-- Overflow menu (more actions) -->
             <div class="topbar-overflow-wrap" id="topbar-overflow-wrap">
@@ -541,7 +542,7 @@
             display: inline-flex;
             align-items: center;
             font-family: var(--font-mono);
-            font-size: 10.5px;
+            font-size: 11px;
             font-weight: 600;
             letter-spacing: 0.08em;
             text-transform: uppercase;
@@ -646,10 +647,103 @@
           .np-help-link:hover {
             text-decoration-thickness: 2px;
           }
+          /* The intro never owns the page: it opens compact (title row only),
+             the example is opt-in and scrolls inside a bounded box, and the
+             whole block can be hidden. It steps aside once a chat starts. */
+          .nova-persona[data-state="compact"] .np-demo,
+          .nova-persona[data-state="hidden"] .np-hero,
+          .nova-persona[data-state="hidden"] .np-demo,
+          .nova-persona[data-convo="true"] {
+            display: none;
+          }
+          .nova-persona[data-state="expanded"] {
+            max-height: 55vh;
+            max-height: 55dvh;
+            overflow-y: auto;
+          }
+          .nova-persona[data-state="hidden"] {
+            padding: 6px 20px;
+          }
+          .nova-persona[data-state="compact"] {
+            padding-bottom: 14px;
+          }
+          .nova-persona[data-state="compact"] .np-hero {
+            margin-bottom: 0;
+          }
+          .np-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+          }
+          .np-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 36px;
+            padding: 0 14px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(90, 84, 190, 0.35);
+            background: var(--bg-primary);
+            color: var(--accent-purple);
+            font: 600 13px/1 var(--font-sans, "Inter", sans-serif);
+            cursor: pointer;
+            transition:
+              background 0.15s ease,
+              border-color 0.15s ease;
+          }
+          .np-btn:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-purple);
+          }
+          .np-btn:focus-visible {
+            outline: 2px solid var(--accent-purple);
+            outline-offset: 2px;
+          }
+          .np-btn svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+          }
+          .np-btn[aria-expanded="true"] .np-chevron {
+            transform: rotate(180deg);
+          }
+          .np-strip {
+            display: none;
+          }
+          .nova-persona[data-state="hidden"] .np-strip {
+            display: flex;
+            justify-content: flex-end;
+          }
+          .np-btn--quiet {
+            min-height: 28px;
+            border-color: transparent;
+            background: transparent;
+          }
+          #topbar-new-chat-btn .topbar-btn-label {
+            display: none;
+          }
+          @media (min-width: 768px) {
+            #topbar-new-chat-btn {
+              width: auto;
+              padding: 0 12px;
+              gap: 6px;
+            }
+            #topbar-new-chat-btn .topbar-btn-label {
+              display: inline;
+              font-size: 13px;
+              font-weight: 600;
+            }
+          }
           @media (prefers-reduced-motion: reduce) {
             .np-bubble {
               opacity: 1;
               transform: none;
+              transition: none;
+            }
+            .np-btn,
+            .np-btn svg {
               transition: none;
             }
           }
@@ -661,9 +755,29 @@
             .np-bubble {
               max-width: 92%;
             }
+            .nova-persona[data-state="compact"] .np-hero {
+              flex-direction: row;
+              align-items: flex-start;
+              gap: 12px;
+            }
+            .nova-persona[data-state="compact"] .np-avatar-wrap {
+              width: 44px;
+              height: 44px;
+            }
+            .nova-persona[data-state="compact"] .np-title {
+              font-size: 20px;
+            }
+            .np-btn {
+              min-height: 44px;
+            }
           }
         </style>
-        <section class="nova-persona" aria-label="Meet Nova">
+        <section
+          class="nova-persona"
+          id="nova-persona"
+          aria-label="Meet Nova"
+          data-state="compact"
+        >
           <div class="nova-persona-inner">
             <div class="np-hero">
               <div class="np-avatar-wrap">
@@ -681,7 +795,59 @@
                   Your recruitment intelligence copilot &mdash; ask,
                   delegate, and Nova executes across your media plans.
                 </p>
+                <div class="np-controls">
+                  <button
+                    type="button"
+                    class="np-btn"
+                    id="nova-persona-toggle"
+                    aria-expanded="false"
+                    aria-controls="nova-persona-demo"
+                  >
+                    <span id="nova-persona-toggle-label">See an example</span>
+                    <svg
+                      class="np-chevron"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="np-btn np-btn--quiet"
+                    id="nova-persona-dismiss"
+                    title="Hide this intro so the chat has the whole page"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    Hide intro
+                  </button>
+                </div>
               </div>
+            </div>
+            <div class="np-strip">
+              <button
+                type="button"
+                class="np-btn np-btn--quiet"
+                id="nova-persona-show"
+              >
+                Show intro
+              </button>
             </div>
 
             <div class="np-demo" id="nova-persona-demo">
@@ -739,35 +905,127 @@
         <script>
           (function () {
             "use strict";
+            var STORE_KEY = "nova_persona_state";
             var reduceMotion = window.matchMedia(
               "(prefers-reduced-motion: reduce)",
             ).matches;
-            var bubbles = document.querySelectorAll(".np-bubble");
 
-            if (
-              bubbles.length &&
-              !reduceMotion &&
-              "IntersectionObserver" in window
-            ) {
-              var demoEl = document.getElementById("nova-persona-demo");
-              var io = new IntersectionObserver(
-                function (entries, obs) {
-                  entries.forEach(function (entry) {
-                    if (!entry.isIntersecting) return;
-                    bubbles.forEach(function (b, i) {
-                      setTimeout(function () {
-                        b.classList.add("is-in");
-                      }, i * 850);
-                    });
-                    obs.disconnect();
-                  });
-                },
-                { threshold: 0.35 },
+            // "expanded" | "compact" | "hidden"; anything else opens compact.
+            function novaPersonaNormalize(stored) {
+              return stored === "expanded" || stored === "hidden"
+                ? stored
+                : "compact";
+            }
+            // The intro steps aside while a conversation is on screen.
+            function novaPersonaConversationStarted(doc) {
+              return !!doc.querySelector("#chat-container .message");
+            }
+            function novaPersonaToggleLabel(state) {
+              return state === "expanded" ? "Hide example" : "See an example";
+            }
+            function readState() {
+              try {
+                return novaPersonaNormalize(localStorage.getItem(STORE_KEY));
+              } catch (_e) {
+                return "compact";
+              }
+            }
+            function saveState(state) {
+              try {
+                localStorage.setItem(STORE_KEY, state);
+              } catch (_e) {
+                /* storage blocked: the choice lasts until reload */
+              }
+            }
+
+            var section = document.getElementById("nova-persona");
+            var toggle = document.getElementById("nova-persona-toggle");
+            var toggleLabel = document.getElementById("nova-persona-toggle-label");
+            var dismiss = document.getElementById("nova-persona-dismiss");
+            var showBtn = document.getElementById("nova-persona-show");
+            var bubbles = document.querySelectorAll(".np-bubble");
+            var revealed = false;
+
+            function revealBubbles() {
+              if (revealed) return;
+              revealed = true;
+              bubbles.forEach(function (b, i) {
+                if (reduceMotion) {
+                  b.classList.add("is-in");
+                } else {
+                  setTimeout(function () {
+                    b.classList.add("is-in");
+                  }, i * 850);
+                }
+              });
+            }
+
+            function applyState(state) {
+              if (!section) return;
+              section.setAttribute("data-state", state);
+              if (toggle) {
+                toggle.setAttribute(
+                  "aria-expanded",
+                  state === "expanded" ? "true" : "false",
+                );
+              }
+              if (toggleLabel) {
+                toggleLabel.textContent = novaPersonaToggleLabel(state);
+              }
+              if (state === "expanded") revealBubbles();
+            }
+
+            function syncConversation() {
+              if (!section) return;
+              section.setAttribute(
+                "data-convo",
+                novaPersonaConversationStarted(document) ? "true" : "false",
               );
-              if (demoEl) io.observe(demoEl);
-            } else {
-              bubbles.forEach(function (b) {
-                b.classList.add("is-in");
+            }
+
+            // #chat-container is parsed AFTER this script, so the observer
+            // is attached once the document has it.
+            function watchConversation() {
+              var chatContainer = document.getElementById("chat-container");
+              if (chatContainer && "MutationObserver" in window) {
+                new MutationObserver(syncConversation).observe(chatContainer, {
+                  childList: true,
+                });
+              }
+              syncConversation();
+            }
+
+            if (section) {
+              applyState(readState());
+              if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", watchConversation);
+              } else {
+                watchConversation();
+              }
+            }
+
+            if (toggle) {
+              toggle.addEventListener("click", function () {
+                var next =
+                  section.getAttribute("data-state") === "expanded"
+                    ? "compact"
+                    : "expanded";
+                applyState(next);
+                saveState(next);
+              });
+            }
+            if (dismiss) {
+              dismiss.addEventListener("click", function () {
+                applyState("hidden");
+                saveState("hidden");
+                if (showBtn) showBtn.focus();
+              });
+            }
+            if (showBtn) {
+              showBtn.addEventListener("click", function () {
+                applyState("compact");
+                saveState("compact");
+                if (toggle) toggle.focus();
               });
             }
 

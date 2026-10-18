@@ -80,6 +80,106 @@
   };
 
   // ---------------------------------------------------------------------------
+  // Small pure helpers (unit-tested under node): open-state persistence,
+  // retry/draft handling and the copy shown when a send fails.
+  // ---------------------------------------------------------------------------
+  var OPEN_STATE_KEY = "nova_widget_open";
+
+  function persistOpenState(isOpen) {
+    try {
+      sessionStorage.setItem(OPEN_STATE_KEY, isOpen ? "1" : "0");
+    } catch (_e) {
+      /* sessionStorage blocked: the panel simply starts closed next page */
+    }
+  }
+
+  function readOpenState() {
+    try {
+      return sessionStorage.getItem(OPEN_STATE_KEY) === "1";
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  // Reopen after a page change only for a conversation in progress on a wide
+  // screen. A phone never reopens a panel over the page by itself.
+  function shouldRestoreOpen(wasOpen, viewportWidth, breakpoint, messageCount) {
+    return !!wasOpen && viewportWidth > breakpoint && messageCount > 0;
+  }
+
+  // The click handler passes an Event as the first argument, so only a string
+  // counts as retry text. Anything else sends what is in the input.
+  function resolveSendText(override, inputEl) {
+    if (typeof override === "string") return override.trim();
+    return inputEl && typeof inputEl.value === "string"
+      ? inputEl.value.trim()
+      : "";
+  }
+
+  // A retry resends a message that is already in the transcript.
+  function shouldAppendUserMessage(messages, text, isRetry) {
+    if (!isRetry || !messages || !messages.length) return true;
+    var last = messages[messages.length - 1];
+    return !(last && last.role === "user" && last.content === text);
+  }
+
+  function isWsTransportError(msg) {
+    return msg === "WebSocket error" || msg === "WebSocket closed";
+  }
+
+  // Raw transport strings ("HTTP 403", "WebSocket closed", "Failed to fetch")
+  // become a sentence that says what to do. Anything already phrased for a
+  // person passes through unchanged.
+  function friendlyChatError(raw) {
+    var msg = String(raw == null ? "" : raw).trim();
+    var m = /^HTTP\s+(\d{3})/.exec(msg);
+    var code = m ? parseInt(m[1], 10) : 0;
+    if (code === 401)
+      return "Nova could not verify your session. Sign in with your @joveo.com account, then press Retry.";
+    if (code === 403)
+      return "Your chat session expired. Press Retry to reconnect.";
+    if (code === 429)
+      return "Nova is busy right now. Wait a few seconds, then press Retry.";
+    if (code >= 500)
+      return "Nova is temporarily unavailable. Press Retry in a moment.";
+    if (code >= 400)
+      return "Nova could not process that message. Press Retry, or start a New chat.";
+    if (!msg || /^WebSocket|failed to fetch|networkerror|load failed/i.test(msg))
+      return "The connection to Nova dropped. Press Retry.";
+    return msg;
+  }
+
+  function clearStoredSessionToken() {
+    try {
+      localStorage.removeItem(CONFIG.sessionTokenKey);
+    } catch (_e) {
+      /* localStorage unavailable */
+    }
+  }
+
+  function refreshCsrfToken(done) {
+    function finish() {
+      if (typeof done === "function") done();
+    }
+    try {
+      fetch("/api/csrf-token", { credentials: "same-origin" })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          window.__csrfToken = (d && d.token) || "";
+          window.__csrfTokenFetchedAt = Date.now();
+        })
+        .catch(function () {
+          /* keep the old token; the retry will report if it still fails */
+        })
+        .then(finish);
+    } catch (_e) {
+      finish();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // WebSocket Transport (preferred over SSE for lower latency)
   // ---------------------------------------------------------------------------
   var _widgetWsConn = null;
@@ -218,16 +318,29 @@
       }
       _widgetWsConn = null;
     };
-    ws.send(
-      JSON.stringify({
-        type: "chat",
-        message: payload.message,
-        conversation_id: payload.conversation_id,
-        history: payload.history,
-        session_token: payload.session_token || "",
-        context: payload.context || null,
-      }),
-    );
+    try {
+      ws.send(
+        JSON.stringify({
+          type: "chat",
+          message: payload.message,
+          conversation_id: payload.conversation_id,
+          history: payload.history,
+          session_token: payload.session_token || "",
+          context: payload.context || null,
+        }),
+      );
+    } catch (_sendErr) {
+      // Socket slipped into CLOSING/CLOSED after the readyState check: report
+      // it asynchronously (the caller has not stored its cancel handle yet)
+      // instead of leaving the chat waiting on a dead socket.
+      setTimeout(function () {
+        if (!_done) {
+          _done = true;
+          if (_wsTo) clearTimeout(_wsTo);
+          callbacks.onError("WebSocket error");
+        }
+      }, 0);
+    }
     return function cancelWS() {
       if (!_done) {
         _done = true;
@@ -282,7 +395,7 @@
 
 #nova-panel {
   position: fixed; bottom: 96px; right: 24px; z-index: 99998;
-  width: 420px; height: 600px; max-height: calc(100vh - 120px);
+  width: 420px; height: 600px; max-height: min(calc(100vh - 120px), 85vh); max-height: min(calc(100dvh - 120px), 85dvh);
   background: #FFFFFF;
   backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border-radius: 16px; box-shadow: 0 16px 48px rgba(32,32,88,0.20);
@@ -303,7 +416,7 @@
       ".nova-header::before { display: none; }" +
       ".nova-header::after { display: none; }" +
       ".nova-header-left {" +
-      "  display: flex; align-items: center; gap: 10px; position: relative;" +
+      "  display: flex; align-items: center; gap: 10px; position: relative; min-width: 0; flex: 1;" +
       "}" +
       ".nova-header-icon {" +
       "  width: 36px; height: 36px; border-radius: 10px;" +
@@ -321,16 +434,27 @@
       "}" +
       ".nova-header-subtitle {" +
       "  font-size: 11px; opacity: 0.85; margin-top: 1px; letter-spacing: 0.5px; color: rgba(255,255,255,0.85);" +
+      "  display: none;" + // the labelled New chat / Close controls need the room
       "}" +
       ".nova-close-btn {" +
       "  background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);" +
       "  color: rgba(255,255,255,0.85); cursor: pointer;" +
-      "  padding: 5px; border-radius: 8px; line-height: 1;" +
+      "  padding: 5px 10px 5px 8px; border-radius: 8px; line-height: 1;" +
       "  transition: all 0.2s; position: relative;" +
+      "  display: inline-flex; align-items: center; gap: 6px;" +
+      "  font-family: inherit; font-size: 12px; font-weight: 600; min-height: 32px;" +
       "}" +
       ".nova-close-btn:hover { background: rgba(255,255,255,0.18); color: #fff; border-color: rgba(255,255,255,0.3); }" +
       ".nova-close-btn svg { width: 18px; height: 18px; }" +
+      ".nova-newchat-btn { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600; min-height: 32px; }" +
+      ".nova-btn-label { white-space: nowrap; }" +
+      ".nova-newchat-btn .nova-btn-label { display: none; }" +
+      "@media (min-width: 768px) { .nova-newchat-btn .nova-btn-label { display: inline; } }" +
       ".nova-newchat-btn:hover, .nova-newchat-btn:focus-visible { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
+      ".nova-close-btn:focus-visible, .nova-newchat-btn:focus-visible, .nova-settings-btn:focus-visible, .nova-export-btn:focus-visible, #nova-float-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }" +
+      ".nova-retry-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 14px; min-height: 36px; border-radius: 8px; font-size: 12px; font-weight: 600; font-family: inherit; color: #fff; background: #5A54BE; border: 1px solid #5A54BE; cursor: pointer; transition: background 0.15s; }" +
+      ".nova-retry-btn:hover { background: #202058; border-color: #202058; }" +
+      ".nova-retry-btn:focus-visible { outline: 2px solid #202058; outline-offset: 2px; }" +
       ".nova-handoff-btn { display: inline-block; margin-top: 12px; padding: 8px 14px; border-radius: 8px; background: #5A54BE; color: #fff !important; font-weight: 600; font-size: 13px; text-decoration: none; transition: background 0.2s; }" +
       ".nova-handoff-btn:hover, .nova-handoff-btn:focus-visible { background: #202058; }" +
       ".nova-handoff-btn:focus-visible { outline: 2px solid #202058; outline-offset: 2px; }" +
@@ -620,11 +744,18 @@
       CONFIG.mobileBreakpoint +
       "px) {" +
       "  #nova-panel {" +
-      "    width: 100vw; height: 100vh;" +
-      "    max-height: none; bottom: 0; right: 0; top: 0; left: 0;" +
-      "    border-radius: 0;" +
+      "    left: 8px; right: 8px; top: auto; width: auto;" +
+      "    bottom: max(8px, env(safe-area-inset-bottom));" +
+      "    height: calc(85vh - env(safe-area-inset-bottom)); max-height: calc(85vh - env(safe-area-inset-bottom));" +
+      "    height: calc(85dvh - env(safe-area-inset-bottom)); max-height: calc(85dvh - env(safe-area-inset-bottom));" +
+      "    border-radius: 16px;" +
       "  }" +
-      "  #nova-float-btn { bottom: 12px; right: 12px; }" +
+      "  .nova-header { padding: 12px 12px; }" +
+      "  .nova-header-icon { display: none; }" +
+      "  .nova-close-btn { min-height: 44px; }" +
+      "  .nova-newchat-btn, .nova-settings-btn, .nova-export-btn { min-width: 44px; min-height: 44px; justify-content: center; }" +
+      "  .nova-retry-btn { min-height: 44px; }" +
+      "  #nova-float-btn { bottom: max(12px, env(safe-area-inset-bottom)); right: 12px; }" +
       "  #nova-float-btn.nova-mobile-hidden { display: none !important; }" +
       "  .nova-suggestions { grid-template-columns: 1fr; }" +
       "}" +
@@ -744,7 +875,7 @@
       "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
       "  .nova-msg-row { animation: none !important; }" +
       "  .nova-typing-dot { animation: none !important; opacity: 0.5; }" +
-      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-newchat-btn, .nova-handoff-btn, .nova-regen-btn, .nova-edit-btn { transition: none !important; }" +
+      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-newchat-btn, .nova-retry-btn, .nova-handoff-btn, .nova-regen-btn, .nova-edit-btn, #nova-panel { transition: none !important; }" +
       "  #nova-float-btn:hover, .nova-send-btn:hover, .nova-suggestion-btn:hover { transform: none !important; }" +
       "  #nova-float-btn:active, .nova-send-btn:active, .nova-suggestion-btn:active { transform: none !important; }" +
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
@@ -1874,8 +2005,9 @@
       "</div>" +
       '<div class="nova-chat-header-auth" style="display:none;align-items:center;margin-right:4px;"></div>' +
       '<div style="display:flex;align-items:center;gap:6px;">' +
-      '<button type="button" class="nova-newchat-btn" aria-label="New chat" title="New chat" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
+      '<button type="button" class="nova-newchat-btn" aria-label="New chat" title="New chat: clear this conversation and start over" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px 8px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
+      '<span class="nova-btn-label">New chat</span>' +
       "</button>" +
       '<button class="nova-settings-btn" aria-label="Settings" title="Settings" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
@@ -1886,8 +2018,9 @@
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
       '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
       "</button>" +
-      '<button class="nova-close-btn" aria-label="Close chat">' +
+      '<button type="button" class="nova-close-btn" aria-label="Close chat" title="Close chat (Esc). Your conversation is kept.">' +
       ICONS.close +
+      '<span class="nova-btn-label">Close</span>' +
       "</button>" +
       "</div>" +
       '<div class="nova-settings-panel" id="nova-settings-panel">' +
@@ -2109,6 +2242,23 @@
     } else {
       showWelcome();
     }
+
+    // A conversation left open on the previous page stays open (wide screens
+    // only); a closed panel stays closed.
+    if (
+      shouldRestoreOpen(
+        readOpenState(),
+        window.innerWidth,
+        CONFIG.mobileBreakpoint,
+        state.messages.length,
+      )
+    ) {
+      try {
+        togglePanel(false, true);
+      } catch (_e) {
+        /* restore must never break the page */
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -2116,6 +2266,21 @@
   // ---------------------------------------------------------------------------
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && state.isOpen) {
+      // A settings/export menu closes first; a second Escape closes the panel.
+      var openMenus = state.chatPanel
+        ? state.chatPanel.querySelectorAll(
+            ".nova-settings-open, .nova-export-open",
+          )
+        : [];
+      if (openMenus.length) {
+        for (var mi = 0; mi < openMenus.length; mi++) {
+          openMenus[mi].classList.remove(
+            "nova-settings-open",
+            "nova-export-open",
+          );
+        }
+        return;
+      }
       togglePanel(true);
     }
     // Cmd+Shift+L (Mac) or Ctrl+Shift+L (Win/Linux): Clear conversation
@@ -2133,9 +2298,9 @@
   // ---------------------------------------------------------------------------
   // Panel toggle
   // ---------------------------------------------------------------------------
-  function togglePanel(forceClose) {
+  function togglePanel(forceClose, silent) {
     // Debounce FAB toggle (300ms cooldown) to prevent double-click open→close
-    if (forceClose !== true) {
+    if (forceClose !== true && !silent) {
       if (window._novaFabDebounce) return;
       window._novaFabDebounce = true;
       setTimeout(function () {
@@ -2151,13 +2316,18 @@
     var panel = state.chatPanel;
     var btn = state.floatingBtn;
     var orbCanvas = state.orbCanvas;
+    persistOpenState(state.isOpen);
     if (state.isOpen) {
       panel.classList.remove("nova-hidden");
       panel.classList.add("nova-visible");
       // PostHog: track panel open + record session start time
       state.chatOpenedAt = Date.now();
       state.messagesSentCount = 0;
-      if (window.posthog && typeof window.posthog.capture === "function") {
+      if (
+        !silent &&
+        window.posthog &&
+        typeof window.posthog.capture === "function"
+      ) {
         window.posthog.capture("nova_chat_opened", {
           source: "widget",
           page: window.location.pathname,
@@ -2188,11 +2358,14 @@
       if (window.innerWidth <= CONFIG.mobileBreakpoint) {
         btn.classList.add("nova-mobile-hidden");
       }
-      // Focus input
-      setTimeout(function () {
-        var input = document.getElementById("nova-input");
-        if (input) input.focus();
-      }, 300);
+      // Focus input (not when the panel is restored after a page change:
+      // that must not pull focus off whatever the visitor is doing)
+      if (!silent) {
+        setTimeout(function () {
+          var input = document.getElementById("nova-input");
+          if (input) input.focus();
+        }, 300);
+      }
       // S80 P1.4: warm up the WebSocket as soon as the panel opens so the
       // handshake completes BEFORE the user types. Previously the first
       // message kicked off both the WS handshake AND the chat request,
@@ -2242,6 +2415,16 @@
       btn.setAttribute("aria-label", "Open Nova Chat");
       // Restore float button on mobile
       btn.classList.remove("nova-mobile-hidden");
+      // Focus goes back to the launcher when it was inside the panel (or
+      // nowhere), so keyboard users land where they started.
+      var activeEl = document.activeElement;
+      if (
+        !activeEl ||
+        activeEl === document.body ||
+        (panel.contains && panel.contains(activeEl))
+      ) {
+        if (typeof btn.focus === "function") btn.focus();
+      }
     }
   }
 
@@ -2662,28 +2845,26 @@
     var messagesDiv = document.getElementById("nova-messages");
     if (!messagesDiv) return;
     var errEl = document.createElement("div");
-    errEl.className = "nova-msg nova-msg-assistant";
+    errEl.className = "nova-msg nova-msg-assistant nova-msg-error";
+    errEl.setAttribute("role", "alert");
     errEl.style.borderColor = "rgba(239,68,68,0.3)";
-    errEl.innerHTML = '<span style="color:#DC2626;">' + errorMsg + "</span>";
+    var errText = document.createElement("span");
+    errText.style.color = "#B91C1C"; // 6.4:1 on the lavender error card
+    errText.style.display = "block";
+    // textContent: the message can carry server text, never markup.
+    errText.textContent = friendlyChatError(errorMsg);
+    errEl.appendChild(errText);
     if (!isAbort) {
       var retryBtn = document.createElement("button");
+      retryBtn.type = "button";
+      retryBtn.className = "nova-retry-btn";
       retryBtn.textContent = "Retry";
-      retryBtn.style.cssText =
-        "display:inline-block;margin-top:8px;padding:4px 12px;border-radius:6px;font-size:11px;color:#5A54BE;background:rgba(90,84,190,0.10);border:1px solid rgba(90,84,190,0.25);cursor:pointer;font-family:inherit;transition:all 0.15s;";
-      retryBtn.addEventListener("mouseenter", function () {
-        this.style.background = "rgba(90,84,190,0.20)";
+      retryBtn.setAttribute("aria-label", "Retry sending your message");
+      retryBtn.addEventListener("click", function () {
+        errEl.remove();
+        // Resend from the transcript; whatever is in the input stays put.
+        sendMessage(retryText, { isRetry: true });
       });
-      retryBtn.addEventListener("mouseleave", function () {
-        this.style.background = "rgba(90,84,190,0.10)";
-      });
-      (function (btn, txt) {
-        btn.addEventListener("click", function () {
-          errEl.remove();
-          var inp = document.getElementById("nova-input");
-          if (inp) inp.value = txt;
-          sendMessage();
-        });
-      })(retryBtn, retryText);
       errEl.appendChild(retryBtn);
     }
     messagesDiv.appendChild(errEl);
@@ -3427,6 +3608,10 @@
     state.messages = [];
     try {
       localStorage.removeItem(CONFIG.storageKey);
+      // The stored session token is bound to the OLD conversation id. Sent
+      // with the new id the server rejects it (403 invalid session token), so
+      // the first message after "New chat" would fail and so would every Retry.
+      localStorage.removeItem(CONFIG.sessionTokenKey);
     } catch (e) {
       /* localStorage unavailable */
     }
@@ -3450,13 +3635,18 @@
 
   // Send message
   // ---------------------------------------------------------------------------
-  function sendMessage() {
+  // sendMessage() sends the input box. sendMessage(text, {isRetry: true})
+  // resends a message already in the transcript WITHOUT touching the input, so
+  // a draft the visitor started typing after the failure is kept.
+  function sendMessage(overrideText, opts) {
     if (state.isLoading) return;
 
     var input = document.getElementById("nova-input");
     if (!input) return;
 
-    var text = input.value.trim();
+    var fromInput = typeof overrideText !== "string";
+    var isRetry = !!(opts && opts.isRetry);
+    var text = resolveSendText(overrideText, input);
     if (!text) return;
 
     // W-04: Client-side message length cap (4000 chars)
@@ -3499,9 +3689,13 @@
       userMsg.branched_from = state._pendingBranch.branched_from;
       delete state._pendingBranch;
     }
-    appendMessage(userMsg);
-    input.value = "";
-    input.style.height = "auto";
+    if (shouldAppendUserMessage(state.messages, text, isRetry)) {
+      appendMessage(userMsg);
+    }
+    if (fromInput) {
+      input.value = "";
+      input.style.height = "auto";
+    }
 
     showTyping();
 
@@ -3555,8 +3749,8 @@
       }, _streamTimeoutMs);
     }
 
-    // Reset char counter
-    updateCharCounter(0);
+    // Reset char counter (a kept draft keeps its count)
+    updateCharCounter(fromInput ? 0 : input.value.length);
 
     // Get CSRF token (fetched on widget init)
     var csrfToken = window.__csrfToken || "";
@@ -3747,17 +3941,25 @@
             },
             onError: function (errMsg) {
               clearTimeout(fetchTimeout);
-              _widgetWsFailCount++;
               var wsRowCleanup = document.getElementById("nova-stream-row");
               if (wsRowCleanup) wsRowCleanup.remove();
-              showStreamError(
-                errMsg || "Connection error. Please try again.",
-                text,
-              );
               state.isLoading = false;
               _activeAbortCtrl = null;
               hideStopButton();
               if (sendBtn) sendBtn.disabled = false;
+              // The socket opened and then dropped before a single token:
+              // that is the transport, not the question. Pin this page to
+              // SSE and resend once without bothering the visitor.
+              if (isWsTransportError(errMsg) && !(opts && opts.transportRetried)) {
+                _widgetWsFailCount = _WIDGET_WS_MAX_FAILS;
+                sendMessage(text, { isRetry: true, transportRetried: true });
+                return;
+              }
+              _widgetWsFailCount++;
+              showStreamError(
+                errMsg || "Connection error. Please try again.",
+                text,
+              );
               if (input) input.focus();
             },
           });
@@ -4100,6 +4302,22 @@
             // New chat started mid-reply: the old reply is discarded silently.
             if (abortCtrl._isReset) return;
 
+            // 403 = stale CSRF token or a session token from another
+            // conversation. Refresh both and resend once; only a second 403
+            // reaches the visitor (as a Retry they can press).
+            if (
+              err &&
+              /^HTTP 403/.test(err.message || "") &&
+              !(opts && opts.authRetried)
+            ) {
+              clearStoredSessionToken();
+              refreshCsrfToken(function () {
+                state.isLoading = false;
+                sendMessage(text, { isRetry: true, authRetried: true });
+              });
+              return;
+            }
+
             // Fallback: if streaming failed (not abort), try non-streaming endpoint
             if (err.name !== "AbortError") {
               console.warn(
@@ -4283,17 +4501,7 @@
 
       // Fetch CSRF token on init (needed for double-submit cookie pattern)
       function _fetchCsrfToken() {
-        fetch("/api/csrf-token", { credentials: "same-origin" })
-          .then(function (r) {
-            return r.json();
-          })
-          .then(function (d) {
-            window.__csrfToken = d.token || "";
-            window.__csrfTokenFetchedAt = Date.now();
-          })
-          .catch(function () {
-            /* CSRF fetch failed -- requests may fail */
-          });
+        refreshCsrfToken();
       }
       if (!window.__csrfToken) {
         _fetchCsrfToken();

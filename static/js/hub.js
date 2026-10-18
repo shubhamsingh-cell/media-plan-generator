@@ -1222,7 +1222,7 @@
 // ── Nova AI Chat Widget (floating bottom-right) ──
 window.addEventListener("load", function () {
   var s = document.createElement("script");
-  s.src = "/static/nova-chat.js?v=3.5.8";
+  s.src = "/static/nova-chat.js?v=nux1";
   s.async = true;
   s.onload = function () {
     if (typeof NovaChat !== "undefined") {
