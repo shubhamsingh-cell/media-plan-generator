@@ -11,9 +11,11 @@ What these tests pin, against the shipped files:
   the whole block can be hidden, it steps aside once a chat starts, and
   New chat has a visible label at >= 768px.
 * Floating widget: on a phone the panel is a bounded bottom sheet (<= 85% of
-  the height, safe-area aware) rather than a full-bleed takeover; Close and
-  New chat carry text, not just an icon; Escape closes; focus returns to the
-  launcher; the open state survives a page change.
+  the height, a fixed 12px gap -- no template sets viewport-fit=cover, so
+  env(safe-area-*) would always be 0) rather than a full-bleed takeover;
+  Close and New chat carry text, not just an icon; Escape closes; focus
+  returns to the launcher; the open state survives a page change ONLY on the
+  hub and /nova at >= 1280px (never over a form page).
 * Widget reliability: errors say what to do (never a raw "HTTP 403"), error
   text is never injected as HTML, Retry resends without touching the input
   (a draft typed after the failure survives) and without duplicating the
@@ -30,6 +32,8 @@ from __future__ import annotations
 import re
 
 import pytest
+
+import joveo_brand_2026 as brand
 
 from tests.wizard_js_harness import NODE, ROOT, js_block, run_node
 
@@ -50,6 +54,12 @@ var localStorage = {
 
 def _widget_src() -> str:
     return WIDGET_JS.read_text(encoding="utf-8")
+
+
+def _lift_between(src: str, start: str, end: str) -> str:
+    """Source text from ``start`` up to (not including) ``end``."""
+    i = src.index(start)
+    return src[i : src.index(end, i)]
 
 
 def _lift_or_noop(src: str, signature: str, noop: str) -> str:
@@ -80,13 +90,28 @@ def test_widget_error_copy_says_what_to_do_not_a_raw_status():
         + r"""
 var cases = ["HTTP 401", "HTTP 403", "HTTP 429", "HTTP 502", "HTTP 404",
   "WebSocket closed", "WebSocket error", "Failed to fetch", "",
-  "Response was stopped.", "I'm having trouble connecting. Please try again."];
+  "Response was stopped.", "I'm having trouble connecting. Please try again.",
+  "Unauthorized: invalid session token"];
 console.log(JSON.stringify(cases.map(function (c) { return friendlyChatError(c); })));
 """
     )
-    c401, c403, c429, c502, c404, wsc, wse, fetch_, empty, stopped, trouble = out
+    (
+        c401,
+        c403,
+        c429,
+        c502,
+        c404,
+        wsc,
+        wse,
+        fetch_,
+        empty,
+        stopped,
+        trouble,
+        wstoken,
+    ) = out
     assert "sign in" in c401.lower() and "Retry" in c401
     assert "expired" in c403.lower() and "Retry" in c403
+    assert wstoken == c403  # the socket's wording for the same stale-token cause
     assert "busy" in c429.lower() and "Retry" in c429
     assert "temporarily unavailable" in c502.lower()
     assert "New chat" in c404
@@ -114,6 +139,7 @@ Object.defineProperty(El.prototype, "textContent", {
   get: function () { return this._text; }, set: function (v) { this._text = String(v); } });
 Object.defineProperty(El.prototype, "innerHTML", {
   get: function () { return ""; }, set: function (v) { this.innerHTMLWrites.push(v); } });
+var CONFIG = { errorTextColor: "#B91C1C" };
 var messagesDiv = new El("div");
 var inputEl = new El("textarea"); inputEl.value = "a new draft the visitor is typing";
 var document = {
@@ -142,7 +168,8 @@ retry.listeners.click();
 showStreamError("Response was stopped.", "q2", true);
 var aborted = messagesDiv.children[1];
 console.log(JSON.stringify({
-  role: errEl.attrs.role, errClass: errEl.className,
+  role: errEl.attrs.role, errClass: errEl.className, colour: textEl.style.color,
+  display: textEl.style.display,
   shown: textEl.textContent, htmlWrites: errEl.innerHTMLWrites.length + textEl.innerHTMLWrites.length,
   retryText: retry.textContent, retryClass: retry.className, retryType: retry.type,
   retryAria: retry.attrs["aria-label"], sent: sent, removed: errEl.removed,
@@ -152,6 +179,8 @@ console.log(JSON.stringify({
 """
     )
     assert out["role"] == "alert"
+    assert out["colour"] == brand.RED_TEXT  # the brand's text-safe red, via CONFIG
+    assert out["display"] == "block"  # Retry sits on its own line, not after the text
     # The raw string is data, not markup: textContent only, never innerHTML.
     assert out["shown"] == "<img src=x onerror=alert(1)>"
     assert out["htmlWrites"] == 0
@@ -218,14 +247,9 @@ def test_widget_send_message_keeps_the_input_on_retry_and_retries_once_per_cause
     # the input is cleared only when the text came from the input box
     assert re.search(r"if \(fromInput\) \{\s*input\.value = \"\";", head)
     assert "updateCharCounter(fromInput ? 0 : input.value.length)" in src
-    # WS dropped before any token -> pin to SSE and resend once, silently
-    assert (
-        "transportRetried: true" in src
-        and "_widgetWsFailCount = _WIDGET_WS_MAX_FAILS;" in src
-    )
-    # 403 -> clear the stale token, refresh CSRF, resend once
-    assert re.search(r"/\^HTTP 403/\.test\(err\.message", src)
-    assert "authRetried: true" in src and "clearStoredSessionToken();" in src
+    # both transports go through the ONE recovery helper (WS error handler, SSE catch)
+    assert "if (resendAfterRecoverableError(errMsg, text, opts)) return;" in src
+    assert "resendAfterRecoverableError(err.message, text, opts)" in src
 
 
 @needs_node
@@ -275,7 +299,7 @@ console.log(JSON.stringify({
 # Widget: open/close, focus return, persistence
 # ---------------------------------------------------------------------------
 @needs_node
-def test_widget_open_state_helpers_survive_blocked_storage_and_gate_restore():
+def test_widget_open_state_helpers_survive_blocked_storage():
     src = _widget_src()
     out = run_node(
         r"""
@@ -288,7 +312,6 @@ var sessionStorage = {
 """
         + js_block(src, "function persistOpenState(")
         + js_block(src, "function readOpenState(")
-        + js_block(src, "function shouldRestoreOpen(")
         + r"""
 persistOpenState(true); var openedRead = readOpenState();
 persistOpenState(false); var closedRead = readOpenState();
@@ -298,24 +321,42 @@ sessionStorage = { getItem: function () { throw new Error("blocked"); },
 var blocked = {};
 try { persistOpenState(true); blocked.write = "ok"; } catch (e) { blocked.write = "threw"; }
 try { blocked.read = readOpenState(); } catch (e) { blocked.read = "threw"; }
-console.log(JSON.stringify({
-  openedRead: openedRead, closedRead: closedRead, raw: raw, blocked: blocked,
-  restoreWide: shouldRestoreOpen(true, 1200, 640, 3),
-  restorePhone: shouldRestoreOpen(true, 375, 640, 3),
-  restoreEmpty: shouldRestoreOpen(true, 1200, 640, 0),
-  restoreWasClosed: shouldRestoreOpen(false, 1200, 640, 3),
-}));
+console.log(JSON.stringify({openedRead: openedRead, closedRead: closedRead, raw: raw, blocked: blocked}));
 """
     )
     assert (
         out["openedRead"] is True and out["closedRead"] is False and out["raw"] == "0"
     )
     assert out["blocked"] == {"write": "ok", "read": False}
-    assert out["restoreWide"] is True
-    # never over a phone's page by itself, never an empty panel, never once closed
-    assert out["restorePhone"] is False
-    assert out["restoreEmpty"] is False
-    assert out["restoreWasClosed"] is False
+
+
+@needs_node
+def test_widget_never_reopens_over_a_form_page_or_below_1280px():
+    """Chat open on the hub, then navigate to /media-plan at 1080px: the restored
+    panel covered Client name, Website and Use case -- the original complaint, back
+    on the generator page. Restore is allowed only on the hub and /nova, only at
+    >= 1280px, only mid-conversation."""
+    src = _widget_src()
+    out = run_node(
+        _lift_between(src, "var RESTORE_PAGES", "function shouldRestoreOpen(")
+        + js_block(src, "function shouldRestoreOpen(")
+        + r"""
+var rows = [
+  // [wasOpen, width, messages, path]
+  [true, 1440, 3, "/"], [true, 1280, 3, "/"], [true, 1279, 3, "/"],
+  [true, 1440, 3, "/nova"], [true, 1440, 3, "/nova/"],
+  [true, 1440, 3, "/media-plan"], [true, 1080, 3, "/media-plan"], [true, 768, 3, "/media-plan"],
+  [true, 1440, 3, "/media-plan/"], [true, 1440, 3, "/quick-plan"], [true, 1440, 3, "/quick-brief"],
+  [true, 1440, 3, "/pricing"], [true, 1440, 3, "/help/media-plans"], [true, 375, 3, "/"],
+  [true, 1440, 0, "/"], [false, 1440, 3, "/"], [true, 1440, 3, ""], [true, 1440, 3, undefined],
+];
+console.log(JSON.stringify(rows.map(function (r) { return shouldRestoreOpen(r[0], r[1], r[2], r[3]); })));
+"""
+    )
+    allowed = [True, True, False, True, True] + [False] * 13
+    assert out == allowed, out
+    # the restore call site passes the live path and message count, not a constant
+    assert "window.location.pathname," in src
 
 
 _TOGGLE_STUB = r"""
@@ -423,8 +464,9 @@ def test_widget_phone_panel_is_a_bounded_bottom_sheet_not_a_takeover():
     block = src[i : src.index("// ── Streaming cursor ──", i)]
     assert "100vh" not in block and "100vw" not in block  # no full-bleed panel
     assert "top: auto" in block
-    assert "env(safe-area-inset-bottom)" in block
-    heights = re.findall(r"(?<![-\w])height: calc\((\d+)(?:d)?vh", block)
+    # No template sets viewport-fit=cover, so env(safe-area-*) is always 0: a fixed gap.
+    assert "safe-area" not in block and "bottom: 12px;" in block
+    heights = re.findall(r"(?<![-\w])height: (\d+)d?vh", block)
     assert heights and all(int(h) <= 85 for h in heights), heights
     assert "85dvh" in block  # iOS: the dynamic viewport, not the address-bar-blind one
     # a phone-sized touch target on the dismissal control
@@ -532,7 +574,9 @@ def test_nova_page_new_chat_has_a_visible_label_from_768px():
     btn = re.search(
         r'<button[^>]*id="topbar-new-chat-btn"[^>]*>.*?</button>', html, re.S
     ).group(0)
-    assert 'aria-label="New chat"' in btn and 'title="New chat' in btn
+    assert 'aria-label="New chat"' in btn
+    # The old conversation stays in the sidebar on /nova, so it must not say "clear".
+    assert 'title="Start a new chat"' in btn and "clear" not in btn.lower()
     assert '<span class="topbar-btn-label">New chat</span>' in btn
     style = _persona_style()
     assert re.search(
@@ -544,3 +588,107 @@ def test_nova_page_new_chat_has_a_visible_label_from_768px():
         style,
         re.S,
     )
+
+
+# ---------------------------------------------------------------------------
+# Round 2: WS stale token, undefined helper, phone label, brand token, hub slider
+# ---------------------------------------------------------------------------
+@needs_node
+def test_widget_stale_session_token_is_recovered_once_over_ws_and_sse():
+    """Over the socket the server answers {"error": "Unauthorized: invalid session
+    token"}; Retry used to resend the SAME token forever (2 sends, 0 recovery)."""
+    src = _widget_src()
+    out = run_node(
+        _STORAGE
+        + r"""
+var CONFIG = { sessionTokenKey: "nova_session_token" };
+var _widgetWsFailCount = 0, _WIDGET_WS_MAX_FAILS = 3;
+var state = { isLoading: true };
+var sends = [], csrf = 0;
+function sendMessage(text, opts) { sends.push({text: text, opts: opts, token: store.nova_session_token || null}); }
+function refreshCsrfToken(done) { csrf++; done(); }
+"""
+        + js_block(src, "function isWsTransportError(")
+        + js_block(src, "function isStaleAuthError(")
+        + js_block(src, "function clearStoredSessionToken(")
+        + js_block(src, "function resendAfterRecoverableError(")
+        + r"""
+var r = {};
+store.nova_session_token = "STALE";
+r.wsStale = resendAfterRecoverableError("Unauthorized: invalid session token", "q1", {});
+r.afterWsStale = {token: store.nova_session_token || null, sends: sends.slice(), csrf: csrf};
+sends.length = 0; store.nova_session_token = "STALE";
+r.wsStaleTwice = resendAfterRecoverableError("Unauthorized: invalid session token", "q1", {isRetry: true, authRetried: true});
+r.sse403 = resendAfterRecoverableError("HTTP 403", "q2", {});
+r.sse403Twice = resendAfterRecoverableError("HTTP 403", "q2", {authRetried: true});
+r.sseOther = resendAfterRecoverableError("HTTP 500", "q3", {});
+r.serverText = resendAfterRecoverableError("Rate limit exceeded", "q4", {});
+_widgetWsFailCount = 0;
+r.wsDrop = resendAfterRecoverableError("WebSocket closed", "q5", {});
+r.pinned = _widgetWsFailCount;
+r.wsDropTwice = resendAfterRecoverableError("WebSocket closed", "q5", {transportRetried: true});
+console.log(JSON.stringify(r));
+"""
+    )
+    assert out["wsStale"] is True
+    assert (
+        out["afterWsStale"]["token"] is None
+    )  # the stale token is gone before the resend
+    assert out["afterWsStale"]["sends"] == [
+        {
+            "text": "q1",
+            "opts": {"isRetry": True, "authRetried": True, "transportRetried": False},
+            "token": None,
+        }
+    ]
+    assert out["wsStaleTwice"] is False  # a second failure reaches the visitor
+    assert out["sse403"] is True and out["sse403Twice"] is False
+    assert out["sseOther"] is False and out["serverText"] is False
+    assert out["wsDrop"] is True and out["pinned"] == 3 and out["wsDropTwice"] is False
+
+
+def test_widget_never_calls_an_underscore_helper_it_does_not_define():
+    """_removeTypingIndicator() was called on every failure that reached the
+    non-streaming fallback and never defined: an uncaught ReferenceError."""
+    src = _widget_src()
+    called = set(re.findall(r"(?<![.\w$])(_[A-Za-z]\w*)\(", src))
+    defined = set(re.findall(r"function (_[A-Za-z]\w*)\(", src)) | set(
+        re.findall(r"(?:var|let|const) (_[A-Za-z]\w*)\s*=", src)
+    )
+    assert not (called - defined), sorted(called - defined)
+    assert "_removeTypingIndicator" not in src
+
+
+def test_widget_phone_new_chat_has_a_short_visible_label_where_it_fits():
+    src = _widget_src()
+    assert '<span class="nova-btn-label-short" aria-hidden="true">New</span>' in src
+    assert ".nova-btn-label-short { display: none; white-space: nowrap; }" in src
+    # 360-767px: "New" beside the pencil (a bare pencil reads as "edit"); below 360 the
+    # icon keeps its title and aria-label so the header never wraps.
+    assert (
+        "@media (min-width: 360px) and (max-width: 767px) "
+        "{ .nova-newchat-btn .nova-btn-label-short { display: inline; } }"
+    ) in src
+    assert 'aria-label="New chat" title="New chat' in src
+
+
+def test_widget_error_red_is_the_brand_text_safe_token():
+    src = _widget_src()
+    m = re.search(r'errorTextColor: "(#[0-9A-Fa-f]{6})"', src)
+    assert m and m.group(1).upper() == brand.RED_TEXT.upper()
+    assert "CONFIG.errorTextColor" in src
+    # no second raw copy of that hex outside the CONFIG entry
+    assert src.upper().count(brand.RED_TEXT.upper()) == 1
+
+
+def test_hub_budget_slider_stays_clear_of_the_phone_launcher_column():
+    css = (ROOT / "static" / "css" / "hub.css").read_text(encoding="utf-8")
+    base = css.index(".pe-range {")
+    rule = re.search(
+        r"@media \(max-width: 480px\) \{\s*\.pe-range \{\s*width: calc\(100% - 40px\);",
+        css[base:],
+    )
+    assert rule, "hub.css lost the <=480px slider gutter"
+    # the launcher override lives in the same <=480px breakpoint (52px + 12px margin)
+    launcher = css[css.index("body #nova-float-btn {") :][:200]
+    assert "width: 52px" in launcher and "right: 12px" in launcher

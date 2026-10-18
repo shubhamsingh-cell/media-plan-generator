@@ -4555,6 +4555,15 @@ html.lenis body {
     0 0 0 4px rgba(134, 128, 214, 0.35),
     0 2px 8px rgba(6, 6, 16, 0.5);
 }
+/* At phone width the Nova launcher (52px + 12px margin, bottom-right) is
+   fixed over whatever is in view. Keep the budget track clear of its column
+   so the control can always be dragged to the maximum: the track ends 40px
+   early (launcher column 64px, thumb halo 6px, minus the card's own gutter). */
+@media (max-width: 480px) {
+  .pe-range {
+    width: calc(100% - 40px);
+  }
+}
 
 /* Result block: predicted cost-per-hire is its own full-width row -- the
    single most dominant, alive element in the hero -- with hires/apps/days

@@ -42,6 +42,9 @@
     bgLight: "#F4F4FF",
     borderColor: "#E3E1F1",
     errorColor: "#EF4444",
+    // joveo_brand_2026.RED_TEXT: the text-safe red (6.4:1 on white); RED
+    // itself is a chart fill. A test keeps this equal to the brand module.
+    errorTextColor: "#B91C1C",
     successColor: "#22C55E",
     maxHistoryStorage: 50,
     storageKey: "nova_chat_history",
@@ -101,10 +104,24 @@
     }
   }
 
-  // Reopen after a page change only for a conversation in progress on a wide
-  // screen. A phone never reopens a panel over the page by itself.
-  function shouldRestoreOpen(wasOpen, viewportWidth, breakpoint, messageCount) {
-    return !!wasOpen && viewportWidth > breakpoint && messageCount > 0;
+  // Reopen after a page change only for a conversation in progress, on a page
+  // that is not a form, and only where the panel leaves the page room (>=1280px).
+  // Everywhere else the panel stays closed and the launcher is the way back:
+  // an auto-reopened panel on the generator page covers the fields the visitor
+  // came to fill in.
+  var RESTORE_PAGES = ["/", "/nova"];
+  var RESTORE_MIN_WIDTH = 1280;
+
+  function shouldRestoreOpen(wasOpen, viewportWidth, messageCount, pathname) {
+    // An unknown page is never one we may open over: fail closed.
+    if (typeof pathname !== "string" || !pathname) return false;
+    var path = pathname.replace(/\/+$/, "") || "/";
+    return (
+      !!wasOpen &&
+      viewportWidth >= RESTORE_MIN_WIDTH &&
+      messageCount > 0 &&
+      RESTORE_PAGES.indexOf(path) !== -1
+    );
   }
 
   // The click handler passes an Event as the first argument, so only a string
@@ -127,6 +144,43 @@
     return msg === "WebSocket error" || msg === "WebSocket closed";
   }
 
+  // SSE answers 403; the socket answers {"error": "Unauthorized: invalid
+  // session token"}. Both mean the stored token belongs to another conversation.
+  function isStaleAuthError(msg) {
+    var m = String(msg == null ? "" : msg);
+    return /^HTTP 403/.test(m) || /invalid session token/i.test(m);
+  }
+
+  // One silent recovery per cause, then the visitor gets a Retry. Returns true
+  // when it resent the message (the caller stops), false to show the error.
+  function resendAfterRecoverableError(errMsg, text, opts) {
+    var o = opts || {};
+    if (isWsTransportError(errMsg) && !o.transportRetried) {
+      // The socket opened and dropped before a single token: pin this page to
+      // SSE and resend without bothering the visitor.
+      _widgetWsFailCount = _WIDGET_WS_MAX_FAILS;
+      sendMessage(text, {
+        isRetry: true,
+        transportRetried: true,
+        authRetried: !!o.authRetried,
+      });
+      return true;
+    }
+    if (isStaleAuthError(errMsg) && !o.authRetried) {
+      clearStoredSessionToken();
+      refreshCsrfToken(function () {
+        state.isLoading = false;
+        sendMessage(text, {
+          isRetry: true,
+          authRetried: true,
+          transportRetried: !!o.transportRetried,
+        });
+      });
+      return true;
+    }
+    return false;
+  }
+
   // Raw transport strings ("HTTP 403", "WebSocket closed", "Failed to fetch")
   // become a sentence that says what to do. Anything already phrased for a
   // person passes through unchanged.
@@ -136,7 +190,7 @@
     var code = m ? parseInt(m[1], 10) : 0;
     if (code === 401)
       return "Nova could not verify your session. Sign in with your @joveo.com account, then press Retry.";
-    if (code === 403)
+    if (code === 403 || /invalid session token/i.test(msg))
       return "Your chat session expired. Press Retry to reconnect.";
     if (code === 429)
       return "Nova is busy right now. Wait a few seconds, then press Retry.";
@@ -450,6 +504,8 @@
       ".nova-btn-label { white-space: nowrap; }" +
       ".nova-newchat-btn .nova-btn-label { display: none; }" +
       "@media (min-width: 768px) { .nova-newchat-btn .nova-btn-label { display: inline; } }" +
+      ".nova-btn-label-short { display: none; white-space: nowrap; }" +
+      "@media (min-width: 360px) and (max-width: 767px) { .nova-newchat-btn .nova-btn-label-short { display: inline; } }" +
       ".nova-newchat-btn:hover, .nova-newchat-btn:focus-visible { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
       ".nova-close-btn:focus-visible, .nova-newchat-btn:focus-visible, .nova-settings-btn:focus-visible, .nova-export-btn:focus-visible, #nova-float-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }" +
       ".nova-retry-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 14px; min-height: 36px; border-radius: 8px; font-size: 12px; font-weight: 600; font-family: inherit; color: #fff; background: #5A54BE; border: 1px solid #5A54BE; cursor: pointer; transition: background 0.15s; }" +
@@ -745,9 +801,9 @@
       "px) {" +
       "  #nova-panel {" +
       "    left: 8px; right: 8px; top: auto; width: auto;" +
-      "    bottom: max(8px, env(safe-area-inset-bottom));" +
-      "    height: calc(85vh - env(safe-area-inset-bottom)); max-height: calc(85vh - env(safe-area-inset-bottom));" +
-      "    height: calc(85dvh - env(safe-area-inset-bottom)); max-height: calc(85dvh - env(safe-area-inset-bottom));" +
+      "    bottom: 12px;" +
+      "    height: 85vh; max-height: 85vh;" +
+      "    height: 85dvh; max-height: 85dvh;" +
       "    border-radius: 16px;" +
       "  }" +
       "  .nova-header { padding: 12px 12px; }" +
@@ -755,7 +811,7 @@
       "  .nova-close-btn { min-height: 44px; }" +
       "  .nova-newchat-btn, .nova-settings-btn, .nova-export-btn { min-width: 44px; min-height: 44px; justify-content: center; }" +
       "  .nova-retry-btn { min-height: 44px; }" +
-      "  #nova-float-btn { bottom: max(12px, env(safe-area-inset-bottom)); right: 12px; }" +
+      "  #nova-float-btn { bottom: 12px; right: 12px; }" +
       "  #nova-float-btn.nova-mobile-hidden { display: none !important; }" +
       "  .nova-suggestions { grid-template-columns: 1fr; }" +
       "}" +
@@ -2008,6 +2064,7 @@
       '<button type="button" class="nova-newchat-btn" aria-label="New chat" title="New chat: clear this conversation and start over" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px 8px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
       '<span class="nova-btn-label">New chat</span>' +
+      '<span class="nova-btn-label-short" aria-hidden="true">New</span>' +
       "</button>" +
       '<button class="nova-settings-btn" aria-label="Settings" title="Settings" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
@@ -2243,14 +2300,14 @@
       showWelcome();
     }
 
-    // A conversation left open on the previous page stays open (wide screens
-    // only); a closed panel stays closed.
+    // A conversation left open on the previous page stays open on the hub and
+    // /nova at >=1280px; everywhere else (forms, phones, tablets) it stays closed.
     if (
       shouldRestoreOpen(
         readOpenState(),
         window.innerWidth,
-        CONFIG.mobileBreakpoint,
         state.messages.length,
+        window.location.pathname,
       )
     ) {
       try {
@@ -2849,7 +2906,7 @@
     errEl.setAttribute("role", "alert");
     errEl.style.borderColor = "rgba(239,68,68,0.3)";
     var errText = document.createElement("span");
-    errText.style.color = "#B91C1C"; // 6.4:1 on the lavender error card
+    errText.style.color = CONFIG.errorTextColor;
     errText.style.display = "block";
     // textContent: the message can carry server text, never markup.
     errText.textContent = friendlyChatError(errorMsg);
@@ -3947,14 +4004,8 @@
               _activeAbortCtrl = null;
               hideStopButton();
               if (sendBtn) sendBtn.disabled = false;
-              // The socket opened and then dropped before a single token:
-              // that is the transport, not the question. Pin this page to
-              // SSE and resend once without bothering the visitor.
-              if (isWsTransportError(errMsg) && !(opts && opts.transportRetried)) {
-                _widgetWsFailCount = _WIDGET_WS_MAX_FAILS;
-                sendMessage(text, { isRetry: true, transportRetried: true });
-                return;
-              }
+              // Transport drop or a stale session token: recover once, silently.
+              if (resendAfterRecoverableError(errMsg, text, opts)) return;
               _widgetWsFailCount++;
               showStreamError(
                 errMsg || "Connection error. Please try again.",
@@ -4028,13 +4079,13 @@
             var _streamStartTime = Date.now();
             function processChunk() {
               if (++_chunkIterations > 50000) {
-                _removeTypingIndicator();
+                hideTyping();
                 state.isLoading = false;
                 return;
               }
               if (Date.now() - _streamStartTime > 120000) {
                 abortCtrl.abort();
-                _removeTypingIndicator();
+                hideTyping();
                 state.isLoading = false;
                 return;
               }
@@ -4305,16 +4356,7 @@
             // 403 = stale CSRF token or a session token from another
             // conversation. Refresh both and resend once; only a second 403
             // reaches the visitor (as a Retry they can press).
-            if (
-              err &&
-              /^HTTP 403/.test(err.message || "") &&
-              !(opts && opts.authRetried)
-            ) {
-              clearStoredSessionToken();
-              refreshCsrfToken(function () {
-                state.isLoading = false;
-                sendMessage(text, { isRetry: true, authRetried: true });
-              });
+            if (err && resendAfterRecoverableError(err.message, text, opts)) {
               return;
             }
 
@@ -4361,7 +4403,7 @@
                 .finally(function () {
                   state.isLoading = false;
                   if (sendBtn) sendBtn.disabled = false;
-                  _removeTypingIndicator();
+                  hideTyping();
                 });
             }
 

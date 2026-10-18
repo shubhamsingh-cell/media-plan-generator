@@ -6,8 +6,8 @@
   },
   "static/css/hub.css": {
     "referrer": "hub.html",
-    "sha256": "a6faa92c9de793484ce6b4f12b569809212c09fb24924796742c4aa8bdc1fe3c",
-    "version": "2.15.8"
+    "sha256": "dfd748c8a61b5539bcc37fd243d20fadb82adb4e32f2ac0077a9f096f84b9854",
+    "version": "2.15.9"
   },
   "static/css/motion.css": {
     "referrer": "hub.html",
@@ -36,8 +36,8 @@
   },
   "static/js/hub.js": {
     "referrer": "hub.html",
-    "sha256": "84f4a9b7178b5282ab63995e3b1634ba958e3548c6d10d4a38dfb4f9062bb63e",
-    "version": "2.9.6"
+    "sha256": "897d6bdf73a96c4f7c1b564227fcf6f5c6e531c4bc0bfe55a630e46d1c588f05",
+    "version": "2.9.7"
   },
   "static/js/motion-engine.js": {
     "referrer": "hub.js",
@@ -71,7 +71,7 @@
   },
   "static/nova-chat.js": {
     "referrer": "hub.js",
-    "sha256": "082c2b933a2a4510fbe691a85ac9e2903a1bd4f5cf748ad34cf46c5f49bf11eb",
-    "version": "nux1"
+    "sha256": "4db83dfc92175b0d52c6e25421a99af7b9f6a478a4a83309beb393baf72df529",
+    "version": "nux2"
   }
 }
