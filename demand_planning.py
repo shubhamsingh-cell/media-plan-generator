@@ -33,8 +33,9 @@ from __future__ import annotations
 import logging
 import math
 import re
-import threading
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from engine_log_quiet import quiet_engine_logs
 
 logger = logging.getLogger(__name__)
 
@@ -57,37 +58,6 @@ _MAX_EXTENSION_FACTOR = 2.0  # ... nor one longer than twice the window
 _GRID_POINTS = 120  # budget grid the non-monotone scan walks
 
 Projector = Callable[[float], Dict[str, Any]]
-
-
-# --------------------------------------------------------------------------
-# quiet inversion: a search makes ~20 engine calls, each logging a dozen INFO
-# lines.  A per-thread filter on the engine's logger mutes only THIS thread's
-# search records (other requests keep logging).
-# --------------------------------------------------------------------------
-_quiet_state = threading.local()
-_QUIET_LOGGERS = ("budget_engine",)
-
-
-class _QuietFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
-        return not getattr(_quiet_state, "depth", 0)
-
-
-_QUIET_FILTER = _QuietFilter()
-
-
-class _quiet_engine:
-    """Context manager muting the budget engine's log lines on this thread."""
-
-    def __enter__(self) -> None:
-        for name in _QUIET_LOGGERS:
-            lg = logging.getLogger(name)
-            if _QUIET_FILTER not in lg.filters:
-                lg.addFilter(_QUIET_FILTER)
-        _quiet_state.depth = getattr(_quiet_state, "depth", 0) + 1
-
-    def __exit__(self, *exc: Any) -> None:
-        _quiet_state.depth = max(0, getattr(_quiet_state, "depth", 1) - 1)
 
 
 # --------------------------------------------------------------------------
@@ -299,7 +269,7 @@ def required_budget(
         m = at(b)
         return None if m is None else m[0]
 
-    with _quiet_engine():
+    with quiet_engine_logs():
         top_lo, why = _bracket(optimistic, goal, hint)
         if top_lo is None:
             return {"ok": False, "status": why, "low": None, "high": None}
@@ -594,7 +564,7 @@ def build_goal_plan(
     budget is unusable.  Never raises.
     """
     try:
-        with _quiet_engine():
+        with quiet_engine_logs():
             return _build_goal_plan(
                 goal=goal,
                 budget=budget,

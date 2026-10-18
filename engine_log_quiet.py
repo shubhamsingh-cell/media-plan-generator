@@ -25,12 +25,22 @@ QUIET_LOGGERS = ("budget_engine",)
 _ctx = threading.local()
 
 
+class QuietStats:
+    """What a quiet block held back, for the caller's one summary line."""
+
+    def __init__(self) -> None:
+        self.warnings = 0
+
+
 class _DemoteEngineLogs(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        if not getattr(_ctx, "active", False):
+        stats = getattr(_ctx, "stats", None)
+        if stats is None:
             return True
         if record.levelno >= logging.ERROR or record.levelno <= logging.DEBUG:
             return True
+        if record.levelno == logging.WARNING:
+            stats.warnings += 1
         record.levelno, record.levelname = logging.DEBUG, "DEBUG"
         return logging.getLogger(record.name).isEnabledFor(logging.DEBUG)
 
@@ -54,11 +64,16 @@ _install()
 
 
 @contextlib.contextmanager
-def quiet_engine_logs() -> Iterator[None]:
-    """Demote the engine's INFO/WARNING lines to DEBUG on this thread only."""
-    previous = getattr(_ctx, "active", False)
-    _ctx.active = True
+def quiet_engine_logs() -> Iterator[QuietStats]:
+    """Demote the engine's INFO/WARNING lines to DEBUG on this thread only.
+
+    Yields a ``QuietStats``; read ``.warnings`` after the block to say how many
+    WARNINGs were held back.  A nested block shares the outer block's stats.
+    """
+    previous = getattr(_ctx, "stats", None)
+    stats = previous or QuietStats()
+    _ctx.stats = stats
     try:
-        yield
+        yield stats
     finally:
-        _ctx.active = previous
+        _ctx.stats = previous

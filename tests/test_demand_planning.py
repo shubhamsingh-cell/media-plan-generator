@@ -101,12 +101,14 @@ def test_inversion_is_cheap_and_quiet():
     h = _H()
     lg = logging.getLogger("budget_engine")
     lg.addHandler(h)
+    previous_level = lg.level
     try:
         logging.disable(logging.NOTSET)
         lg.setLevel(logging.INFO)
         dp.required_budget(250, "hires", counting, hint=100_000)
     finally:
         lg.removeHandler(h)
+        lg.setLevel(previous_level)  # a leaked INFO level hid later tests' DEBUG
     assert len(calls) < 250  # a coarse grid plus a bisection, not a dollar scan
     assert records == []  # the search mutes its own engine log lines
 

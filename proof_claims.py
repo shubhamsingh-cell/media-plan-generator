@@ -501,7 +501,7 @@ def hub_pe_grid(force: bool = False) -> Optional[Dict[str, Any]]:
         skipped = []
         # 560 engine calls log ~9k INFO lines at every boot; demote them on this
         # thread only (ERROR passes) -- the summary line below is the one record.
-        with quiet_engine_logs():
+        with quiet_engine_logs() as quiet:
             for role in HUB_PE_ROLES:
                 for location in HUB_PE_LOCATIONS:
                     for budget in hub_pe_budgets():
@@ -551,11 +551,16 @@ def hub_pe_grid(force: bool = False) -> Optional[Dict[str, Any]]:
         _grid = body
         _grid_month = _month()
         logger.info(
-            "proof_claims: hub prediction grid priced %d scenarios in %.2fs (%d skipped), version %s",
+            "proof_claims: hub prediction grid priced %d scenarios in %.2fs (%d skipped), version %s%s",
             len(scenarios),
             time.time() - started,
             len(skipped),
             digest,
+            (
+                f" ({quiet.warnings} engine warnings suppressed)"
+                if quiet.warnings
+                else ""
+            ),
         )
         return _grid
 
