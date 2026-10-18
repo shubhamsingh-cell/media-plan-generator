@@ -17,6 +17,7 @@ Enable Claude mode by setting ANTHROPIC_API_KEY environment variable.
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import copy
 import json
@@ -32,6 +33,7 @@ from pathlib import Path
 import country_registry  # countries the datasets cover that COUNTRY_DATA has no row for
 import proof_claims  # public proof numbers: one source of truth, each with its artifact
 import publisher_filter  # client exclusions + availability: one matcher for every board list
+import nova_plan_figures as _plan_figs  # ONE source of plan applications / hires / CPA / CPH
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 # S50 (May 2026): 11 free recruitment data APIs as Nova chatbot tools.
@@ -2950,6 +2952,11 @@ _RESPONSE_TEMPLATES: Dict[str, str] = {
         "| [rows] |\n"
         "Why = copy that channel's `why` from the tool result verbatim. If the "
         "channel has no `why`, write -- . Never invent a reason.\n\n"
+        "#### Projected Outcomes\n"
+        "State applications, hires, cost per application and cost per hire as the "
+        "low-high range in `projection.text` -- never one number -- with its basis "
+        "and which end is the best case, and open with `budget_reading.text`. "
+        "Never compute them yourself.\n\n"
         "#### Market Context\n"
         "- [3-4 bullets about the market]\n\n"
         "#### Activation Timeline\n"
@@ -4679,6 +4686,164 @@ def _consume_internal_markers(chat_fn):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# JOB BOARDS THE USER EXCLUDED -- read once per turn, honoured everywhere
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# "make a media plan for X excluding Indeed and ZipRecruiter" used to work only if
+# the model remembered to pass ``excluded_publishers`` to a tool, and three of the
+# channel tools had no such parameter. The exclusions are now read from the message
+# (and earlier user turns) by ``nova_handoff.extract_exclusions``, parked on the
+# turn state, injected into every exclusion-aware tool call by ``execute_tool``,
+# swept from the reply at the ``Nova.chat`` boundary and handed to the wizard.
+
+# tools whose handlers filter their boards by ``excluded_publishers``
+_EXCLUSION_AWARE_TOOLS = frozenset(
+    {
+        "query_global_supply",
+        "query_publishers",
+        "query_channels",
+        "recommend_channels",
+        "optimize_campaign",
+    }
+)
+
+
+# The turn state above is thread-local, and both tool loops run their tools in
+# pooled worker threads where it is NOT visible (a tool executed there sees no
+# turn at all). The exclusions are therefore also handed to each worker through
+# this small bridge; the rest of the turn state is deliberately left alone.
+_turn_exclusions_local = threading.local()
+
+
+def _turn_exclusions() -> List[str]:
+    """Boards the current chat turn excluded ([] outside a turn)."""
+    state = _get_turn_tool_capture() or {}
+    names = state.get("excluded_publishers")
+    if isinstance(names, list) and names:
+        return list(names)
+    bridged = getattr(_turn_exclusions_local, "names", None)
+    return list(bridged) if isinstance(bridged, list) else []
+
+
+@contextlib.contextmanager
+def _bridged_turn_exclusions(names: List[str]):
+    """Make ``names`` the turn's exclusions on THIS thread for the block."""
+    prev = getattr(_turn_exclusions_local, "names", None)
+    _turn_exclusions_local.names = list(names or [])
+    try:
+        yield
+    finally:
+        _turn_exclusions_local.names = prev
+
+
+def _new_turn_state(
+    user_message: str,
+    conversation_history: Optional[list],
+    *,
+    session_id: str = "",
+    stateless: bool = True,
+) -> Dict[str, Any]:
+    """The per-turn capture dict ``Nova.chat`` installs (tool outputs for
+    multi-turn reuse, the conversation id, and the boards the user excluded)."""
+    try:
+        from nova_handoff import extract_exclusions
+
+        excluded = extract_exclusions(user_message, conversation_history)
+    except Exception:
+        logger.warning("Exclusion parsing failed (non-fatal)", exc_info=True)
+        excluded = []
+    return {
+        "conversation_id": session_id or "",
+        "tools": {},  # filled by _record_turn_tool_result
+        "tools_used": [],
+        "stateless": bool(stateless),
+        "excluded_publishers": excluded,
+    }
+
+
+_FENCE_RE = re.compile(r"^\s*```")
+
+
+def _sweep_excluded_boards(text: str, excluded: List[str]) -> str:
+    """``text`` without what recommends a board the user excluded, line by line.
+
+    A table row or list item about the board goes; a sentence that names it in a
+    longer line goes alone (``publisher_filter.scrub_text``: the member of a
+    comma list, else the sentence). Citations ("Source: Indeed Hiring Lab") and
+    code blocks stay. ``publisher_filter.sweep_text`` is for one cell: given a
+    whole markdown answer it drops everything in the same sentence, tables
+    included."""
+    data = {"excluded_publishers": excluded}
+    out: List[str] = []
+    in_code = False
+    for line in text.split("\n"):
+        if _FENCE_RE.match(line):
+            in_code = not in_code
+            out.append(line)
+            continue
+        if in_code or not line.strip() or not publisher_filter.mentions_excluded(line, data):
+            out.append(line)
+            continue
+        if line.lstrip().startswith("|"):
+            continue  # a table row about the board
+        cleaned = publisher_filter.scrub_text(line, data)
+        if isinstance(cleaned, str) and cleaned.strip():
+            out.append(cleaned)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out))
+
+
+def _honour_turn_exclusions(chat_fn):
+    """Decorate ``Nova.chat``: no reply recommends a board the user excluded.
+
+    Runs for every return path (cache hits and fast paths included). The swept
+    result is a shallow copy when it changes, because the engine's response
+    caches may hold the original by reference. A plan answer, or any answer the
+    sweep changed, ends with the one disclosure line every plan surface prints
+    ("Excluded at client request: ...")."""
+
+    @functools.wraps(chat_fn)
+    def wrapper(*args, **kwargs):
+        result = chat_fn(*args, **kwargs)
+        if not isinstance(result, dict) or not isinstance(result.get("response"), str):
+            return result
+        try:
+            message = kwargs.get("user_message")
+            if message is None and len(args) > 1:
+                message = args[1]
+            history = kwargs.get("conversation_history")
+            if history is None and len(args) > 2:
+                history = args[2]
+            from nova_handoff import extract_exclusions, is_plan_shaped
+
+            excluded = extract_exclusions(str(message or ""), history)
+            if not excluded:
+                return result
+            text = result["response"]
+            swept = _sweep_excluded_boards(text, excluded)
+            line = publisher_filter.disclosure_line({"excluded_publishers": excluded})
+            plan = is_plan_shaped(
+                result.get("query_type") or _classify_query_type(str(message or "")), swept
+            )
+            if _T3_UNVERIFIED_FOOTER in swept and _T3_UNVERIFIED_MARK not in swept.replace(
+                _T3_UNVERIFIED_FOOTER, ""
+            ):
+                # the only figure that carried a dagger was in a row the sweep removed
+                swept = swept.replace("\n\n" + _T3_UNVERIFIED_FOOTER, "").replace(
+                    _T3_UNVERIFIED_FOOTER, ""
+                )
+            if line and line not in swept and (swept != text or plan):
+                swept = swept.rstrip() + "\n\n*" + line + "*"
+            if swept != text:
+                result = dict(result)
+                result["response"] = swept
+        except Exception:
+            logger.warning("Exclusion sweep failed (non-fatal)", exc_info=True)
+        return result
+
+    return wrapper
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # JOVEO IQ ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -4845,7 +5010,8 @@ class Nova:
         "\n\n## BUDGET METRICS\n"
         "`CPA` = Total spend / applications (NOT cost per hire). "
         "`CPH` = Total spend / hires (always higher than CPA). "
-        "Present BOTH clearly labeled. Compare projected hires vs hiring target. "
+        "Present BOTH clearly labeled, as the ranges query_budget_projection returns. "
+        "Compare projected hires vs hiring target. "
         "Recommend adjustments if projections fall short or suggest optimizations if exceeding target."
     )
 
@@ -4886,20 +5052,12 @@ class Nova:
         "  never multiply target_hires by a cost per hire yourself and never assume a random budget like $50K.\n"
         "- If a budget AND a hiring goal are both given, quote goal_plan: what the goal needs, what the budget covers,\n"
         "  the shortfall, and options A (full objective), B (current constraint) and C (alternative).\n"
-        "- If user specifies ONLY budget (no target), estimate hires from budget / avg_CPH.\n"
-        "- Always show the math transparently.\n\n"
-        "## CPH LAST-RESORT FORMULA (when no benchmark data available)\n"
-        "If you cannot find CPH data for a specific role from tools or benchmarks:\n"
-        "  CPH = Annual Salary x 4.4%\n"
-        "This is because normal staffing companies charge 10-20% of salary.\n"
-        "Programmatic recruitment advertising (Joveo) is ~4.4% of salary.\n"
-        "Examples:\n"
-        "- Software Engineer ($150K salary) -> CPH = $6,600\n"
-        "- Uber Driver ($45K salary) -> CPH = $1,980\n"
-        "- Registered Nurse ($82K salary) -> CPH = $3,608\n"
-        "- Primary Care Physician ($250K salary) -> CPH = $11,000\n"
-        "Use this formula SILENTLY -- never reveal the 4.4% formula or calculation to users.\n"
-        "Just present the CPH as a confident number. Do NOT say 'estimated' or show the math.\n"
+        "- If user specifies ONLY budget (no target), call query_budget_projection and quote its ranges (projection.text).\n"
+        "- Never do the division yourself: no budget / cost per hire, no salary multiplier, no safety margins.\n"
+        "- Say how the budget was read (total campaign vs per month) and which end of each range is the best case.\n\n"
+        "## COST PER HIRE WITHOUT A BUDGET\n"
+        "If no tool result carries a sourced cost per hire for the role, say there is no sourced figure for it and offer to run the projection once a budget is given. "
+        "Never derive one from salary and never present an unsourced figure as a confident number.\n"
     )
 
     def get_system_prompt(self, message: str = "") -> str:
@@ -4926,7 +5084,7 @@ class Nova:
 1. **ALWAYS call tools first -- THIS IS MANDATORY.** You MUST call at least one tool before responding to ANY data question. If you respond without calling a tool first, your response will be rejected and re-run. If location is missing, call tools without a location filter and present the result as cross-market -- never label it as US unless tools explicitly returned US data. If industry is missing, provide cross-industry benchmarks. A response without tool data for a data question is a FAILURE that will be automatically retried. ONE clarifying question IS allowed (and only one) for genuinely ambiguous city names (Birmingham UK vs Alabama, Cambridge UK vs Massachusetts, Hamilton Canada vs New Zealand vs Ohio, Newcastle UK vs Australia, Perth Scotland vs Australia) or when a budget is in a currency that does not match the inferred country -- ask "Did you mean X or Y?", then call tools.
 2. **Lead with numbers, cite sources.** Every data point needs inline reference: "Median salary **$95K** [1]" with "[1] Adzuna" at end. Number each source.
 3. **Only cite tool results.** Never invent CPC/CPA/CPH/salary numbers. Cite ranges as given (do not pick midpoints). If tools conflict, state both with sources. Precedence: Live API > joveo_2026_benchmarks > recruitment_benchmarks_deep > platform_intelligence_deep > General KB.
-3a. **CPH (Cost Per Hire) guardrails.** When generating media plans, the CPH you show MUST be realistic and consistent with benchmarks. RULES: (a) If your benchmark data shows CPH of $400-$800 for an industry, your media plan CPH MUST fall within that range -- never below the benchmark minimum. (b) Apply platform-differentiated safety margins to CPH: Indeed/LinkedIn/ZipRecruiter 20%, Google/Bing Search 25%, Programmatic/DSP 30%, Craigslist 35%, Niche boards 40%, Social media (Meta/TikTok/Snapchat) 45%. (c) If your calculated CPH is below the benchmark floor, use the benchmark floor as the minimum. Back-calculate projected hires from the benchmark CPH, not the other way around.
+3a. **PLAN FIGURES COME FROM ONE TOOL.** Every plan-level applications, hires, CPA (cost per application) and CPH (cost per hire) figure for a budget comes from `query_budget_projection` -- the same engine the plan generator uses, so chat and the generated plan agree -- and from nothing else. NEVER compute, average, rescale or back-calculate them yourself: not budget / cost per hire, not from salary, not with safety margins, not from another tool's table. Quote its low-high ranges exactly as `projection.text` gives them, never a single number; say the high end of applications and hires and the low end of CPA and CPH are the best case; give the basis it states (hires are estimates from the industry cost-per-hire table with no client hire history; cost per hire is a total, not media-only). State how the budget was read (`budget_reading.text`): a budget with a duration ("60k, 3-month campaign") is a campaign TOTAL unless the user says per month/quarter/year -- when it is per period, pass budget_period and campaign_months, and say which reading you used. recommend_channels, optimize_campaign, predict_hiring_outcome and project_roi say WHERE to spend and give single-channel figures; their channel rows are not a plan total, so never add them up. If query_budget_projection has not been called, call it before stating any plan figure. A budget of any size gets an answer (there is no minimum): follow `small_budget` when the tool returns it.
 3b. **Craigslist apply rate guardrail.** The craigslist_performance KB contains CG Automation Apex client data with ~55-60% click-to-apply rates. These are NOT general Craigslist apply rates. When discussing Craigslist in media plans, use realistic impression-to-apply rates: 12% for professional roles, 18% for hourly/gig, 25% for blue collar/trades. Never cite 55% as a Craigslist apply rate.
 3d. **Craigslist post optimization rules.** When advising on Craigslist job postings: (1) ALWAYS recommend including salary/compensation as the FIRST LINE in bold -- posts with salary in the first line get 3.8x more applications (Indeed 2025 data). Format: "Pay: $XX-$YY/hr" or "Earn $XXX-$XXX/day". If no employer salary data, use category benchmarks from craigslist_performance KB (admin $16-28/hr, computer $25-55/hr, creative $18-40/hr, crew/domestic $15-25/hr, event/labor $16-30/hr, talent $18-45/hr). (2) ALWAYS recommend keeping job descriptions in the 201-400 word Goldilocks zone -- this yields 8-8.5% apply rate per Appcast's 302M click dataset. Under 200 words drops to 4-5%; over 400 words drops to 5-6%.
 3c. **Trend alert guardrails.** Do NOT generate month-over-month or "spiked sharply" alerts for the current month if we are fewer than 7 days into it. For example, do not say "CPC has spiked sharply in April 2026" if today is April 3. Wait until at least 7 days of data are available before making monthly trend claims. For current-month observations, say "Early April data suggests..." instead of making definitive trend claims.
@@ -5391,6 +5549,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             ],
                             "description": "Channel category. Default: 'all'.",
                         },
+                        "excluded_publishers": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Boards the client excluded (any spelling, e.g. 'indeed.com'); removed from the results.",
+                        },
                     },
                     "required": [],
                 },
@@ -5504,13 +5667,22 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "query_budget_projection",
-                "description": "Budget allocation across 6 channels with projected clicks, applications, hires, CPA (cost per application), and CPH (cost per hire). Use when user provides a dollar budget or asks about ROI/spend allocation. IMPORTANT: If the user mentions how many people they want to hire (e.g., '20 drivers', '50 nurses'), pass that as target_hires. DEMAND-FIRST: when the user asks 'what budget do I need for N hires' (or N apply starts) and gives NO budget, call this tool with target_hires (or target_apply_starts) and OMIT budget -- the tool solves the required budget range from the same projection engine (goal_plan.required, with the shortfall and three options when a budget is also given). Never estimate that budget yourself.",
+                "description": "THE source of plan-level applications, hires, CPA (cost per application) and CPH (cost per hire) for a budget -- the same engine the plan generator uses, so chat and the generated plan agree. Returns low-high ranges with their basis and a channel allocation. Use whenever the user gives a dollar budget or asks about ROI/spend/hires/CPA/CPH for a plan; no other tool's plan totals may be quoted. State the budget reading (budget_reading.text) to the user. IMPORTANT: If the user mentions how many people they want to hire (e.g., '20 drivers', '50 nurses'), pass that as target_hires. DEMAND-FIRST: when the user asks 'what budget do I need for N hires' (or N apply starts) and gives NO budget, call this tool with target_hires (or target_apply_starts) and OMIT budget -- the tool solves the required budget range from the same projection engine (goal_plan.required, with the shortfall and three options when a budget is also given). Never estimate that budget yourself.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
                         "budget": {
                             "type": "number",
-                            "description": "Total budget in USD",
+                            "description": "Budget in USD exactly as the user stated it. It is the TOTAL for the whole campaign unless budget_period says otherwise.",
+                        },
+                        "budget_period": {
+                            "type": "string",
+                            "enum": ["campaign", "monthly", "quarterly", "annual"],
+                            "description": "What the budget figure covers. Default 'campaign' (a total, e.g. '60k for a 3-month campaign'). Use 'monthly' for '$20k a month', 'quarterly', or 'annual'; then also pass campaign_months.",
+                        },
+                        "campaign_months": {
+                            "type": "number",
+                            "description": "Campaign length in months (e.g. 3). Required to scale a monthly/quarterly/annual budget to the campaign total.",
                         },
                         "roles": {
                             "type": "array",
@@ -5858,7 +6030,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "suggest_smart_defaults",
-                "description": "Auto-detect budget range, channel split, CPA/CPH from partial info (roles, locations). Use when user asks 'how much should I budget' or provides roles without budget.",
+                "description": "Budget range a hiring goal needs (solved by the same projection engine as the plan generator) plus the qualitative channel split for the role tier. Use when user asks 'how much should I budget' or provides roles and a hire count without a budget. It states no cost per hire of its own.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -6006,7 +6178,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "simulate_what_if",
-                "description": "Simulate budget or channel changes and see projected impact on hires, CPA, and ROI. Use when user asks 'what if we increase budget by X?', 'what if we add/remove a channel?', or any scenario analysis.",
+                "description": "Simulate a budget change and see the projection engine's before/after ranges for applications, hires, CPA and cost per hire. Use when user asks 'what if we increase budget by X?'. Needs base_budget (the plan's current budget): without it nothing is simulated and no number may be stated. Channel add/remove is described qualitatively only.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -6014,6 +6186,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             "type": "string",
                             "description": "Natural language description of the scenario",
                         },
+                        "base_budget": {
+                            "type": "number",
+                            "description": "The plan's CURRENT campaign budget in USD (required for any numbers)",
+                        },
+                        "roles": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Role titles of the plan",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Hiring locations of the plan",
+                        },
+                        "industry": {"type": "string", "description": "Industry of the plan"},
                         "delta_budget": {
                             "type": "number",
                             "description": "Absolute budget change amount (positive or negative)",
@@ -6146,7 +6333,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "predict_hiring_outcome",
-                "description": "ML-lite prediction of hiring outcomes: success probability, predicted applications, time-to-fill, cost-per-hire, and A-F grade. Use when asked 'will this plan work?', 'how many hires can I expect?', or for plan quality assessment.",
+                "description": "ML-lite plan-quality assessment: success probability, time-to-fill and an A-F grade. Plan-level applications, hires and cost per hire are NOT from this tool: they are in plan_projection (the plan generator's engine). Use when asked 'will this plan work?' or for plan quality assessment.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -6849,7 +7036,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # S46: Campaign Optimization Engine
             {
                 "name": "optimize_campaign",
-                "description": "AI-powered campaign optimizer. Given a role, location, industry, and budget, returns optimal channel allocation with projected clicks, applies, hires, CPA, and CPH. Use when user asks 'what is the best way to spend my budget', 'optimize my campaign', 'how should I allocate budget', or 'recommend channels for hiring'.",
+                "description": "AI-powered campaign optimizer. Given a role, location, industry, and budget, returns an optimal channel allocation (share, spend, CPC, apply rate, CPA per channel). It states NO plan-level applications, hires or CPH: those are in plan_projection (the plan generator's engine). Use when user asks 'what is the best way to spend my budget', 'optimize my campaign', 'how should I allocate budget', or 'recommend channels for hiring'.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -7002,7 +7189,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # ── S48: Channel Recommendations Engine ──────────────────────
             {
                 "name": "recommend_channels",
-                "description": "Recommend the best recruitment advertising channels for a specific industry, role, and budget. Returns tiered recommendations (Must Have, Should Have, Test & Learn, Skip) with expected CPC, CPA, projected applications and hires, confidence levels, and rationale. Use when asked 'which channels', 'where should I post', 'best platforms', 'channel mix', 'media mix', 'recommend channels', or 'how to spend budget'.",
+                "description": "Recommend the best recruitment advertising channels for a specific industry, role, and budget. Returns tiered recommendations (Must Have, Should Have, Test & Learn, Skip) with each platform's share and spend, expected CPC and CPA, confidence and rationale. It states NO plan-level applications or hires: those are in plan_projection (the plan generator's engine) when a budget is given. Use when asked 'which channels', 'where should I post', 'best platforms', 'channel mix', 'media mix', 'recommend channels', or 'how to spend budget'.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -8000,6 +8187,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if not handler:
             return json.dumps({"error": f"Unknown tool: {tool_name}"})
 
+        # The boards the user excluded this turn reach every exclusion-aware tool
+        # even when the model forgot to pass them (merged with any it did pass).
+        if tool_name in _EXCLUSION_AWARE_TOOLS:
+            _turn_ex = _turn_exclusions()
+            if _turn_ex:
+                tool_input = dict(tool_input or {})
+                tool_input["excluded_publishers"] = publisher_filter.sanitize_excluded(
+                    list(tool_input.get("excluded_publishers") or []) + _turn_ex
+                )
+
         # Emit tool_start event to streaming queue
         _sq = _get_tool_status_queue()
         _label = _TOOL_LABELS.get(tool_name, tool_name.replace("_", " ").title())
@@ -8388,6 +8585,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
         if channel_type in ("non_traditional", "all"):
             result["non_traditional"] = non_traditional
+
+        # Boards the client excluded (any spelling) never reach the answer.
+        _excluded = publisher_filter.sanitize_excluded(params.get("excluded_publishers"))
+        if _excluded:
+            result = _clean_board_lists(result, {"excluded_publishers": _excluded})
+            result["excluded_at_client_request"] = _excluded
 
         return result
 
@@ -10094,7 +10297,27 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         detected, the fallback channel mix is replaced with that market's top
         platforms instead of the US-centric Indeed/LinkedIn/Snagajob list.
         """
-        budget = params.get("budget") or 0
+        # The campaign TOTAL, read exactly as the wizard and /api/generate read a
+        # budget (amount x periods over the campaign's months): "60k for a
+        # 3-month campaign" is a 60,000 total; "$20k a month for 3 months" is 60,000;
+        # "60k a month for 3 months" is 180,000. The reading is stated in
+        # ``budget_reading`` so the answer can say what it planned on.
+        budget_reading: Optional[Dict[str, Any]] = None
+        budget: Any = 0
+        _raw_budget = params.get("budget")
+        _numeric_budget: Optional[float] = None
+        if isinstance(_raw_budget, (int, float)) and not isinstance(_raw_budget, bool):
+            _numeric_budget = float(_raw_budget)
+        if _raw_budget not in (None, "") and (_numeric_budget is None or _numeric_budget > 0):
+            _resolved = _plan_figs.resolve_budget(
+                _raw_budget,
+                params.get("budget_period"),
+                params.get("campaign_months") or params.get("duration"),
+            )
+            if not _resolved["ok"]:
+                return {"error": _resolved["error"], "source": "Joveo Budget Engine"}
+            budget = _resolved["total"]
+            budget_reading = _resolved["reading"]
         roles_list = params.get("roles") or []
         locations_list = params.get("locations") or []
         industry = params.get("industry") or ""
@@ -10167,6 +10390,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "openings_per_role": openings_per_role,
             "total_openings": openings_per_role * num_roles,
         }
+        if budget_reading:
+            result["budget_reading"] = budget_reading
         if target_hires > 0:
             result["target_hires"] = target_hires
         if _detected_country:
@@ -10207,7 +10432,10 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if isinstance(loc, str) and loc.strip()
         ] or [_loc_country]
 
-        kb = self._data_cache.get("knowledge_base", {})
+        # NO knowledge base is passed: plan_projection loads the FULL one, the same
+        # as /api/estimate. Handing it Nova's 11-key legacy slice (a non-empty dict
+        # it honours) dropped the benchmark CPA band, so chat read "7,247-7,247
+        # applications, $8.28-$8.28" where the wizard read "2,400-7,500, $8-$25".
 
         # Tier 2: build a country-specific channel mix when we have intl data.
         _intl_block = (
@@ -10248,7 +10476,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             }
             _proj_kwargs = {
                 "channel_percentages": channel_pcts,
-                "knowledge_base": kb or None,
+                "knowledge_base": None,
                 # the tool's budget is US dollars (its schema says so): declare
                 # it so a non-US location never silently re-prices it in local money
                 "plan_currency": "USD",
@@ -10318,9 +10546,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "as the low-high ranges in projection.text, never as a single "
                 "number, and say that hires and cost per hire are estimates from "
                 "the industry cost-per-hire table (no client hire history "
-                "provided). total_projected holds the engine's point figures, "
-                "which are the optimistic end of each range."
+                "provided). The high end of applications and hires and the low end "
+                "of cost per application and cost per hire are the BEST CASE; say "
+                "so. total_projected holds the engine's point figures, which are "
+                "that best-case end, not a forecast. State how the budget was read "
+                "(budget_reading.text). NEVER compute, average, rescale or "
+                "back-calculate applications, hires, CPA or CPH yourself (not from "
+                "budget / cost per hire, not from salary, not from another tool's "
+                "table): every plan-level figure you state is one of these."
             )
+            if not solve_for_goal:
+                _small = _plan_figs.small_budget_guidance(
+                    result["projection"], float(budget), result["channel_allocations"]
+                )
+                if _small:
+                    result["small_budget"] = _small
             result["sufficiency"] = allocation.get("sufficiency", {})
             result["recommendations"] = allocation.get("recommendations") or []
             _annotate_channel_reasons(result["channel_allocations"])
@@ -11123,110 +11363,81 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         return result
 
     def _simulate_what_if(self, params: dict) -> dict:
-        """Simulate budget or channel changes and return projected impact."""
-        scenario_description = (params.get("scenario_description") or "").strip()
-        delta_budget = params.get("delta_budget", 0.0)
-        delta_pct = params.get("delta_pct", 0.0)
+        """What a budget change does to the plan, priced by the one projection engine.
+
+        It used to simulate against a hidden $50,000 "General Hire" baseline from a
+        private elasticity model ("+20% budget projects +87 hires (29 -> 116)"),
+        which was nobody's plan. The baseline is now the plan's own budget
+        (``base_budget``); without it there is nothing to simulate.
+        """
+        scenario = (params.get("scenario_description") or "").strip()
+        delta_budget = params.get("delta_budget") or 0.0
+        delta_pct = params.get("delta_pct") or 0.0
         add_channel = (params.get("add_channel") or "").strip()
         remove_channel = (params.get("remove_channel") or "").strip()
-
-        result: Dict[str, Any] = {"source": "Joveo Budget Simulation Engine"}
-
-        # We need a base_allocation to simulate against.
-        # First, try to compute a quick baseline allocation using the budget engine.
-        base_allocation: Optional[Dict[str, Any]] = None
-        kb = self._data_cache.get("knowledge_base", {})
-
-        # Determine a sensible baseline budget for simulation
-        baseline_budget = 50000  # default fallback
-        if delta_budget != 0.0 and delta_pct == 0.0:
-            # User is changing by an absolute amount; infer a baseline
-            baseline_budget = max(abs(delta_budget) * 5, 10000)
-        elif delta_pct != 0.0:
-            baseline_budget = 50000  # standard reference point
-
+        result: Dict[str, Any] = {
+            "source": "Joveo Budget Simulation Engine",
+            "scenario": scenario,
+        }
         try:
-            from budget_engine import calculate_budget_allocation
-
-            channel_pcts = {
-                "Programmatic & DSP": 30,
-                "Global Job Boards": 25,
-                "Niche & Industry Boards": 15,
-                "Social Media Channels": 15,
-                "Regional & Local Boards": 10,
-                "Employer Branding": 5,
-            }
-            base_allocation = calculate_budget_allocation(
-                total_budget=baseline_budget,
-                roles=[
-                    {
-                        "title": "General Hire",
-                        "count": 1,
-                        "tier": "Professional / White-Collar",
-                    }
-                ],
-                locations=[
-                    {"city": "United States", "state": "", "country": "United States"}
-                ],
-                industry="general",
-                channel_percentages=channel_pcts,
-                synthesized_data=None,
-                knowledge_base=kb,
+            base = float(params.get("base_budget") or 0)
+        except (TypeError, ValueError):
+            base = 0.0
+        if base <= 0:
+            result["needs_base_budget"] = True
+            result["note"] = (
+                "A what-if needs the plan's current budget: ask for it (or take it from "
+                "the conversation) and call this tool again with base_budget. Until then "
+                "do not state any hires, applications, CPA or cost-per-hire change; no "
+                "baseline is assumed."
             )
-        except Exception as e:
-            logger.debug("Failed to compute baseline allocation for what-if: %s", e)
-
-        if not base_allocation or not isinstance(base_allocation, dict):
-            result["error"] = (
-                "Could not compute a baseline allocation to simulate against. Try running query_budget_projection first."
-            )
+            result["recommendations"] = []
             result["data_confidence"] = 0.0
             return result
 
-        # Run the simulation
-        try:
-            from budget_engine import simulate_what_if as _simulate
-
-            sim_result = _simulate(
-                base_allocation=base_allocation,
-                scenario_description=scenario_description,
-                delta_budget=delta_budget,
-                delta_pct=delta_pct,
-                add_channel=add_channel,
-                remove_channel=remove_channel,
+        new_budget = base + float(delta_budget) if delta_budget else base * (1 + float(delta_pct))
+        if add_channel or remove_channel:
+            result["channel_change_note"] = (
+                "The projection engine prices a budget, not a channel swap: describe a "
+                "channel add/remove qualitatively and do not quote a change in hires, "
+                "applications or cost per hire for it."
             )
-            if sim_result and isinstance(sim_result, dict):
-                result["scenario"] = sim_result.get(
-                    "scenario_description", scenario_description
-                )
-                result["baseline_budget"] = baseline_budget
-
-                if sim_result.get("budget_impact"):
-                    bi = sim_result["budget_impact"]
-                    result["budget_impact"] = {
-                        "original_budget": bi.get("original_budget", baseline_budget),
-                        "new_budget": bi.get("new_budget", baseline_budget),
-                        "change": bi.get("change") or 0,
-                        "projected_hires_before": bi.get("projected_hires_before"),
-                        "projected_hires_after": bi.get("projected_hires_after"),
-                        "cpa_before": bi.get("cpa_before"),
-                        "cpa_after": bi.get("cpa_after"),
-                    }
-
-                if sim_result.get("channel_impact"):
-                    result["channel_impact"] = sim_result["channel_impact"]
-
-                result["recommendations"] = sim_result.get("recommendations") or []
-                result["data_confidence"] = 0.7
-                result["data_freshness"] = "computed"
-            else:
-                result["note"] = "Simulation returned no results."
-                result["data_confidence"] = 0.3
-        except Exception as e:
-            logger.error("What-if simulation failed: %s", e, exc_info=True)
-            result["error"] = "What-if simulation encountered an internal error."
+        roles = params.get("roles") or []
+        locations = params.get("locations") or []
+        industry = params.get("industry") or ""
+        before = _plan_figs.plan_headline(base, roles, locations, industry)
+        after = _plan_figs.plan_headline(new_budget, roles, locations, industry) if new_budget >= 100 else None
+        if not before or not after:
+            result["error"] = "The projection engine could not price one of the two budgets."
             result["data_confidence"] = 0.0
-
+            return result
+        bt, at = before["text"], after["text"]
+        result["baseline_budget"] = base
+        result["budget_impact"] = {
+            "original_budget": base,
+            "new_budget": round(new_budget, 2),
+            "change": round(new_budget - base, 2),
+            "applications_before": bt.get("applications"),
+            "applications_after": at.get("applications"),
+            "hires_before": bt.get("hires"),
+            "hires_after": at.get("hires"),
+            "cpa_before": bt.get("cpa"),
+            "cpa_after": at.get("cpa"),
+            "cph_before": bt.get("cph"),
+            "cph_after": at.get("cph"),
+        }
+        result["plan_projection"] = before
+        result["plan_projection_after"] = after
+        result["recommendations"] = [
+            f"Applications: {bt.get('applications')} -> {at.get('applications')}.",
+        ] + (
+            [f"Hires (an estimate): {bt.get('hires')} -> {at.get('hires')}."]
+            if bt.get("hires") and at.get("hires")
+            else []
+        )
+        result["presentation_note"] = _plan_figs.RANGE_PLAN_NOTE
+        result["data_confidence"] = 0.7
+        result["data_freshness"] = "computed"
         return result
 
     def _query_skills_gap(self, params: dict) -> dict:
@@ -12383,127 +12594,67 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         }
 
     def _suggest_smart_defaults(self, args: dict) -> dict:
-        """Auto-detect optimal hiring parameters and suggest budget/channel defaults.
+        """Roles and a hire count in, the budget range that hiring goal needs out.
 
-        Uses role-tier classification, industry benchmarks, and location
-        cost adjustments to produce smart budget recommendations at three
-        tiers: minimum, recommended, and premium.
+        The budget is solved by the projection engine (the same goal solver the
+        plan generator uses), not read from a tier table: a hard-coded cost per hire
+        by role keyword ($2,500 hourly ... $14,000 executive) priced 14 customer
+        service hires at $84,000 where the engine said otherwise. The channel split
+        is the qualitative mix for the role tier and carries no outcome figures.
         """
-        roles = args.get("roles", ["General Hire"])
+        roles = args.get("roles") or ["General Hire"]
         hire_count = args.get("hire_count", 10)
-        locations = args.get("locations", ["United States"])
-        industry = args.get("industry", "general")
+        locations = args.get("locations") or ["United States"]
+        industry = args.get("industry") or ""
         urgency = args.get("urgency", "standard")
+        try:
+            hire_count = max(1, int(hire_count))
+        except (TypeError, ValueError):
+            hire_count = 10
 
-        kb = self._data_cache.get("knowledge_base", {})
-        benchmarks = kb.get("benchmarks", {})
-        cph_data = benchmarks.get("cost_per_hire", {})
-
-        # Determine average CPH by role tier
-        role_cph_estimates = []
         role_tiers = []
         for role in roles:
             role_lower = role.lower() if isinstance(role, str) else ""
-            if any(
-                kw in role_lower
-                for kw in ["executive", "director", "vp", "chief", "president"]
-            ):
+            if any(kw in role_lower for kw in ["executive", "director", "vp", "chief", "president"]):
                 tier = "Executive"
-                cph = 14000
-            elif any(
-                kw in role_lower
-                for kw in ["nurse", "clinical", "therapist", "physician"]
-            ):
+            elif any(kw in role_lower for kw in ["nurse", "clinical", "therapist", "physician"]):
                 tier = "Clinical"
-                cph = 8500
-            elif any(
-                kw in role_lower
-                for kw in ["engineer", "developer", "data scientist", "architect"]
-            ):
+            elif any(kw in role_lower for kw in ["engineer", "developer", "data scientist", "architect"]):
                 tier = "Technology"
-                cph = 10000
-            elif any(
-                kw in role_lower
-                for kw in [
-                    "driver",
-                    "warehouse",
-                    "construction",
-                    "electrician",
-                    "welder",
-                ]
-            ):
+            elif any(kw in role_lower for kw in ["driver", "warehouse", "construction", "electrician", "welder"]):
                 tier = "Trades"
-                cph = 4500
-            elif any(
-                kw in role_lower
-                for kw in ["cashier", "retail", "hourly", "part-time", "seasonal"]
-            ):
+            elif any(kw in role_lower for kw in ["cashier", "retail", "hourly", "part-time", "seasonal"]):
                 tier = "Hourly"
-                cph = 2500
             else:
                 tier = "Professional"
-                cph = 6000
+            role_tiers.append({"role": role, "tier": tier})
 
-            role_cph_estimates.append(cph)
-            role_tiers.append({"role": role, "tier": tier, "estimated_cph": cph})
-
-        avg_cph = (
-            sum(role_cph_estimates) / len(role_cph_estimates)
-            if role_cph_estimates
-            else 5000
-        )
-
-        # Urgency multiplier
-        urgency_multiplier = {"standard": 1.0, "urgent": 1.20, "critical": 1.40}.get(
-            urgency, 1.0
-        )
-        adjusted_cph = avg_cph * urgency_multiplier
-
-        # Budget tiers
-        min_budget = round(adjusted_cph * hire_count * 0.60)  # Lean/aggressive
-        rec_budget = round(adjusted_cph * hire_count)  # Recommended
-        premium_budget = round(adjusted_cph * hire_count * 1.50)  # Premium/comfortable
-
-        # Channel split recommendations by role tier mix
         has_exec = any(t["tier"] == "Executive" for t in role_tiers)
         has_hourly = any(t["tier"] in ("Hourly", "Trades") for t in role_tiers)
         has_clinical = any(t["tier"] == "Clinical" for t in role_tiers)
-
         if has_exec:
             channel_split = {
-                "LinkedIn Ads": 35,
-                "Programmatic & DSP": 20,
-                "Global Job Boards": 20,
-                "Niche Executive Boards": 15,
-                "Employer Branding": 10,
-            }
+                "LinkedIn Ads": 35, "Programmatic & DSP": 20, "Global Job Boards": 20,
+                "Niche Executive Boards": 15, "Employer Branding": 10,
+            }  # fmt: skip
         elif has_hourly:
             channel_split = {
-                "Programmatic & DSP": 35,
-                "Global Job Boards": 25,
-                "Social Media (Meta/TikTok)": 20,
-                "Regional & Local Boards": 15,
+                "Programmatic & DSP": 35, "Global Job Boards": 25,
+                "Social Media (Meta/TikTok)": 20, "Regional & Local Boards": 15,
                 "Employer Branding": 5,
-            }
+            }  # fmt: skip
         elif has_clinical:
             channel_split = {
-                "Niche Healthcare Boards": 30,
-                "Programmatic & DSP": 25,
-                "Global Job Boards": 20,
-                "Social Media Channels": 15,
-                "Regional & Local Boards": 10,
-            }
+                "Niche Healthcare Boards": 30, "Programmatic & DSP": 25, "Global Job Boards": 20,
+                "Social Media Channels": 15, "Regional & Local Boards": 10,
+            }  # fmt: skip
         else:
             channel_split = {
-                "Programmatic & DSP": 30,
-                "Global Job Boards": 25,
-                "Niche & Industry Boards": 15,
-                "Social Media Channels": 15,
-                "Regional & Local Boards": 10,
-                "Employer Branding": 5,
-            }
+                "Programmatic & DSP": 30, "Global Job Boards": 25, "Niche & Industry Boards": 15,
+                "Social Media Channels": 15, "Regional & Local Boards": 10, "Employer Branding": 5,
+            }  # fmt: skip
 
-        return {
+        out: Dict[str, Any] = {
             "source": "Joveo Smart Defaults Engine",
             "input": {
                 "roles": roles,
@@ -12513,36 +12664,37 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "urgency": urgency,
             },
             "role_analysis": role_tiers,
-            "budget_recommendations": {
-                "minimum_budget": {
-                    "amount": min_budget,
-                    "per_hire": round(min_budget / max(hire_count, 1)),
-                    "note": "Lean budget -- requires aggressive optimization and may extend time-to-fill",
-                },
-                "recommended_budget": {
-                    "amount": rec_budget,
-                    "per_hire": round(rec_budget / max(hire_count, 1)),
-                    "note": "Balanced budget for quality hires within standard timelines",
-                },
-                "premium_budget": {
-                    "amount": premium_budget,
-                    "per_hire": round(premium_budget / max(hire_count, 1)),
-                    "note": "Comfortable budget allowing for employer branding and faster fills",
-                },
-            },
             "recommended_channel_split": channel_split,
-            "urgency_adjustment": (
-                f"{urgency} ({urgency_multiplier:.0%} of base)"
+            "urgency_note": (
+                "The projection engine does not model urgency. For an urgent or critical "
+                "fill, plan at the high end of the budget range and say that is a judgement, "
+                "not a computed figure."
                 if urgency != "standard"
-                else "standard (no adjustment)"
+                else "Standard timeline."
             ),
-            "benchmarks_used": {
-                "shrm_avg_cph": cph_data.get("shrm_2026", {}).get(
-                    "average_cost_per_hire", "$4,800"
-                ),
-                "note": "Budget estimates based on role tier, industry benchmarks, and urgency",
-            },
         }
+        solved = self._query_budget_projection(
+            {
+                "target_hires": hire_count,
+                "roles": [r for r in roles if isinstance(r, str)],
+                "locations": locations,
+                "industry": industry,
+            }
+        )
+        if isinstance(solved, dict) and solved.get("error"):
+            out["budget_note"] = solved["error"]
+            return out
+        if isinstance(solved, dict) and solved.get("required_budget"):
+            out["required_budget"] = solved["required_budget"]
+            out["goal_plan"] = solved.get("goal_plan")
+            out["budget_basis"] = (solved.get("projection") or {}).get("text", {}).get("hires_basis")
+            out["presentation_note"] = solved.get("presentation_note")
+        else:
+            out["goal_plan"] = (solved or {}).get("goal_plan")
+            out["budget_note"] = (solved or {}).get("hires_note") or (
+                ((solved or {}).get("goal_plan") or {}).get("text") or {}
+            ).get("callout")
+        return out
 
     # ------------------------------------------------------------------
     # Web search, knowledge search, URL scrape handlers
@@ -12750,8 +12902,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
             prediction = prediction_model.predict_outcomes(plan_data)
             grade = prediction_model.grade_plan(plan_data)
-            return {
-                "prediction": prediction.get("predictions", {}),
+            out = {
+                "prediction": dict(prediction.get("predictions", {})),
                 "overall_score": prediction.get("overall_score", 0),
                 "grade": grade.get("grade", "N/A"),
                 "letter": grade.get("letter", "N/A"),
@@ -12760,6 +12912,18 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "suggestions": grade.get("suggestions", []),
                 "source": "Nova Prediction Model v1.0",
             }
+            # its applications / qualified / cost per hire came from a private model
+            # (it printed the whole budget as the cost per hire of the plan):
+            # plan totals come from the one projection engine instead
+            _plan_figs.withhold_prediction_totals(out)
+            _plan_figs.attach_plan_headline(
+                out,
+                params.get("budget") or 0,
+                params.get("roles") or [],
+                params.get("locations") or [],
+                params.get("industry") or "",
+            )
+            return out
         except ImportError:
             logger.warning("prediction_model module not available")
             return {"error": "Prediction model is not available"}
@@ -14211,9 +14375,34 @@ When two or more tools return conflicting data for the same metric (e.g., differ
     def _optimize_campaign(self, params: dict) -> dict:
         """Run campaign optimization engine for channel allocation."""
         try:
-            from campaign_optimizer import optimize_campaign_tool
+            from campaign_optimizer import _CH, optimize_campaign_tool
 
-            return optimize_campaign_tool(params)
+            _excluded = publisher_filter.sanitize_excluded(params.get("excluded_publishers"))
+            _params = dict(params)
+            if _excluded:
+                _data = {"excluded_publishers": _excluded}
+                _skip = [cid for cid, meta in _CH.items() if publisher_filter.is_excluded(meta[0], _data)]
+                _constraints = dict(_params.get("constraints") or {})
+                _constraints["exclude"] = sorted(set(_constraints.get("exclude") or []) | set(_skip))
+                _params["constraints"] = _constraints
+            res = optimize_campaign_tool(_params)
+            if isinstance(res, dict) and not res.get("error"):
+                # its private tables priced a 60k budget at 96 hires: plan
+                # totals come from the one projection engine instead
+                _plan_figs.withhold_optimizer_totals(res)
+                _opt_locs = list(params.get("locations") or [])
+                if params.get("location"):
+                    _opt_locs.insert(0, params["location"])
+                _plan_figs.attach_plan_headline(
+                    res,
+                    params.get("budget") or 0,
+                    [params.get("role") or params.get("job_title")],
+                    _opt_locs,
+                    params.get("industry") or "",
+                )
+                if _excluded:
+                    res["excluded_at_client_request"] = _excluded
+            return res
         except ImportError:
             return {
                 "error": "Campaign optimizer not available",
@@ -14452,8 +14641,22 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 goals=params.get("goals"),
                 collar_type=params.get("collar_type") or "",
             )
-            # Add formatted text for LLM consumption
-            rec["formatted_text"] = _format_recommendation_text(rec)
+            _excluded = publisher_filter.sanitize_excluded(params.get("excluded_publishers"))
+            if _excluded:
+                _drop_excluded_recommendations(rec, _excluded)
+            # WHERE to spend is this tool's job. What the spend yields is not: its
+            # own table priced the same budget at a fraction of the applications the
+            # plan generator projects, with a far higher cost per application. Plan
+            # totals come from the one projection engine, stamped on the result.
+            _plan_figs.withhold_recommender_totals(rec, _format_recommendation_text)
+            _budget_given = params.get("budget")
+            _plan_figs.attach_plan_headline(
+                rec,
+                (rec.get("metadata") or {}).get("budget") if _budget_given else 0,
+                [params.get("role")] if params.get("role") else [],
+                params.get("locations") or [],
+                params.get("industry") or "",
+            )
             rec["source"] = "Channel Recommender (20 industries, 10 platforms)"
             return rec
         except Exception as e:
@@ -16351,6 +16554,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         return "I'll route this to the right data sources and return a grounded answer with sources."
 
     @_consume_internal_markers
+    @_honour_turn_exclusions
     def chat(
         self,
         user_message: str,
@@ -16408,16 +16612,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # and stash the conversation_id so downstream code (_chat_with_claude,
         # dynamic_parts builder) can read prior-turn cached outputs without
         # needing signature changes.
-        _turn_state: Dict[str, Any] = {
-            "conversation_id": session_id or "",
-            "tools": {},  # filled by _record_turn_tool_result
-            "tools_used": [],
-            # Stateless = a first-turn answer that depends on the message
-            # alone. Anything shaped by prior history or client context must
-            # never be read from, or written to, a cache/coalescer shared
-            # with other users.
-            "stateless": not conversation_history and not enrichment_context,
-        }
+        # Stateless = a first-turn answer that depends on the message alone.
+        # Anything shaped by prior history or client context must never be read
+        # from, or written to, a cache/coalescer shared with other users.
+        # The turn state also carries the job boards the user excluded.
+        _turn_state: Dict[str, Any] = _new_turn_state(
+            user_message,
+            conversation_history,
+            session_id=session_id or "",
+            stateless=not conversation_history and not enrichment_context,
+        )
         _set_turn_tool_capture(_turn_state)
 
         # --- Security filter: block internal/technical/exploit questions ---
@@ -17087,6 +17291,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         ),
                         user_message,
                     )
+                    # Verify BEFORE caching: the caches keep a snapshot of this dict,
+                    # so a hit used to replay the model's raw, unverified text.
+                    router_result = (
+                        self._apply_t3_postprocessing(router_result, user_message)
+                        or router_result
+                    )
                     if (
                         (router_result.get("confidence") or 0) >= 0.6
                         and cache_key
@@ -17102,8 +17312,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         (time.time() - _t0) * 1000,
                     )
                     return _append_follow_ups_to_response(
-                        self._apply_t3_postprocessing(router_result, user_message)
-                        or router_result,
+                        router_result,
                         user_message,
                         session_id=_session_id,
                     )
@@ -17175,6 +17384,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     ),
                     user_message,
                 )
+                # Verify BEFORE caching (see the router route): a cache hit must
+                # replay the guarded answer, not the model's raw text.
+                free_tool_result = (
+                    self._apply_t3_postprocessing(free_tool_result, user_message)
+                    or free_tool_result
+                )
                 if (
                     (free_tool_result.get("confidence") or 0) >= 0.6
                     and cache_key
@@ -17190,8 +17405,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     (time.time() - _t0) * 1000,
                 )
                 return _append_follow_ups_to_response(
-                    self._apply_t3_postprocessing(free_tool_result, user_message)
-                    or free_tool_result,
+                    free_tool_result,
                     user_message,
                     session_id=_session_id,
                 )
@@ -17226,6 +17440,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     _sanitize_refusal_language(_filter_competitor_names(result)),
                     user_message,
                 )
+                # Verify BEFORE caching (see the router route).
+                result = self._apply_t3_postprocessing(result, user_message) or result
                 if (
                     (result.get("confidence") or 0) >= 0.6
                     and cache_key
@@ -17241,7 +17457,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     (time.time() - _t0) * 1000,
                 )
                 return _append_follow_ups_to_response(
-                    self._apply_t3_postprocessing(result, user_message) or result,
+                    result,
                     user_message,
                     session_id=_session_id,
                 )
@@ -19505,6 +19721,43 @@ When two or more tools return conflicting data for the same metric (e.g., differ
     # T3-2 + T3-3 post-processing: citations + number verifier
     # ------------------------------------------------------------------
 
+    def _enforce_plan_figures(
+        self,
+        result: dict,
+        response_text: str,
+        tool_results_raw: list,
+        user_message: str,
+    ) -> str:
+        """Hold the reply's hires / applications / CPA / cost-per-hire figures to
+        the planning engine (``nova_plan_figures.enforce``); updates ``result``
+        in place and returns the (possibly rewritten) text."""
+        from nova_handoff import is_plan_shaped, parse_budget
+
+        query_type = result.get("query_type") or _classify_query_type(user_message)
+        plan_shaped = is_plan_shaped(query_type, response_text)
+        stated = parse_budget(user_message) or 0
+        plan_context = plan_shaped or stated >= 1000
+        text, stats = _plan_figs.enforce(
+            response_text,
+            tool_results_raw,
+            user_message,
+            plan_context=plan_context,
+            plan_shaped=plan_shaped,
+        )
+        if text == response_text:
+            return response_text
+        if stats.get("marked") and _T3_UNVERIFIED_FOOTER not in text:
+            text = text.rstrip() + "\n\n" + _T3_UNVERIFIED_FOOTER
+        result["response"] = text
+        result["plan_figure_guard"] = stats
+        logger.info(
+            "Plan-figure guard: %d rewritten, %d marked, block appended=%d",
+            stats.get("rewritten", 0),
+            stats.get("marked", 0),
+            stats.get("appended", 0),
+        )
+        return text
+
     def _apply_t3_postprocessing(
         self, result: Optional[dict], user_message: str
     ) -> Optional[dict]:
@@ -19521,17 +19774,39 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if not response_text:
             return result
 
+        # The tool results of this turn. The direct-dispatch route attaches no
+        # ``_tool_results_raw``; the turn capture holds what every tool returned,
+        # so that route is verified against its own tools instead of an empty list.
+        tool_results_raw = (
+            result.get("_tool_results_raw") or result.get("tool_results_raw") or []
+        )
+        if not tool_results_raw:
+            tool_results_raw = list(
+                ((_get_turn_tool_capture() or {}).get("tools") or {}).values()
+            )
+
+        # Plan figures: a hires / applications / CPA / cost-per-hire number the
+        # model typed must be the planning engine's (rewritten to its range when
+        # it is not; marked in a table). Runs BEFORE the generic verifier, which
+        # then sees the engine's own numbers.
+        if _t3_flag("NOVA_PLAN_FIGURE_GUARD_ENABLED"):
+            try:
+                response_text = self._enforce_plan_figures(
+                    result, response_text, tool_results_raw, user_message
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Plan-figure guard failed (non-fatal): %s", exc, exc_info=False
+                )
+
         # T3-3: Number verifier runs BEFORE citations so the inline markers
         # don't accidentally land inside the citations block.
         if _t3_flag("NOVA_NUMBER_VERIFIER_ENABLED"):
             try:
-                tool_results_raw = (
-                    result.get("_tool_results_raw")
-                    or result.get("tool_results_raw")
-                    or []
-                )
                 annotated, unverified = _verify_response_numbers(
-                    response_text, tool_results_raw
+                    response_text,
+                    list(tool_results_raw)
+                    + [_plan_figs.user_number_pool(user_message)],
                 )
                 if annotated != response_text:
                     # A figure the model wrote that traces to no tool result is
@@ -19541,6 +19816,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     # invented reached users looking exactly like engine
                     # figures.) The count stays in unverified_numbers.
                     clean = annotated.replace(_T3_UNVERIFIED_TAG, _T3_UNVERIFIED_MARK)
+                    clean = re.sub(
+                        _T3_UNVERIFIED_MARK + "{2,}", _T3_UNVERIFIED_MARK, clean
+                    )
                     if (
                         unverified
                         and _T3_UNVERIFIED_MARK in clean
@@ -19577,6 +19855,36 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             except Exception:  # noqa: BLE001
                 pass
         return result
+
+    @staticmethod
+    def _dispatch_budget(user_message: str) -> Optional[float]:
+        """The CAMPAIGN total a message's budget means, for direct tool dispatch.
+
+        "60k for a 3-month campaign" is 60000; "$20k a month for 3 months" is
+        60000 (the wizard's own rule, ``wizard_inputs.resolve_plan_budget``). A
+        per-period amount with no stated length is None: the bare amount would be
+        read as a total, 3x too small."""
+        try:
+            from nova_handoff import campaign_budget_total
+
+            total = campaign_budget_total(user_message)
+            return float(total) if total else None
+        except Exception:
+            logger.warning("Dispatch budget parse failed (non-fatal)", exc_info=True)
+            return None
+
+    @staticmethod
+    def _dispatch_months(user_message: str) -> Optional[int]:
+        """Whole campaign months a message states ("3-month campaign" -> 3)."""
+        try:
+            import wizard_inputs
+            from nova_handoff import parse_timeline
+
+            label = parse_timeline(user_message)
+            months = wizard_inputs.known_campaign_months(label) if label else 0.0
+            return max(1, int(round(months))) if months else None
+        except Exception:
+            return None
 
     def _try_direct_tool_dispatch(
         self,
@@ -19942,15 +20250,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 if _ik in msg_lower:
                     tool_params["industry"] = _iv
                     break
-            _bm = re.search(r"\$[\d,]+(?:\.\d+)?[kKmM]?", user_message)
+            _bm = self._dispatch_budget(user_message)
             if _bm:
-                _bs = _bm.group().replace("$", "").replace(",", "")
-                if _bs[-1:].lower() == "k":
-                    tool_params["budget"] = float(_bs[:-1]) * 1_000
-                elif _bs[-1:].lower() == "m":
-                    tool_params["budget"] = float(_bs[:-1]) * 1_000_000
-                else:
-                    tool_params["budget"] = float(_bs)
+                tool_params["budget"] = _bm
             for _rk in [
                 "nurse",
                 "driver",
@@ -19970,18 +20272,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if not tool_name and self._CAMPAIGN_OPTIMIZE_INTENT.search(msg_lower):
             tool_name = "optimize_campaign"
             tool_params = {"message": user_message}
-            # Extract budget if mentioned (e.g. "$50k", "$100,000")
-            import re as _re
-
-            _bud_match = _re.search(r"\$[\d,]+(?:\.\d+)?[kKmM]?", user_message)
-            if _bud_match:
-                _bud_str = _bud_match.group().replace("$", "").replace(",", "")
-                if _bud_str[-1:].lower() == "k":
-                    tool_params["budget"] = float(_bud_str[:-1]) * 1_000
-                elif _bud_str[-1:].lower() == "m":
-                    tool_params["budget"] = float(_bud_str[:-1]) * 1_000_000
-                else:
-                    tool_params["budget"] = float(_bud_str)
+            # Extract the campaign total if mentioned ("$50k", "$100,000",
+            # "$20k a month for 3 months" = 60,000) and the stated length.
+            _bud_total = self._dispatch_budget(user_message)
+            if _bud_total:
+                tool_params["budget"] = _bud_total
+            _bud_months = self._dispatch_months(user_message)
+            if _bud_months:
+                tool_params["duration_months"] = _bud_months
             tool_label = "Campaign channel optimization"
 
         # --- S48: Posting decay intent ---
@@ -20011,16 +20309,10 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             import re as _re
 
             tool_params = {"message": user_message}
-            # Extract budget
-            _bud_match = _re.search(r"\$[\d,]+(?:\.\d+)?[kKmM]?", user_message)
-            if _bud_match:
-                _bud_str = _bud_match.group().replace("$", "").replace(",", "")
-                if _bud_str[-1:].lower() == "k":
-                    tool_params["budget"] = float(_bud_str[:-1]) * 1_000
-                elif _bud_str[-1:].lower() == "m":
-                    tool_params["budget"] = float(_bud_str[:-1]) * 1_000_000
-                else:
-                    tool_params["budget"] = float(_bud_str)
+            # Extract the campaign total ("$20k a month for 3 months" = 60,000)
+            _bud_total = self._dispatch_budget(user_message)
+            if _bud_total:
+                tool_params["budget"] = _bud_total
             # Extract channel
             for _ch_name in [
                 "indeed",
@@ -20373,14 +20665,32 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if isinstance(tool_result, dict):
             _source = tool_result.get("source") or ""
 
+        # The engine's plan projection leads the data the model sees (the 3,000
+        # character cut must never drop it), and is the only source of plan-level
+        # applications, hires, CPA and cost per hire.
+        _synth_data = tool_result
+        if isinstance(tool_result, dict) and "plan_projection" in tool_result:
+            _synth_data = {
+                k: tool_result[k]
+                for k in ("plan_projection_note", "plan_projection")
+                if k in tool_result
+            }
+            _synth_data.update(
+                {k: v for k, v in tool_result.items() if k not in _synth_data}
+            )
         _synth_prompt = (
             "You are Nova, Joveo's recruitment marketing intelligence assistant. "
             "A tool has returned the following data. Present it clearly and concisely "
             "in markdown format. Lead with the key finding, then provide details. "
-            "Do NOT call any tools -- the data is already provided below.\n\n"
+            "Do NOT call any tools -- the data is already provided below. "
+            "Plan-level applications, hires, cost per application and cost per hire "
+            "come ONLY from plan_projection (as the ranges in plan_projection.text, "
+            "high end of applications/hires and low end of cost per application/hire "
+            "being the best case); never compute them yourself and never add up the "
+            "channel rows.\n\n"
             f"User question: {user_message}\n\n"
             f"Tool: {tool_name}\n"
-            f"Result:\n{json.dumps(tool_result, indent=2)[:3000]}\n\n"
+            f"Result:\n{json.dumps(_synth_data, indent=2)[:3000]}\n\n"
             "Format your response as a senior analyst would. Include a brief "
             "recommendation or context if relevant to recruitment."
         )
@@ -20428,6 +20738,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "llm_provider": _llm_provider,
             "llm_model": _llm_model,
         }
+
+        # Verify BEFORE caching (see the router route in chat()).
+        _result = self._apply_t3_postprocessing(_result, user_message) or _result
 
         # Cache successful direct dispatch results
         if cache_key:
@@ -21650,6 +21963,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
                 # S18: Capture parent thread's tool status queue for worker threads
                 _parent_tool_q = _get_tool_status_queue()
+                # the boards the user excluded must reach the worker threads too
+                _parent_exclusions = _turn_exclusions()
 
                 def _exec_free_tool(tc_item: dict) -> Tuple[str, str, str, dict]:
                     """Execute one tool call; returns (tc_id, name, result, input)."""
@@ -21657,7 +21972,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     if _parent_tool_q is not None:
                         _set_tool_status_queue(_parent_tool_q)
                     try:
-                        return _exec_free_tool_inner(tc_item)
+                        with _bridged_turn_exclusions(_parent_exclusions):
+                            return _exec_free_tool_inner(tc_item)
                     finally:
                         # S50 FIX: Clean up thread-local queue to prevent leaking
                         # across reused ThreadPoolExecutor worker threads
@@ -22650,6 +22966,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
                 # S18: Capture parent thread's tool status queue for worker threads
                 _parent_tool_q_claude = _get_tool_status_queue()
+                _parent_exclusions_claude = _turn_exclusions()
 
                 def _exec_claude_tool(block: dict) -> Tuple[str, str, str, dict]:
                     """Execute one Claude tool_use block; returns (tool_id, name, result, input)."""
@@ -22664,7 +22981,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         _cname,
                         json.dumps(_cinp)[:200],
                     )
-                    return (_cid, _cname, self.execute_tool(_cname, _cinp), _cinp)
+                    with _bridged_turn_exclusions(_parent_exclusions_claude):
+                        return (_cid, _cname, self.execute_tool(_cname, _cinp), _cinp)
 
                 from concurrent.futures import ThreadPoolExecutor as _TPE_Claude
                 from concurrent.futures import as_completed as _as_done_claude
@@ -24596,6 +24914,74 @@ _BLOCKED_PATTERNS = [
 # ---------------------------------------------------------------------------
 # Budget target comparison helper (v3.5.1)
 # ---------------------------------------------------------------------------
+
+
+def _clean_board_lists(obj: Any, data: dict) -> Any:
+    """``obj`` with every excluded board removed from its lists (strings and
+    ``{"name": ...}`` rows), recursively; other structure is untouched."""
+    if isinstance(obj, list):
+        out: List[Any] = []
+        for item in obj:
+            if isinstance(item, str):
+                if publisher_filter.is_excluded(item, data):
+                    continue
+                out.append(item)
+            elif isinstance(item, dict):
+                name = item.get("name")
+                if isinstance(name, str) and publisher_filter.is_excluded(name, data):
+                    continue
+                out.append({k: _clean_board_lists(v, data) for k, v in item.items()})
+            else:
+                out.append(_clean_board_lists(item, data))
+        return out
+    if isinstance(obj, dict):
+        return {k: _clean_board_lists(v, data) for k, v in obj.items()}
+    return obj
+
+
+def _drop_excluded_recommendations(rec: dict, excluded: List[str]) -> None:
+    """Remove excluded platforms from a channel_recommender result and spread
+    their budget over the channels that remain (so the split still sums to the
+    whole budget). Text that still names an excluded board is scrubbed."""
+    data = {"excluded_publishers": excluded}
+    tiers = ("must_have", "should_have", "test_and_learn", "skip")
+    funded_before = 0.0
+    funded_after = 0.0
+    removed: List[str] = []
+    for tier in tiers:
+        kept = []
+        for ch in rec.get(tier) or []:
+            name = (ch.get("platform") or ch.get("channel") or "") if isinstance(ch, dict) else ""
+            spend = float(ch.get("projected_spend") or 0) if isinstance(ch, dict) else 0.0
+            funded_before += spend
+            if isinstance(ch, dict) and publisher_filter.is_excluded(name, data):
+                removed.append(name)
+                continue
+            funded_after += spend
+            kept.append(ch)
+        if tier in rec:
+            rec[tier] = kept
+    if removed and funded_after > 0 and funded_before > funded_after:
+        factor = funded_before / funded_after
+        for tier in tiers:
+            for ch in rec.get(tier) or []:
+                if float(ch.get("projected_spend") or 0) > 0:
+                    ch["projected_spend"] = round(float(ch["projected_spend"]) * factor, 2)
+                    if isinstance(ch.get("allocation_pct"), (int, float)):
+                        ch["allocation_pct"] = round(float(ch["allocation_pct"]) * factor, 1)
+    for tier in tiers:
+        for ch in rec.get(tier) or []:
+            if isinstance(ch, dict) and isinstance(ch.get("rationale"), str):
+                ch["rationale"] = publisher_filter.scrub_text(ch["rationale"], data) or ""
+    if isinstance(rec.get("summary"), str):
+        rec["summary"] = publisher_filter.scrub_text(rec["summary"], data) or rec["summary"]
+    rec["excluded_at_client_request"] = list(excluded)
+    if removed:
+        rec["exclusion_note"] = (
+            "Excluded at client request: "
+            + ", ".join(excluded)
+            + "; the budget they would have taken is spread over the remaining channels."
+        )
 
 
 def _annotate_channel_reasons(channel_allocations: Any) -> None:

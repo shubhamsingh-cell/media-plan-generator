@@ -1141,12 +1141,6 @@
   },
   {
     "file": "nova.py",
-    "literal": "$400-$800",
-    "status": "estimate_disclosed",
-    "source": "system-prompt CPH guardrail instruction text ('If your benchmark data shows CPH of $400-$800...') -- illustrative rule-format example for the LLM, not a served/hardcoded benchmark claim; self-disclosing via conditional 'if your benchmark data shows' framing"
-  },
-  {
-    "file": "nova.py",
     "literal": "$1.20 to $1.45",
     "status": "estimate_disclosed",
     "source": "system-prompt DATA CONFLICT RESOLUTION example ('CPC benchmarks range from **$1.20 to $1.45** across sources [1][2]') -- illustrative output-format example showing the LLM how to phrase a range citation, not a hardcoded claim"

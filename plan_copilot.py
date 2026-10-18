@@ -640,11 +640,13 @@ def _nudges_budget(value: str, context: Dict[str, Any]) -> List[Dict[str, str]]:
         est_hires = max(1, round(budget / bench["optimal_per_hire"]))
 
         if budget < bench["min_per_hire"] * est_hires * 0.8:
+            # There is no minimum budget: a small one still runs. It runs best
+            # focused, and judged on applications rather than hires.
             nudges.append(
                 {
                     "field": "budget",
-                    "message": f"This budget may be tight for {role_word} roles. Consider raising it, or narrowing the hiring volume or locations, for better reach.",
-                    "type": "warning",
+                    "message": f"A budget this size works best focused on one to three channels and judged on applications rather than hires for {role_word} roles. Narrowing the hiring volume or locations helps it go further.",
+                    "type": "info",
                     "confidence": 0.85,
                     "source": "Nova Copilot -- budget heuristic",
                 }

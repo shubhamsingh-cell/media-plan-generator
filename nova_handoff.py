@@ -21,6 +21,7 @@ import re
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import quote
 
+import publisher_filter
 from nova_memory import extract_industries, extract_locations, extract_roles
 
 logger = logging.getLogger(__name__)
@@ -101,14 +102,14 @@ _CHANNEL_TABLE_RE = re.compile(
 )
 
 _BUDGET_DOLLAR_RE = re.compile(
-    r"\$\s?(\d[\d,]*(?:\.\d+)?)\s*(million|mm|m|thousand|k)?\b", re.IGNORECASE
+    r"\$\s?(\d[\d,]{0,14}(?:\.\d+)?)\s*(million|mm|m|thousand|k)?\b", re.IGNORECASE
 )
 _BUDGET_WORD_RE = re.compile(
-    r"\b(?:budget(?:\s+of|\s+is|\s*[:=])?\s*)(\d[\d,]*(?:\.\d+)?)\s*(million|mm|m|thousand|k)?\b",
+    r"\b(?:budget(?:\s+of|\s+is|\s*[:=])?\s*)(\d[\d,]{0,14}(?:\.\d+)?)\s*(million|mm|m|thousand|k)?\b",
     re.IGNORECASE,
 )
 _BUDGET_TRAIL_RE = re.compile(
-    r"\b(\d[\d,]*(?:\.\d+)?)\s*(million|mm|m|thousand|k)\s+budget\b", re.IGNORECASE
+    r"\b(\d[\d,]{0,14}(?:\.\d+)?)\s*(million|mm|m|thousand|k)\s+budget\b", re.IGNORECASE
 )
 _TIMELINE_RE = re.compile(
     r"\b(\d+(?:\.\d+)?)\s*[- ]?\s*(weeks?|wks?|months?|mos?|years?|yrs?)\b",
@@ -118,7 +119,7 @@ _HIRE_WORDS = (
     r"hires?|openings?|positions?|vacancies|employees?|people|candidates?|"
     r"associates?|workers?|staff|headcount"
 )
-_NUMBER_NOT_MONEY = r"(?<![\$\d,.])(\d[\d,]*)(?![\d,.]*\s*(?:[kKmM%]\b|million|thousand))"
+_NUMBER_NOT_MONEY = r"(?<![\$\d,.])(\d[\d,]{0,14})(?![\d,.]{0,15}\s*(?:[kKmM%]\b|million|thousand))"
 _HIRE_VERB_RE = re.compile(
     r"\b(?:hire|hiring|fill|recruit(?:ing)?|need(?:s)?|staff(?:ing)?)\s+(?:about\s+|around\s+|up to\s+)?"
     + _NUMBER_NOT_MONEY
@@ -153,15 +154,19 @@ def _scale(raw: str, unit: str) -> Optional[int]:
     return amount if amount > 0 else None
 
 
-def parse_budget(text: str) -> Optional[int]:
-    """First budget in ``text`` as whole dollars, or None."""
+def _first_budget(text: str) -> "tuple[Optional[int], Optional[re.Match]]":
     for rx in (_BUDGET_DOLLAR_RE, _BUDGET_TRAIL_RE, _BUDGET_WORD_RE):
         m = rx.search(text or "")
         if m:
             amount = _scale(m.group(1), m.group(2) or "")
             if amount:
-                return amount
-    return None
+                return amount, m
+    return None, None
+
+
+def parse_budget(text: str) -> Optional[int]:
+    """First budget in ``text`` as whole dollars, or None."""
+    return _first_budget(text)[0]
 
 
 def parse_timeline(text: str) -> Optional[str]:
@@ -255,6 +260,146 @@ def parse_industry(text: str) -> Optional[str]:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Budget period ("$20k a month for 3 months" is $60,000, not $20,000)
+# ---------------------------------------------------------------------------
+# The period word must sit right beside the amount: after it ("$20k a month",
+# "$20k/mo", "$20k monthly") or right before it ("a monthly budget of $20k").
+_PERIOD_AFTER_RE = re.compile(
+    r"^\s*(?:/\s*|(?:per|a|each|every)\s+)(month|mo|quarter|qtr|year|yr)\b"
+    r"|^\s*(monthly|quarterly|annually|yearly|annual)\b",
+    re.IGNORECASE,
+)
+_PERIOD_BEFORE_RE = re.compile(
+    r"\b(monthly|quarterly|annual|yearly)\s+(?:budget\s+|spend\s+)?(?:of\s+|is\s+|:\s*|=\s*)?$",
+    re.IGNORECASE,
+)
+_PERIOD_WORD = {
+    "month": "monthly", "mo": "monthly", "monthly": "monthly",
+    "quarter": "quarterly", "qtr": "quarterly", "quarterly": "quarterly",
+    "year": "annual", "yr": "annual", "yearly": "annual",
+    "annual": "annual", "annually": "annual",
+}  # fmt: skip
+
+
+def parse_budget_period(text: str) -> Optional[str]:
+    """``monthly`` / ``quarterly`` / ``annual`` when ``text`` states the budget
+    per period ("$20k a month", "$5k per quarter", "a monthly budget of $20k"),
+    else None (a campaign total). Only a period word NEXT TO the amount counts:
+    "$60k, send monthly reports" is a campaign total."""
+    _, bm = _first_budget(text)
+    if bm is None:
+        return None
+    text = text or ""
+    m = _PERIOD_AFTER_RE.match(text[bm.end() : bm.end() + 24])
+    if not m:
+        m = _PERIOD_BEFORE_RE.search(text[max(0, bm.start() - 30) : bm.start()])
+    if not m:
+        return None
+    return _PERIOD_WORD.get((m.group(1) or m.group(2) or "").lower())
+
+
+def campaign_budget_total(text: str) -> Optional[int]:
+    """The CAMPAIGN total a message's budget means, read the way the wizard and
+    ``/api/generate`` read it (``wizard_inputs.resolve_plan_budget``): "$60k"
+    -> 60000; "$20k a month for 3 months" -> 60000.  A per-period amount with
+    no stated campaign length is None -- there is no total to state, and the
+    amount alone would be read as a campaign total (3x too small)."""
+    amount = parse_budget(text)
+    if not amount:
+        return None
+    period = parse_budget_period(text)
+    if not period:
+        return amount
+    timeline = parse_timeline(text)
+    if not timeline:
+        return None
+    try:
+        import wizard_inputs
+
+        plan = wizard_inputs.resolve_plan_budget(amount, period, timeline)
+    except Exception:  # noqa: BLE001 - the plain amount is the safe fallback
+        logger.warning("Budget period resolution failed", exc_info=True)
+        return None
+    return int(round(plan.total)) if plan.ok else None
+
+
+# ---------------------------------------------------------------------------
+# Job boards the user excluded ("... excluding Indeed and ZipRecruiter")
+# ---------------------------------------------------------------------------
+_EXCLUDE_TRIGGER_RE = re.compile(
+    r"\b(?:exclud(?:e|es|ed|ing)|without|avoid(?:ing|s)?|skip(?:ping|s)?|"
+    r"leav(?:e|ing)\s+out|rul(?:e|ing)\s+out|"
+    r"(?:do\s+not|don'?t|dont|never|not)\s+(?:want\s+to\s+)?"
+    r"(?:use|using|include|including|advertise\s+on|post\s+(?:to|on)))\b",
+    re.IGNORECASE,
+)
+# The clause ends at sentence punctuation or at a word that starts the next
+# thought ("for nurses", "in Dallas", "because ...").
+_EXCLUDE_END_RE = re.compile(
+    r"\.(?=\s|$)|:(?=\s)|[;!?\n]|\b(?:for|in|on|from|with|using|because|since|as|to|at|over|across|"
+    r"when|that|which|so|then|but|please|thanks|if|where|while|during)\b",
+    re.IGNORECASE,
+)
+_EXCLUDE_SPLIT_RE = re.compile(r"\s*(?:,|/|&|\+|\band\b|\bor\b|\bnor\b|\bplus\b)\s*", re.IGNORECASE)
+_EXCLUDE_LEAD_RE = re.compile(
+    r"^(?:the\s+|any\s+|all\s+|these\s+|those\s+|following\s+|job\s+boards?\s+(?:like\s+)?|"
+    r"boards?\s+(?:like\s+)?|sites?\s+(?:like\s+)?|platforms?\s+(?:like\s+)?|like\s+|such\s+as\s+)+",
+    re.IGNORECASE,
+)
+_DOMAIN_RE = re.compile(r"^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}$", re.IGNORECASE)
+
+
+def _looks_like_board(piece: str, original: str) -> bool:
+    """A typed exclusion is a board name when it is a domain, a board the repo
+    knows (any case), or a capitalised name that is not a place, role or
+    industry ("excluding Texas" excludes no board)."""
+    if _DOMAIN_RE.match(piece):
+        return True
+    if publisher_filter.is_known_board(piece):
+        return True
+    if not piece[:1].isupper() and not original[:1].isupper():
+        return False
+    if len(piece.split()) > 4:
+        return False
+    if extract_locations(piece) or extract_roles(piece) or extract_industries(piece):
+        return False
+    return True
+
+
+def _exclusions_in(text: str) -> List[str]:
+    found: List[str] = []
+    for trig in _EXCLUDE_TRIGGER_RE.finditer(text or ""):
+        tail = re.sub(r"^[\s:\-\u2013\u2014]+", "", (text or "")[trig.end() : trig.end() + 200])
+        end = _EXCLUDE_END_RE.search(tail)
+        clause = tail[: end.start()] if end else tail
+        clause = re.sub(r"\([^)]*\)?", " ", clause)  # "(per the client)" names no board
+        for raw in _EXCLUDE_SPLIT_RE.split(clause):
+            piece = _EXCLUDE_LEAD_RE.sub("", raw.strip(" \t\"'()[]")).strip(" \t\"'()[]")
+            piece = re.sub(r"\s+(?:etc\.?|too|also|please)$", "", piece, flags=re.IGNORECASE)
+            if piece and _looks_like_board(piece, raw.strip()):
+                found.append(piece)
+    return publisher_filter.sanitize_excluded(found)
+
+
+def extract_exclusions(
+    message: str, history: Optional[List[Dict[str, Any]]] = None
+) -> List[str]:
+    """Job boards the conversation excluded, newest message first, one entry
+    per board (``Indeed`` / ``indeed.com`` / ``www.indeed.com`` are one), in the
+    form ``publisher_filter`` and the wizard's ``excluded_publishers`` field read."""
+    texts = [message or ""]
+    for turn in reversed(list(history or [])[-8:]):
+        if isinstance(turn, dict) and turn.get("role") == "user":
+            content = turn.get("content") or turn.get("text") or ""
+            if isinstance(content, str) and content:
+                texts.append(content)
+    found: List[str] = []
+    for text in texts:
+        found.extend(_exclusions_in(text))
+    return publisher_filter.sanitize_excluded(found)
+
+
 def is_plan_shaped(query_type: str, response_text: str) -> bool:
     """A media-plan question, or an answer carrying a channel-allocation table."""
     if query_type == "media_plan":
@@ -321,12 +466,19 @@ def extract_brief(
         if ctx_locs:
             brief["locations"] = ctx_locs[:10]
 
+    budget_unresolved = False
     for text in texts:
-        budget = parse_budget(text)
-        if budget:
-            brief["budget"] = budget
-            break
-    if "budget" not in brief:
+        if not parse_budget(text):
+            continue
+        total = campaign_budget_total(text)
+        if total:
+            brief["budget"] = total
+        else:
+            # a per-period figure with no campaign length: the wizard would read
+            # the bare amount as a campaign TOTAL, so hand over nothing
+            budget_unresolved = True
+        break
+    if "budget" not in brief and not budget_unresolved:
         budget = _positive_int(ctx.get("campaign_budget")) or _positive_int(
             budget_tool.get("total_budget")
         )
@@ -379,6 +531,12 @@ def extract_brief(
     if client:
         brief["client"] = client[:80]
 
+    excluded = extract_exclusions(message, history)
+    if not excluded and isinstance(ctx.get("excluded_publishers"), list):
+        excluded = publisher_filter.sanitize_excluded(ctx["excluded_publishers"])
+    if excluded:
+        brief["excluded_publishers"] = excluded
+
     return brief
 
 
@@ -403,6 +561,8 @@ def build_handoff_url(brief: Dict[str, Any]) -> str:
         add("industry", brief["industry"])
     if brief.get("client"):
         add("client", brief["client"])
+    if brief.get("excluded_publishers"):
+        add("excluded_publishers", "; ".join(brief["excluded_publishers"]))
     return _WIZARD_PATH + ("?" + "&".join(pairs) if pairs else "")
 
 
