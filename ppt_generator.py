@@ -13637,9 +13637,14 @@ def _iter_slide_texts(prs: Presentation):
         yield from _walk(slide.shapes)
 
 
-# The slide-2 footer line must stay clear of the credit on the right: at 9pt
-# Poppins ~56 characters is 3.7in. Longer headlines fall back to a pointer.
-_ASOF_FOOTER_MAX_CHARS = 56
+# The slide-2 footer line must stay clear of the credit on the right. The
+# credit's text starts ~7.6in from the left edge (5.1in of 9pt Poppins ending at
+# the right margin), the footer line starts at 2.0in: 72 characters of 9pt
+# Poppins is at most ~4.9in, so the longest line that passes ends before ~6.9in.
+# Longer headlines ("... date not recorded") fall back to a pointer.
+_ASOF_FOOTER_MAX_CHARS = 72
+_ASOF_FOOTER_WIDTH_IN = 4.9
+_ASOF_CREDIT_LEFT_IN = 7.0
 
 
 def _stamp_data_asof_footer(slide, headline: str, today: str) -> None:
@@ -13656,11 +13661,23 @@ def _stamp_data_asof_footer(slide, headline: str, today: str) -> None:
         ):
             shape.width = Inches(1.3)  # the date needs ~1.1in, not 4.5in
             break
+    for shape in slide.shapes:
+        # the credit is right-aligned text; pull its box in so the wider
+        # footer line and the credit never share a text box
+        if (
+            getattr(shape, "has_text_frame", False)
+            and shape.has_text_frame
+            and shape.text_frame.text.startswith("Created by")
+        ):
+            right_edge = shape.left + shape.width
+            shape.left = Inches(_ASOF_CREDIT_LEFT_IN)
+            shape.width = right_edge - shape.left
+            break
     _add_textbox(
         slide,
         Inches(1.9),
         Inches(7.12) + Inches(0.05),
-        Inches(3.8),
+        Inches(_ASOF_FOOTER_WIDTH_IN),
         Inches(0.26),
         text=text,
         font_size=9,
@@ -13689,7 +13706,7 @@ def _apply_trust_pack(prs: Presentation, data: Dict[str, Any]) -> None:
         if len(slides) >= 2:
             today = datetime.date.today().strftime("%B %d, %Y")
             _stamp_data_asof_footer(slides[1], info["footer_headline"], today)
-            lines = ["DATA AS OF (last refreshed, per source family)"]
+            lines = ["DATA AS OF (per source file; a newer exception date is not a repository refresh)"]
             lines += [f"{f['label']}: {f['as_of']}" for f in info["families"]]
             lines += [info["live_line"], stamp]
             slides[1].notes_slide.notes_text_frame.text = "\n".join(lines)

@@ -31,7 +31,12 @@ DEFAULT_DATA_DIR = os.path.join(_BASE_DIR, "data")
 
 NOT_RECORDED = "date not recorded"
 
-SUPPLY_NETWORK_LABEL = "Supply network status"
+# The repository is the full listing and carries ONE date (its own
+# ``last_updated``).  Every other supply date is an individual board edit on
+# top of it (an owner confirmation, a sales-barred board): the newest of those
+# is the latest *exception*, and is never described as a refresh of the
+# network.
+SUPPLY_NETWORK_LABEL = "Supply status exceptions"
 SUPPLY_REPO_LABEL = "Supply repository (full listing)"
 BENCHMARKS_LABEL = "Joveo benchmarks (CPC / CPA)"
 
@@ -236,7 +241,7 @@ def _family_row(
     else:
         lo, hi = min(dated), max(dated)
         if mode == "latest":
-            text = f"updated {hi}"
+            text = f"latest confirmed change {hi}"
         else:
             text = lo if lo == hi else f"{lo} to {hi}"
         if undated:
@@ -318,21 +323,27 @@ def _row_date(rows: Sequence[Dict[str, Any]], label: str, which: str) -> str:
 
 
 def headline(rows: Sequence[Dict[str, Any]]) -> str:
-    """One line for the Executive Summary and the checklist: when the supply
-    network status last changed (newest real date), the full repository's own
-    date, and the benchmarks (oldest file, so it never overstates)."""
+    """One line for the Executive Summary and the checklist, in plain words:
+    when the supply repository (the full listing) was last updated, the
+    newest individual board exception confirmed on top of it, and the
+    benchmarks (oldest file, so it never overstates).  The exception date is
+    never presented as a refresh of the repository."""
     return (
-        f"Data as of: supply network {_row_date(rows, SUPPLY_NETWORK_LABEL, 'latest')}"
-        f" (repository {_row_date(rows, SUPPLY_REPO_LABEL, 'oldest')})"
+        f"Data as of: supply repository last updated "
+        f"{_row_date(rows, SUPPLY_REPO_LABEL, 'oldest')}; board exceptions "
+        f"confirmed up to {_row_date(rows, SUPPLY_NETWORK_LABEL, 'latest')}"
         f" | benchmarks {_row_date(rows, BENCHMARKS_LABEL, 'oldest')}"
     )
 
 
 def footer_headline(rows: Sequence[Dict[str, Any]]) -> str:
-    """The same two lead dates in the width of a slide footer."""
+    """The two supply dates in the width of a slide footer: the repository's
+    own date, and separately the latest confirmed exception.  The benchmarks
+    date stays in the slide notes and on the workbook."""
     return (
-        f"Data as of: network {_row_date(rows, SUPPLY_NETWORK_LABEL, 'latest')}"
-        f" | benchmarks {_row_date(rows, BENCHMARKS_LABEL, 'oldest')}"
+        f"Supply repository {_row_date(rows, SUPPLY_REPO_LABEL, 'oldest')}"
+        f" | latest confirmed exception "
+        f"{_row_date(rows, SUPPLY_NETWORK_LABEL, 'latest')}"
     )
 
 

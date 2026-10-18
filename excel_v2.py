@@ -15612,10 +15612,10 @@ def _append_asof_to_executive_summary(ws, info: dict) -> None:
 
 
 def _append_asof_to_sources(ws, info: dict) -> None:
-    """Sources & Confidence: a per-source-family "last refreshed" table, read
+    """Sources & Confidence: a per-source-family "data as of" table, read
     from the data files' own metadata (plan_trust.read_as_of)."""
     row = ws.max_row + 2
-    row = _write_section_header(ws, row, "Data As Of (Last Refreshed)")
+    row = _write_section_header(ws, row, "Data As Of (Per Source File)")
     for fam in info["families"]:
         row = _write_kv_row(ws, row, fam["label"], fam["as_of"])
     row = _write_kv_row(ws, row, "Live API pulls", info["live_line"].split(": ", 1)[-1])
@@ -15629,7 +15629,10 @@ def _append_asof_to_sources(ws, info: dict) -> None:
         ws,
         row,
         "Dates are read from each data file's own metadata. A source with no "
-        f"recorded date reads '{plan_trust.NOT_RECORDED}' - it is never estimated.",
+        f"recorded date reads '{plan_trust.NOT_RECORDED}' - it is never estimated. "
+        "The supply repository is the full listing; supply status exceptions "
+        "are individual boards confirmed or barred after it, so a newer "
+        "exception date is not a refresh of the repository.",
     )
 
 

@@ -170,20 +170,26 @@ def _nested_dates(path, key):
 
 def test_supply_network_family_reports_the_latest_real_date():
     info = plan_trust.data_asof({})
-    network = _fam(info, "Supply network")
+    network = _fam(info, "Supply status exceptions")
     groups = max(_nested_dates(DATA_DIR / "joveo_network_groups.json", "as_of"))
     avail = max(_nested_dates(DATA_DIR / "publisher_availability.json", "as_of"))
     rows = max(
         _nested_dates(DATA_DIR / "joveo_global_supply_repository.json", "network_as_of")
     )
     newest = max(groups, avail, rows)
-    assert network["as_of"] == f"updated {newest}"
+    assert network["as_of"] == f"latest confirmed change {newest}"
     # the full listing keeps its own, older, top-level date
     repo = json.loads((DATA_DIR / "joveo_global_supply_repository.json").read_text())
     assert _fam(info, "Supply repository")["as_of"] == repo["last_updated"]
     assert newest > repo["last_updated"]
-    assert f"supply network {newest}" in info["headline"]
-    assert f"repository {repo['last_updated']}" in info["headline"]
+    # plain words, and the newest edit is never called a refresh of the network
+    assert f"board exceptions confirmed up to {newest}" in info["headline"]
+    assert f"supply repository last updated {repo['last_updated']}" in info["headline"]
+    assert "supply network" not in info["headline"]
+    assert info["footer_headline"] == (
+        f"Supply repository {repo['last_updated']}"
+        f" | latest confirmed exception {newest}"
+    )
 
 
 def test_nested_as_of_readers_and_latest_mode(tmp_path):
@@ -213,7 +219,7 @@ def test_nested_as_of_readers_and_latest_mode(tmp_path):
             ("Supply repository (full listing)", ("repo.json",)),
         ],
     )
-    assert info["families"][0]["as_of"] == "updated 2026-10-12"
+    assert info["families"][0]["as_of"] == "latest confirmed change 2026-10-12"
     assert info["families"][1]["as_of"] == "2026-03-31"
 
 
@@ -261,13 +267,13 @@ def test_workbook_executive_summary_has_asof_line(workbook):
     repo = json.loads((DATA_DIR / "joveo_global_supply_repository.json").read_text())
     info = plan_trust.data_asof({})
     assert info["headline"] in text
-    assert "(repository " + repo["last_updated"] + ")" in text
+    assert "supply repository last updated " + repo["last_updated"] in text
     assert "Nova " in text and "UTC" in text
 
 
 def test_workbook_sources_sheet_lists_every_family_with_metadata_dates(workbook):
     text = _sheet_text(workbook["Sources & Confidence"])
-    assert "DATA AS OF (LAST REFRESHED)" in text
+    assert "DATA AS OF (PER SOURCE FILE)" in text
     info = plan_trust.data_asof({})
     for fam in info["families"]:
         assert fam["label"] in text
@@ -320,7 +326,8 @@ def test_deck_footer_asof_falls_back_when_dates_are_long():
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     ppt_generator._add_footer(slide, "October 17, 2026")
     long_headline = (
-        "Data as of: supply date not recorded | benchmarks date not recorded"
+        "Supply repository date not recorded"
+        " | latest confirmed exception date not recorded"
     )
     assert len(long_headline) > ppt_generator._ASOF_FOOTER_MAX_CHARS
     ppt_generator._stamp_data_asof_footer(slide, long_headline, "October 17, 2026")
@@ -457,7 +464,7 @@ def test_exclusions_item_names_the_boards():
 def test_standing_items_always_present_and_total_in_range():
     base = _items()
     assert _has(base, "Confirm the channel mix and budget split with supply")
-    assert _has(base, "Data as of: supply network")
+    assert _has(base, "Data as of: supply repository last updated")
     assert _has(base, "responsible for what you send")
     everything = _items(
         unverified=2,
