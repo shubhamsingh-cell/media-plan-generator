@@ -5523,6 +5523,11 @@ def _gather_narrative_grounding_context(
     # Industry benchmark ranges actually cited elsewhere in this workbook
     # (Recruitment Benchmarks section) -- read via the SAME KB getter.
     ctx["ind_bench"] = _kb_industry_benchmark_section(industry, load_kb_fn=load_kb_fn)
+    # The plan's RESOLVED industry cost per hire (the one Executive Summary
+    # B19, the checklist and the deck print) -- never re-read from the KB row:
+    # the row's total_cost_per_hire is a different figure for most industries
+    # (legal $9,000 vs the Nova table's $8,000 midpoint).
+    ctx["industry_cph_info"] = _plan_industry_cph(data.get("_budget_allocation"))
 
     # Seasonality -- prefer a matched sub-vertical override (gold_standard
     # Gate 7), else the generic KB seasonal_patterns text; SAME sources the
@@ -5545,6 +5550,42 @@ def _gather_narrative_grounding_context(
     ctx["competitors"] = normalize_competitor_names(data.get("competitors"))
 
     return ctx
+
+
+def _resolved_industry_cph(cph_info: Dict[str, Any]) -> float:
+    """The plan's resolved industry cost per hire: the knowledge-base row's
+    midpoint when the plan runs on that row (``display_row``), else the
+    resolver's own value -- exactly the figure Executive Summary B19 and the
+    goal sentence name. 0.0 when the market's claim is suppressed or the
+    resolver carried none."""
+    if not isinstance(cph_info, dict) or cph_info.get("claim_suppressed"):
+        return 0.0
+    row = cph_info.get("display_row") if isinstance(cph_info.get("display_row"), dict) else {}
+    for candidate in (row.get("mid"), cph_info.get("value")):
+        if isinstance(candidate, (int, float)) and not isinstance(candidate, bool) and candidate > 0:
+            return float(candidate)
+    return 0.0
+
+
+def _resolved_cph_fact_label(cph_info: Dict[str, Any]) -> str:
+    """The narrative-facts label for the resolved cost per hire, by the plan's
+    basis kind (``plan_projection.cph_basis``) -- the same words the checklist
+    and the wizard use, so the model is never told a knowledge-base figure is
+    "the Nova table", or a Nova estimate is a cited source."""
+    basis = plan_projection.cph_basis(cph_info)
+    kind = basis["kind"]
+    if kind == "local_kb":
+        # the publisher alone ("Eurojob-Consulting"): the source label also
+        # carries its scope after a comma / colon
+        names = ", ".join(
+            re.split(r"[,(:]", n, maxsplit=1)[0].strip() for n in basis["sources"]
+        ) or "cited local source"
+        return f"Cited local cost per hire ({names}, range {basis['word']})"
+    if kind == "kb_row":
+        return f"Assumed industry cost per hire ({basis['note']})"
+    if kind == "cross_industry_default":
+        return "Assumed cross-industry cost per hire (Nova estimate)"
+    return "Assumed industry cost per hire (Nova table, unsourced)"
 
 
 def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
@@ -5727,18 +5768,6 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
                     f"Industry apply rate (Nova estimate): {float(_single[0]):.2f}%"
                 )
 
-        cph_field = ind_bench.get("cph")
-        cph_val = 0.0
-        if isinstance(cph_field, dict):
-            # all-in total only: the media-only figure is never offered to the
-            # narrative as the "industry cost per hire" (phase B, item 3)
-            cph_val = _parse_cph_point_estimate(cph_field.get("total_cost_per_hire"))
-        if cph_val > 0 and not ctx.get("cph_suppressed"):
-            lines.append(
-                "Assumed industry cost per hire (Nova table, unsourced): "
-                f"{_fmt_currency(cph_val)}"
-            )
-
         ttf_field = ind_bench.get("time_to_fill")
         ttf_source = (
             ttf_field.get("average_days") if isinstance(ttf_field, dict) else ttf_field
@@ -5757,6 +5786,17 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
                 lines.append(
                     f"Industry time-to-fill (Nova estimate): {float(_ttf_single[0]):.0f} days"
                 )
+
+    # The industry cost per hire the plan's hires divide the budget by -- the
+    # RESOLVED figure (not the knowledge-base row's own total), labelled by its
+    # real basis kind. Nothing when the market's claim is suppressed.
+    _cph_info = ctx.get("industry_cph_info") or {}
+    _resolved_cph = _resolved_industry_cph(_cph_info)
+    if _resolved_cph > 0 and not ctx.get("cph_suppressed"):
+        lines.append(
+            f"{_resolved_cph_fact_label(_cph_info)}: "
+            f"{_fmt_industry_cph(_resolved_cph, _cph_info)}"
+        )
 
     if ctx.get("seasonality_text"):
         lines.append(f"Seasonality: {ctx['seasonality_text']}")

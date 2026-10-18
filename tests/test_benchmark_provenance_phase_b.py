@@ -561,8 +561,10 @@ def test_telecom_copy_in_the_bundle_is_one_plain_clause(telecom):
 
 def test_narrative_facts_call_nova_figures_estimates_and_still_ground():
     kb = kb_loader.load_knowledge_base()["recruitment_benchmarks"]["industry_benchmarks"]
+    info = {"basis": "us_benchmark", "industry_matched": True, "value": 10500.0, "currency": "USD"}
     facts = excel_v2._build_narrative_facts_block(
-        {"ind_bench": kb["healthcare_medical"], "client_name": "X", "budget_num": 250000}
+        {"ind_bench": kb["healthcare_medical"], "industry_cph_info": info,
+         "client_name": "X", "budget_num": 250000}
     )
     industry_lines = [ln for ln in facts.splitlines() if ln.startswith(("Industry", "Assumed"))]
     assert industry_lines, facts
@@ -643,4 +645,161 @@ def test_kb_row_names_its_scope_only_when_the_row_does():
     note_only = plan_projection.cph_basis(_KIND_INFOS["kb_row"])
     assert note_only["label"] == "assumed industry cost per hire of $5,000\u2013$8,000 (Nova estimate)"
     assert "general roles" not in note_only["label"]
+
+
+# ----------------------------------------- observed rows beat a long caveat
+def test_short_note_is_one_line_unaudited_and_marker_free():
+    short = plan_trust.BENCHMARK_FOOTNOTE_SHORT
+    assert short == "Industry ranges: Nova working estimates, unaudited."
+    assert not us_only_markers.has_us_only_marker(short)
+    text, lines = ppt_generator._bench_source_text(
+        {"confidence": "curated"}, False, [], 4.9, 8.0, short=True
+    )
+    assert text == short and lines == 1
+    # a cited local publisher still follows it
+    local, _ = ppt_generator._bench_source_text(
+        {"confidence": "curated"}, False, ["Eurojob-Consulting (Germany)"], 4.9, 8.0, short=True
+    )
+    assert local.startswith(short.rstrip(".")) and "local CPH: Eurojob-Consulting" in local, local
+
+
+def _slide6_two_role(observed: bool = True):
+    import tests.test_deck_roles_round2 as roles
+
+    return roles, roles._slide5(roles._deck(roles._plan(roles.US_TWO_ROLE, observed=observed)))
+
+
+def test_dense_two_role_plan_keeps_both_observed_rows_with_the_one_line_note():
+    roles, slide = _slide6_two_role()
+    texts = [s.text_frame.text for s in roles._shapes_with_text(slide)]
+    assert any(t.startswith("Live Postings: Registered Nurse") for t in texts), texts
+    assert any(t.startswith("Live Postings: Travel Nurse") for t in texts), texts
+    assert plan_trust.BENCHMARK_FOOTNOTE_SHORT in texts, texts
+    assert _SECTION_FOOTNOTE not in texts, texts
+    # the one-line note sits clear of the attribution heading
+    note = next(s for s in roles._shapes_with_text(slide) if s.text_frame.text == plan_trust.BENCHMARK_FOOTNOTE_SHORT)
+    heading = next(s for s in roles._shapes_with_text(slide) if s.text_frame.text == "CHANNEL CATEGORY ATTRIBUTION")
+    assert (note.top + note.height) / 914400 <= heading.top / 914400, (note.top, heading.top)
+
+
+def test_full_two_line_note_is_used_whenever_the_table_has_room(healthcare):
+    texts = _texts(_deck_slide(healthcare["pptx_bytes"], "Channel Strategy & Investment"))
+    assert _SECTION_FOOTNOTE in texts, texts
+    assert plan_trust.BENCHMARK_FOOTNOTE_SHORT not in texts, texts
+    assert "Apply Rate" in texts, texts
+
+
+# ------------------ narrative facts carry the plan's RESOLVED cost per hire
+def _capture_narrative_prompt(build):
+    """Run ``build()`` with the LLM router blocked and return
+    ``(FACTS block the model would be given, build's result)``."""
+    import llm_router
+
+    captured: Dict[str, str] = {}
+
+    def blocked(*args, **kwargs):
+        captured["prompt"] = kwargs["messages"][0]["content"]
+        return {"text": "", "error": "blocked", "attempts": []}
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(llm_router, "call_llm", blocked)
+    try:
+        result = build()
+    finally:
+        mp.undo()
+    prompt = captured.get("prompt", "")
+    head = "invent any other number):\n"
+    facts = prompt.split(head, 1)[1].split("\n\nWrite as", 1)[0] if head in prompt else ""
+    return facts, result
+
+
+def _brief_case(industry: str, **over):
+    brief = dict(regen.ATRIA_BRIEF, industry=industry)
+    brief.update(over)
+    return lambda: _bundle(brief)
+
+
+def _berlin_local_case():
+    from tests.test_plan_trust import _berlin_plan
+    import research
+
+    def build():
+        data = _berlin_plan()
+        return {"data": data, "xlsx_bytes": excel_v2.generate_excel_v2(
+            data, research_mod=research, load_kb_fn=kb_loader.load_knowledge_base)}
+
+    return build
+
+
+_FACT_RE = r"^(Assumed industry cost per hire \(.+?\)|Assumed cross-industry cost per hire \(.+?\)|Cited local cost per hire \(.+?\)): (.+)$"
+_LEGAL = dict(
+    client_name="Harbor & Finch Legal LLP",
+    roles=["Paralegal", "Legal Assistant"],
+    target_roles=[{"title": "Paralegal", "count": 10, "tier": "Hourly"}],
+)
+_NARRATIVE_CASES = {
+    "legal": (_brief_case("Legal Services", **_LEGAL), "nova_table"),
+    "retail": (_brief_case("Retail & Consumer"), "nova_table"),
+    "healthcare": (_brief_case("Healthcare & Medical"), "nova_table"),
+    "food_beverage": (_brief_case("Food & Beverage"), "kb_row"),
+    "telecom": (_brief_case("Telecommunications"), "kb_row"),
+    "berlin_local": (_berlin_local_case(), "local_kb"),
+}
+_KIND_LABEL = {
+    "nova_table": "(Nova table, unsourced)",
+    "kb_row": "(Nova estimate",
+    "local_kb": "Cited local cost per hire (",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_NARRATIVE_CASES))
+def test_narrative_cph_fact_is_the_resolved_figure_the_summary_prints(case, _plan_money):
+    import re
+
+    build, kind = _NARRATIVE_CASES[case]
+    facts, bundle = _capture_narrative_prompt(build)
+    data = bundle["data"]
+    info = data["_budget_allocation"]["metadata"]["industry_cph"]
+    assert plan_projection.cph_basis(info)["kind"] == kind, (case, info)
+    lines = [ln for ln in facts.splitlines() if re.match(_FACT_RE, ln)]
+    assert len(lines) == 1, (case, facts)
+    label, figure = re.match(_FACT_RE, lines[0]).groups()
+    assert _KIND_LABEL[kind] in label, (case, label)
+    # the figure is the RESOLVED one -- the same text Executive Summary B19 prints
+    _plan_money(str(info.get("currency") or "USD") if kind == "local_kb" else "USD",
+                "\u20ac80,000" if kind == "local_kb" else "$100,000")
+    resolved = excel_v2._resolved_industry_cph(info)
+    assert figure == excel_v2._fmt_industry_cph(resolved, info), (case, figure, resolved)
+    wb = load_workbook(io.BytesIO(bundle["xlsx_bytes"]))
+    b19 = [c.value for row in wb["Executive Summary"].iter_rows() for c in row
+           if isinstance(c.value, str) and "if every hire costs" in c.value]
+    assert b19 and f"if every hire costs {figure}" in b19[0], (case, figure, b19)
+    # and the grounding gate accepts it
+    allowed = excel_v2._allowed_numbers_from_facts_text(facts)
+    ok, bad = excel_v2._narrative_is_grounded(f"Hires are costed at {figure} each.", allowed)
+    assert ok, (case, bad)
+    if case == "legal":
+        # the plan's Nova-table midpoint, not the knowledge-base row's $9,000
+        assert figure == "$8,000", figure
+        ok, bad = excel_v2._narrative_is_grounded("The industry cost per hire is $9,000.", allowed)
+        assert not ok and bad, (ok, bad)
+    if case == "retail":
+        assert figure == "$3,350", figure  # not the KB row's $2,700
+
+
+def test_narrative_has_no_cph_fact_for_a_market_with_no_local_benchmark():
+    facts, _ = _capture_narrative_prompt(
+        _brief_case(
+            "Automotive & Manufacturing",
+            client_name="Schwarzwald Automotive Systems GmbH",
+            budget="\u20ac300,000",
+            locations=["Berlin, Germany", "Munich, Germany"],
+            roles=["Assembly Technician"],
+            target_roles=[{"title": "Assembly Technician", "count": 20, "tier": "Hourly"}],
+            competitors=[],
+        )
+    )
+    assert facts, "the narrative prompt was never built"
+    assert "cost per hire" not in facts.lower() or "no local" in facts.lower(), facts
+    assert not [ln for ln in facts.splitlines() if ln.startswith(("Assumed", "Cited"))], facts
 

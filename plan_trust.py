@@ -54,6 +54,13 @@ BENCHMARK_FOOTNOTE = (
     "published report."
 )
 
+# The one-line form of the same note, for the single place a long note costs
+# real evidence: the deck's benchmark slide, when its two lines would push an
+# observed row (a live job-posting count) off a dense plan. It still says the
+# ranges are Nova's own and unaudited; the workbook and every roomier slide
+# print the full BENCHMARK_FOOTNOTE.
+BENCHMARK_FOOTNOTE_SHORT = "Industry ranges: Nova working estimates, unaudited."
+
 # Column / row label for any figure beside the plan that is Nova's own coded
 # constant rather than a published statistic (the deck's plan-vs-industry
 # comparison panel: typical channel count, programmatic share, market count).

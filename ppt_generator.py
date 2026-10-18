@@ -4184,9 +4184,16 @@ def _bench_source_text(
     width_in: float,
     font_pt: float,
     max_lines: Optional[int] = None,
+    short: bool = False,
 ) -> Tuple[str, int]:
     """``(text, n_lines)`` for the line under slide 6's "Industry Benchmarks"
     table.
+
+    ``short`` asks, for the unnamed-source (footnote) branch only, for the
+    one-line note (``plan_trust.BENCHMARK_FOOTNOTE_SHORT``): the slide uses it
+    when the two-line note would push an observed row off a dense plan (see
+    ``_build_slide_channel_strategy``). The cited local cost-per-hire publisher
+    still follows it.
 
     * A source the data NAMES keeps its single-line "Sources: ..." form: the
       Appcast report (``appcast_kb``) or the Trend Engine (``trend_engine``),
@@ -4209,7 +4216,10 @@ def _bench_source_text(
     confidence = benchmarks.get("confidence", "curated")
     named = _BENCH_NAMED_SOURCES.get(confidence)
     if not named:
-        note = plan_trust.BENCHMARK_FOOTNOTE.rstrip(".")
+        full_note = (
+            plan_trust.BENCHMARK_FOOTNOTE_SHORT if short else plan_trust.BENCHMARK_FOOTNOTE
+        )
+        note = full_note.rstrip(".")
         if cph_local_sources:
             full = ", ".join(cph_local_sources)
             # last resort: the publisher alone ("Eurojob-Consulting") -- the
@@ -4219,8 +4229,8 @@ def _bench_source_text(
             )
             variants = [f"{note}; local CPH: {full}.", f"{note}; local CPH: {pub}."]
         else:
-            variants = [plan_trust.BENCHMARK_FOOTNOTE]
-        cap = max_lines if max_lines is not None else 2
+            variants = [full_note]
+        cap = max_lines if max_lines is not None else (1 if short else 2)
         text = next(
             (v for v in variants if _measure_lines(v, width_in, font_pt) <= cap),
             variants[-1],
@@ -6984,35 +6994,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # and the table must leave room for however many lines it takes.
     _bench_src_w_in = table_w / 914400 - 0.2
     _bench_src_pt = 8.0  # _set_font floors the 7pt request to 8
-    source_text, _bench_src_lines = _bench_source_text(
-        benchmarks, False, _cph_local_sources, _bench_src_w_in, _bench_src_pt
-    )
-    _bench_src_box_h_in = _bench_src_lines * (_bench_src_pt * 1.35) / 72.0 + 0.05
-
-    # Fit the rows above the attribution band. Rows are taken in priority
-    # order (observed evidence before curated benchmark rows); a row that does
-    # not fit is skipped and a later, shorter one may still take the space.
-    # The body rows first compact from 0.38in to 0.34in (a one-line 10pt cell
-    # needs ~0.27in) if that keeps a row that would otherwise be dropped.
-    # The sources line sits 0.05in under the last row; its box is 0.2in tall
-    # for one line (0.35in for two), so the table may end that much plus
-    # 0.10in above the attribution heading.
-    _bench_avail_bottom_in = _attrib_top_in - 0.10 - _bench_src_box_h_in
     _bench_head_bottom_in = table_top / 914400 + _bench_base_row_h_in
-
-    def _bench_fit(base_in: float) -> List[int]:
-        kept: List[int] = []
-        used = _bench_head_bottom_in
-        for k, cell_h in enumerate(_bench_cell_h_in):
-            h = max(base_in, cell_h)
-            if used + h <= _bench_avail_bottom_in or not kept:
-                kept.append(k)
-                used += h
-        return kept
-
-    _bench_body_base_in = _bench_base_row_h_in
-    _bench_kept = _bench_fit(_bench_body_base_in)
-    _bench_kept_compact = _bench_fit(min(_bench_base_row_h_in, 0.34))
 
     def _bench_score(kept: List[int]) -> Tuple[int, int, int]:
         """Prefer keeping more must-have/observed rows, then more rows, then
@@ -7026,9 +7008,58 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             -sum(bench_meta[k]["rank"] for k in kept),
         )
 
-    if _bench_score(_bench_kept_compact) > _bench_score(_bench_kept):
-        _bench_body_base_in = min(_bench_base_row_h_in, 0.34)
-        _bench_kept = _bench_kept_compact
+    def _bench_layout(src_lines: int) -> Tuple[List[int], float]:
+        """``(kept row indices, body row height)`` when the source line takes
+        ``src_lines`` lines: rows are fitted in priority order above the
+        attribution band -- a row that does not fit is skipped and a later,
+        shorter one may still take the space. The body rows first compact from
+        0.38in to 0.34in (a one-line 10pt cell needs ~0.27in) if that keeps a
+        row that would otherwise be dropped. The sources line sits 0.05in under
+        the last row; its box is 0.2in tall for one line (0.35in for two), so
+        the table may end that much plus 0.10in above the attribution heading.
+        """
+        avail = (
+            _attrib_top_in
+            - 0.10
+            - (src_lines * (_bench_src_pt * 1.35) / 72.0 + 0.05)
+        )
+
+        def _fit(base_in: float) -> List[int]:
+            kept: List[int] = []
+            used = _bench_head_bottom_in
+            for k, cell_h in enumerate(_bench_cell_h_in):
+                h = max(base_in, cell_h)
+                if used + h <= avail or not kept:
+                    kept.append(k)
+                    used += h
+            return kept
+
+        roomy = _fit(_bench_base_row_h_in)
+        compact_base = min(_bench_base_row_h_in, 0.34)
+        compact = _fit(compact_base)
+        if _bench_score(compact) > _bench_score(roomy):
+            return compact, compact_base
+        return roomy, _bench_base_row_h_in
+
+    source_text, _bench_src_lines = _bench_source_text(
+        benchmarks, False, _cph_local_sources, _bench_src_w_in, _bench_src_pt
+    )
+    _bench_kept, _bench_body_base_in = _bench_layout(_bench_src_lines)
+    if _bench_src_lines > 1:
+        # The long (two-line) estimate note must not cost real evidence: when a
+        # one-line note would keep more of the must-have / observed rows (a
+        # live job-posting count on a dense two-role plan), use it; whenever
+        # the table has room the full note is printed.
+        _short_text, _short_lines = _bench_source_text(
+            benchmarks, False, _cph_local_sources, _bench_src_w_in, _bench_src_pt,
+            short=True,
+        )
+        if _short_lines < _bench_src_lines:
+            _short_kept, _short_base = _bench_layout(_short_lines)
+            if _bench_score(_short_kept)[0] > _bench_score(_bench_kept)[0]:
+                source_text, _bench_src_lines = _short_text, _short_lines
+                _bench_kept, _bench_body_base_in = _short_kept, _short_base
+    _bench_src_box_h_in = _bench_src_lines * (_bench_src_pt * 1.35) / 72.0 + 0.05
     bench_rows = [bench_rows[k] for k in _bench_kept]
     bench_meta = [bench_meta[k] for k in _bench_kept]
     # "Nova Ad Platform Intelligence" is named only when an ad-platform row
