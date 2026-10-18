@@ -92,12 +92,51 @@ class TestApplyRates:
         )
         return res["channel_allocations"]["global_boards"]
 
-    def test_healthcare_rate_held_at_the_generic_table(self):
-        # unverified -- held (numbers verifier round 2): the 3.2% KB rate
-        # could not be checked and put hospital CPA at 4-5x Joveo's own RN
-        # median, so healthcare keeps the generic job-board rate
+    def test_healthcare_job_boards_use_kb_rate(self):
+        # Restored 2026-10-18 (CPA-realism C1). The 2026-10-01 hold called the
+        # healthcare rate unverified; Appcast 2026 puts healthcare apply at
+        # 3.22% (lowest occupational group; tech 7.14%), quoted by
+        # jobscore.com/articles/apply-rate and recruitingheadlines.com and
+        # corroborated on appcast.io/the-rising-cost-of-recruiting. The KB
+        # carries it as 3.2. The held-against "$9.73 RN median" was the
+        # Welding row of joveo_cpa_benchmarks_2026.json (RN: $82.57 gross).
+        # The KB healthcare rate describes healthcare's mixed collar ("both").
         gb = self._gb("healthcare_medical", "Registered Nurse", "Dallas", "TX", "both")
-        assert gb["apply_rate"] == 0.08 and gb["apply_rate_source"] == "base_table"
+        assert gb["apply_rate"] == 0.032 and gb["apply_rate_source"] == "kb_industry"
+
+    def test_collar_uplift_still_applies_on_top(self):
+        gb = self._gb("healthcare_medical", "Housekeeper", "Dallas", "TX", "blue_collar")
+        assert gb["apply_rate"] == pytest.approx(0.032 * 1.4, abs=1e-4)
+
+    def test_other_channels_move_by_the_same_factor(self):
+        """Uniform re-level: channel ranking unchanged (programmatic's table
+        rate is 0.06 vs job boards' 0.08; both scale by 0.032 / 0.08)."""
+        res = be.calculate_budget_allocation(
+            total_budget=250_000.0,
+            roles=[{"title": "Registered Nurse", "count": 1, "tier": "Professional"}],
+            locations=[{"city": "Dallas", "state": "TX", "country": "United States"}],
+            industry="healthcare_medical",
+            channel_percentages={"global_boards": 60, "programmatic_dsp": 40},
+            knowledge_base=None,
+            collar_type="both",
+        )
+        prog = res["channel_allocations"]["programmatic_dsp"]
+        assert prog["apply_rate"] == pytest.approx(0.06 * 0.032 / 0.08, abs=1e-4)
+
+    def test_healthcare_relevel_is_us_only(self):
+        # the KB rates are US (Appcast) figures: a non-US healthcare plan keeps
+        # the generic table (intl_cpc_basis is set for non-US locale plans)
+        res = be.calculate_budget_allocation(
+            total_budget=250_000.0,
+            roles=[{"title": "Registered Nurse", "count": 1, "tier": "Professional"}],
+            locations=[{"city": "London", "state": "", "country": "United Kingdom"}],
+            industry="healthcare_medical",
+            channel_percentages={"global_boards": 100},
+            knowledge_base=None,
+            collar_type="both",
+        )
+        gb = res["channel_allocations"]["global_boards"]
+        assert gb["apply_rate_source"] != "kb_industry"
 
     def test_trades_job_boards_use_kb_manufacturing_rate(self):
         gb = self._gb(

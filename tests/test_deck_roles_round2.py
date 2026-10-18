@@ -485,11 +485,18 @@ def test_d1_slides_2_and_9_never_carry_one_cpa_label_over_two_numbers() -> None:
     assert _value_after(cmp_slide, "Projected CPA") is None
     point = _value_after(cmp_slide, "Projected CPA (plan efficiency)")
     assert point is not None
-    point_num = re.search(r"[\d,.]+", point).group(0)
-    assert kpi.split("\u2013")[0].lstrip("$\u00a3\u20ac").strip() == point_num, (
-        kpi,
-        point,
+    point_num = float(re.search(r"[\d,.]+", point).group(0).replace(",", ""))
+    low, high = (
+        float(x.lstrip("$\u00a3\u20ac").replace(",", "").strip())
+        for x in kpi.split("\u2013")
     )
+    # The point is a point OF the range. It used to be the range's low end (an
+    # engine CPA below the KB band was the hull's low); after the healthcare
+    # apply-rate re-level (Appcast 2026 healthcare apply rate 3.22%, CPA-realism
+    # C1) the engine CPA sits inside the KB band, so the range low is the band's
+    # low ($35) and the plan-efficiency point lies within it ($36.80). Slide 2
+    # then reads $35-$58 beside slide 9's point under a different label.
+    assert low <= point_num <= high, (kpi, point)
 
 
 def test_d1_slide_9_keeps_the_plain_label_when_slide_2_prints_a_point() -> None:

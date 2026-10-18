@@ -261,7 +261,10 @@ def test_headline_helper_applies_the_estimates_vendor_gate(monkeypatch):
 @pytest.mark.parametrize(
     "role,loc,ind,budget",
     [
-        ("Registered Nurse", "Columbus, OH", "healthcare_medical", "$150,000"),
+        # New York, not Columbus: the healthcare apply-rate re-level (C1,
+        # 2026-10-18) balances the Columbus $150K mix to a 52.6% top-2 share,
+        # under the >55% concentration trigger; New York stays at 64.6%.
+        ("Registered Nurse", "New York, NY", "healthcare_medical", "$150,000"),
         ("Software Engineer", "Remote, US", "tech_engineering", "$250,000"),
         ("Customer Service Representative", "United States", "general_entry_level", "$60,000"),
     ],

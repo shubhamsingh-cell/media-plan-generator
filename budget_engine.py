@@ -959,16 +959,28 @@ def _get_trend_engine_cpc(
 # NOT mapped: the engine's 7.2% already matches Appcast 2026's verified
 # 7.14%, and the KB's 6.41% would move it away from that. Source of the KB
 # rates: live_market_data.json industry_benchmarks (reconciled 2026-06-02;
-# Appcast-derived -- the Appcast report itself is gated and was not
-# re-verified on 2026-10-01).
+# Appcast-derived).
 #
-# HEALTHCARE: unverified -- held (numbers verifier round 2, 2026-10-01).
-# The 3.2% healthcare rate could not be checked (Appcast's tables are
-# gated) and it put the hospital plan's CPA at $41-47, 4-5x Joveo's own
-# published RN median of $9.73, so healthcare keeps its previous generic
-# apply rates until the figure is verified. Trades keep the 4.5%
-# manufacturing re-level.
+# HEALTHCARE (restored 2026-10-18, C1 of the CPA-realism decision memo,
+# ledger/2026-10-18/cpa_realism/DECISION_cpa_realism.md): the 2026-10-01
+# hold (commit 10dbae1) called this rate "unverified" and set it against a
+# "$9.73 RN median"; neither reason stands. Appcast 2026 Recruitment
+# Marketing Benchmark Report, apply rate by occupational group, healthcare
+# 3.22% (lowest of 15 groups; tech 7.14%) -- quoted by jobscore.com/articles/
+# apply-rate (2026-03-12) and recruitingheadlines.com (2026-02-17), tech
+# 7.14% and the 5.19% overall rate confirmed on appcast.io/the-rising-cost-
+# of-recruiting (2026-02-20); the full report is form-gated. The KB carries
+# it as 3.2 (rounded). The $9.73 was the Welding row of
+# joveo_cpa_benchmarks_2026.json; its Registered Nurses row is $82.57 gross
+# / $38.17 net (Feb-26). Scope is the whole healthcare_medical industry key
+# (every role in a healthcare plan), US plans only. Moves the plan's CPA
+# (~2.5x) and applications (~-60%); hires are unchanged wherever the
+# cost-per-hire floor governs them (the 26 sweep briefs, and the 560 hub
+# scenarios in all 12 start months), but a small plan whose funnel falls
+# below the floor-priced count follows the funnel (RN under ~$28K; pinned in
+# tests/test_projection_review_round2.py).
 _JOB_BOARD_APPLY_RATE_KB_KEY: Dict[str, Tuple[str, str]] = {
+    "healthcare_medical": ("healthcare", "both"),
     "blue_collar_trades": ("manufacturing", "blue_collar"),
 }
 

@@ -341,6 +341,32 @@ def test_estimate_carries_the_midpoint_case(engine_default: dict[str, Any]) -> N
     assert est["est_cph"] == round(50_000 / est["est_hires"], 2)
 
 
+# Healthcare apply-rate re-level (Appcast 2026 healthcare apply rate 3.22%,
+# CPA-realism C1, 2026-10-18): Registered Nurse in New York at the slider's
+# $30K minimum now has a funnel that lands on EXACTLY the floor-priced hire
+# count (5 = int(30000 / 5250)) without the floor clamp firing (the funnel's
+# own cost per hire, $6,000, is above the $5,250 floor), so the engine reports
+# cph_floor_applied False in 9 of 12 start months. Hires are identical to
+# before the re-level in every one of the 6,720 scenario-months and the printed
+# relation (hires = int(budget / floor)) still holds; only the flag differs.
+# The basis line is withheld there (proof_claims.pe_basis_text raises and
+# hub.js basisText returns "") rather than claiming a clamp that did not
+# happen. This pins that ONE scenario; any other non-clamped scenario fails.
+_FUNNEL_AT_FLOOR_NOT_CLAMPED = {("Registered Nurse", "New York, NY", 30_000)}
+
+
+def _assert_floor_case(role: dict, loc: str, budget: int, est: dict, ctx) -> None:
+    """The scenario is the floor-clamped case, or the one documented exception
+    whose funnel equals the floor-priced count and whose basis line is withheld."""
+    if est["cph_floor_applied"] is True:
+        proof_claims.pe_basis_text(est)
+        return
+    assert (role["title"], loc, budget) in _FUNNEL_AT_FLOOR_NOT_CLAMPED, ctx
+    assert est["est_hires"] == int(budget / est["cph_floor"]), ctx
+    with pytest.raises(ValueError):
+        proof_claims.pe_basis_text(est)
+
+
 def test_the_floor_case_holds_in_every_month() -> None:
     """The engine's seasonality follows campaign_start_month (else the wall
     clock), so CI only proves the current month. Every role x market at the
@@ -356,7 +382,7 @@ def test_the_floor_case_holds_in_every_month() -> None:
                     brief["campaign_start_month"] = month
                     est = app._compute_plan_estimate(brief)
                     assert est["est_hires"] >= 2, (month, brief, est)
-                    assert est["cph_floor_applied"] is True, (month, brief, est)
+                    _assert_floor_case(role, loc, budget, est, (month, brief, est))
                     assert est["est_hires"] == int(budget / est["cph_floor"]), (
                         month,
                         brief,
@@ -366,7 +392,6 @@ def test_the_floor_case_holds_in_every_month() -> None:
                         month,
                         brief,
                     )
-                    proof_claims.pe_basis_text(est)
 
 
 def test_json_token_is_script_safe() -> None:
@@ -475,7 +500,7 @@ def test_whole_grid_is_sane_and_every_funded_channel_has_a_row() -> None:
                 last_hires = est["est_hires"]
                 # "at plan efficiency" must be true for every reachable scenario,
                 # and the basis line must have both of its figures
-                assert est["cph_floor_applied"] is True, key
+                _assert_floor_case(role, loc, budget, est, key)
                 assert 1 <= est["est_hires_midpoint"] <= est["est_hires"], (key, est)
                 assert est["industry_midpoint_cph"] > est["est_cph"], (key, est)
                 # the printed relation holds arithmetically for every scenario:
@@ -488,7 +513,6 @@ def test_whole_grid_is_sane_and_every_funded_channel_has_a_row() -> None:
                 assert est["est_hires_midpoint"] == int(
                     budget / est["industry_midpoint_cph"]
                 ), (key, est)
-                proof_claims.pe_basis_text(est)
                 keys = {c["key"] for c in est["channels"]}
                 assert keys <= rows, f"{key}: engine funds {keys - rows} with no row"
                 assert abs(sum(c["amount"] for c in est["channels"]) - budget) < 1, key
