@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import adzuna_quota
+from engine_log_quiet import quiet_engine_logs
 
 logger = logging.getLogger(__name__)
 
@@ -268,34 +269,9 @@ def _read_published_result() -> Optional[Tuple[Dict[str, Any], float]]:
 
 # A probe sweep calls budget_engine ~900 times; its per-call INFO/WARNING lines
 # (4,400 lines in two minutes on 2026-10-16) are noise for a health probe.
-# Demote them to DEBUG for the monitor's own thread only -- thread-local, so
-# concurrent requests keep their normal levels, and ERROR+ always passes.
-_probe_ctx = threading.local()
-_QUIET_PROBE_LOGGERS = ("budget_engine",)
-
-
-class _DemoteProbeLogs(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not getattr(_probe_ctx, "active", False):
-            return True
-        if record.levelno >= logging.ERROR or record.levelno <= logging.DEBUG:
-            return True
-        record.levelno, record.levelname = logging.DEBUG, "DEBUG"
-        return logging.getLogger(record.name).isEnabledFor(logging.DEBUG)
-
-
-_demote_filter = _DemoteProbeLogs()
-for _name in _QUIET_PROBE_LOGGERS:
-    logging.getLogger(_name).addFilter(_demote_filter)
-
-
-@contextlib.contextmanager
-def _quiet_probe_logs():
-    _probe_ctx.active = True
-    try:
-        yield
-    finally:
-        _probe_ctx.active = False
+# engine_log_quiet demotes them to DEBUG for the monitor's own thread only
+# (thread-local, so concurrent requests keep their normal levels; ERROR+ always
+# passes).  The hub PE grid precompute uses the same helper.
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -368,7 +344,7 @@ class DataMatrixMonitor:
 
     def run_check(self) -> Dict[str, Any]:
         """Run a full 4x7 matrix probe, attempt self-healing, return results."""
-        with _quiet_probe_logs():
+        with quiet_engine_logs():
             return self._run_check()
 
     def _run_check(self) -> Dict[str, Any]:

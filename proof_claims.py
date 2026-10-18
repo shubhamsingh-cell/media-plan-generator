@@ -40,6 +40,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, cast
 
+from engine_log_quiet import quiet_engine_logs
+
 logger = logging.getLogger(__name__)
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -497,27 +499,30 @@ def hub_pe_grid(force: bool = False) -> Optional[Dict[str, Any]]:
         started = time.time()
         scenarios: Dict[str, Dict[str, Any]] = {}
         skipped = []
-        for role in HUB_PE_ROLES:
-            for location in HUB_PE_LOCATIONS:
-                for budget in hub_pe_budgets():
-                    brief = hub_pe_brief(role, location, budget)
-                    key = hub_pe_key(brief)
-                    try:
-                        est = estimator(dict(brief))
-                        scenarios[key] = {f: est.get(f) for f in _GRID_FIELDS}
-                        ranges = _range_texts(est)
-                        if ranges:
-                            scenarios[key]["ranges"] = ranges
-                    except (
-                        Exception
-                    ) as exc:  # noqa: BLE001 -- one bad scenario must not sink the grid
-                        skipped.append(key)
-                        logger.error(
-                            "proof_claims: hub grid scenario %s skipped: %s",
-                            key,
-                            exc,
-                            exc_info=True,
-                        )
+        # 560 engine calls log ~9k INFO lines at every boot; demote them on this
+        # thread only (ERROR passes) -- the summary line below is the one record.
+        with quiet_engine_logs():
+            for role in HUB_PE_ROLES:
+                for location in HUB_PE_LOCATIONS:
+                    for budget in hub_pe_budgets():
+                        brief = hub_pe_brief(role, location, budget)
+                        key = hub_pe_key(brief)
+                        try:
+                            est = estimator(dict(brief))
+                            scenarios[key] = {f: est.get(f) for f in _GRID_FIELDS}
+                            ranges = _range_texts(est)
+                            if ranges:
+                                scenarios[key]["ranges"] = ranges
+                        except (
+                            Exception
+                        ) as exc:  # noqa: BLE001 -- one bad scenario must not sink the grid
+                            skipped.append(key)
+                            logger.error(
+                                "proof_claims: hub grid scenario %s skipped: %s",
+                                key,
+                                exc,
+                                exc_info=True,
+                            )
         body = {
             "roles": [dict(r) for r in HUB_PE_ROLES],
             "locations": list(HUB_PE_LOCATIONS),
