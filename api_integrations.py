@@ -3385,19 +3385,30 @@ class BLSClient:
         """Get Occupational Employment and Wage Statistics (OES) data.
 
         Args:
-            soc_code: SOC code without dots (e.g., '151252' for Software Devs).
+            soc_code: SOC code, with or without the hyphen (e.g. '15-1252' or
+                '151252' for Software Developers); an O*NET-SOC suffix
+                ('15-1252.00') is accepted.
 
         Returns:
-            Dict with employment and wage data or None.
+            Dict with employment and annual-wage data or None.
         """
-        # OES series: OEUM{area}{industry}{soc_code}{datatype}
-        # National: area=003600000, industry=000000
-        soc_clean = soc_code.replace("-", "").replace(".", "")
-        # Employment: datatype 01, Mean wage: 04, Median wage: 13
+        # National, cross-industry OEWS series. The IDs used to be 27-character
+        # "OEUM0036000..." strings (metro areatype, malformed area), which BLS
+        # answers "Series does not exist", so this method never returned data;
+        # bls_oews builds them (25 characters) and refuses a SOC it cannot
+        # read ("15125200" from a raw O*NET-SOC "15-1252.00" is not one).
+        # Datatypes: 01 employment, 04 ANNUAL mean wage, 13 ANNUAL median wage
+        # (the hourly datatypes are 03 and 08).
+        import bls_oews
+
+        soc = bls_oews.normalize_soc(soc_code)
+        if not soc:
+            logger.warning("BLS OES lookup refused: not a SOC code: %r", soc_code)
+            return None
         series_ids = [
-            f"OEUM003600000000000{soc_clean}01",  # Employment
-            f"OEUM003600000000000{soc_clean}04",  # Mean hourly wage
-            f"OEUM003600000000000{soc_clean}13",  # Median hourly wage
+            bls_oews.oews_series_id(soc, bls_oews.DATATYPE_EMPLOYMENT),
+            bls_oews.oews_series_id(soc, bls_oews.DATATYPE_ANNUAL_MEAN),
+            bls_oews.oews_series_id(soc, bls_oews.DATATYPE_ANNUAL_MEDIAN),
         ]
         return self._fetch_series(series_ids)
 

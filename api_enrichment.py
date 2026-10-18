@@ -83,6 +83,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import adzuna_quota as _adzuna_quota
+import bls_oews as _bls_oews
 import plan_geo as _plan_geo
 import plan_location as _plan_location
 import public_data_sources as _pds
@@ -2136,33 +2137,49 @@ def source_applies_to_plan(label: str, locations: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
+# Why the last lookup for a SOC returned nothing, for the refresh log line
+# ("3/10 roles refreshed; skipped: ..."). Written by _fetch_bls_salary and read
+# by salary_skip_reasons after the fact, so fetch_salary_data keeps its
+# (roles) -> {role: wage} contract.
+_BLS_FAILURES: Dict[str, str] = {}
+_BLS_FAILURES_LOCK = threading.Lock()
+
+
+def _note_bls_failure(soc_code: str, reason: Optional[str]) -> None:
+    with _BLS_FAILURES_LOCK:
+        if reason:
+            _BLS_FAILURES[str(soc_code)] = reason
+        else:
+            _BLS_FAILURES.pop(str(soc_code), None)
+
+
 def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
     """
-    Fetch median, 10th-percentile, and 90th-percentile annual wages for a
-    given SOC code from the BLS OES survey.
+    Fetch the national mean, median, 10th- and 90th-percentile ANNUAL wages of
+    one SOC from BLS OEWS, with the SOC, series IDs and reference year/period
+    they came from. ``None`` (and a reason in ``_BLS_FAILURES``) when BLS holds
+    no usable wage.
 
-    BLS OES series ID format (25 chars total):
-        OEUN (prefix=OE, seasonal=U, areatype=N)
-        + area(7) = 0000000 (national)
-        + industry(6) = 000000 (all industries)
-        + occupation(6) = {soc_clean}
-        + datatype(2) = 04 (mean), 13 (median), etc.
-
-    Datatype codes: 01=employment, 04=annual mean wage,
-        11=annual 10th pct, 13=annual median, 15=annual 90th pct
+    Series IDs come from ``bls_oews.wage_series_ids`` (25 chars,
+    ``OEUN0000000000000{soc}{04|13|11|15}``). OEWS keeps only the newest
+    reference year per series, so the request window must END at the current
+    year (``bls_oews.year_window``): the former fixed 2022-2024 window got
+    REQUEST_SUCCEEDED with empty series for every role, i.e. "0/10 roles
+    refreshed" on every refresh and no BLS wage in any plan.
     """
-    cache_k = _cache_key("bls", soc_code)
+    soc_norm = _bls_oews.normalize_soc(soc_code)
+    if not soc_norm:
+        _note_bls_failure(soc_code, f"not a SOC code: {soc_code!r}")
+        _log_warn(f"BLS wage lookup refused for {role!r}: not a SOC code {soc_code!r}")
+        return None
+
+    cache_k = _cache_key("bls", soc_norm)
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
 
-    # Strip the dash for the series ID
-    soc_clean = soc_code.replace("-", "")
-
-    series_mean = f"OEUN0000000000000{soc_clean}04"  # annual mean wage
-    series_median = f"OEUN0000000000000{soc_clean}13"  # annual median wage
-    series_p10 = f"OEUN0000000000000{soc_clean}11"  # annual 10th pct
-    series_p90 = f"OEUN0000000000000{soc_clean}15"  # annual 90th pct
+    series_ids = list(_bls_oews.wage_series_ids(soc_norm).values())
+    start_year, end_year = _bls_oews.year_window()
 
     api_key = os.environ.get("BLS_API_KEY") or ""
 
@@ -2176,9 +2193,9 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
     resp = None
     for version, url in endpoints:
         payload: Dict[str, Any] = {
-            "seriesid": [series_mean, series_median, series_p10, series_p90],
-            "startyear": "2022",
-            "endyear": "2024",
+            "seriesid": series_ids,
+            "startyear": start_year,
+            "endyear": end_year,
         }
         if version == "v2" and api_key:
             payload["registrationkey"] = api_key
@@ -2187,54 +2204,45 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
         # 2 POSTs (v2, then v1 on failure). v2 is the keyed 500/day pool, v1
         # the unkeyed 25/day one.
         if not _rate_limit_acquire("BLS" if version == "v2" else "BLS_v1"):
-            _log_warn(f"BLS {version} request quota reached; skipping SOC {soc_code}")
+            _log_warn(f"BLS {version} request quota reached; skipping SOC {soc_norm}")
             continue
         resp = _http_post_json(url, payload, timeout=12)
         if resp and resp.get("status") == "REQUEST_SUCCEEDED":
-            _log_info(f"BLS {version} request succeeded for SOC {soc_code}")
+            _log_info(f"BLS {version} request succeeded for SOC {soc_norm}")
             break
         else:
             msg = ""
             if resp:
                 msg = str(resp.get("message") or "")
-            _log_warn(f"BLS {version} failed for SOC {soc_code}: {msg}")
+            _log_warn(f"BLS {version} failed for SOC {soc_norm}: {msg}")
             resp = None
 
     if not resp:
-        _log_warn(f"BLS request failed on all endpoints for SOC {soc_code}")
+        _log_warn(f"BLS request failed on all endpoints for SOC {soc_norm}")
+        _note_bls_failure(soc_norm, "bls_request_failed: no endpoint answered")
         return None
 
-    result: Dict[str, Any] = {"source": "BLS OES"}
     series_list = resp.get("Results", {}).get("series") or []
+    result, reason = _bls_oews.build_wage_result(soc_norm, series_list)
+    if result is None:
+        messages = resp.get("message") or []
+        detail = str(messages[0])[:160] if messages else reason
+        _log_warn(
+            f"BLS OEWS returned no usable wage for SOC {soc_norm} "
+            f"(window {start_year}-{end_year}): {reason}; BLS said: {detail}"
+        )
+        _note_bls_failure(soc_norm, f"bls_no_data: {detail}")
+        return None
 
-    for series in series_list:
-        sid = series.get("seriesID") or ""
-        data_points = series.get("data") or []
-        if not data_points:
-            continue
-        # Take the most recent value
-        latest = data_points[0]
-        try:
-            val_str = str(latest.get("value", "0"))
-            value = float(val_str.replace(",", ""))
-        except (ValueError, TypeError):
-            continue
+    mismatch = _bls_oews.series_mismatch(result)
+    if mismatch:
+        _log_warn(f"BLS OEWS result for SOC {soc_norm} discarded: {mismatch}")
+        _note_bls_failure(soc_norm, f"series_mismatch: {mismatch}")
+        return None
 
-        if sid == series_mean:
-            result["mean"] = int(value)
-        elif sid == series_median:
-            result["median"] = int(value)
-        elif sid == series_p10:
-            result["p10"] = int(value)
-        elif sid == series_p90:
-            result["p90"] = int(value)
-
-    # Accept result if we got at least mean or median
-    if "median" in result or "mean" in result:
-        _set_cached(cache_k, result)
-        return result
-
-    return None
+    _note_bls_failure(soc_norm, None)
+    _set_cached(cache_k, result)
+    return result
 
 
 # Titles that must match a role EXACTLY. As substrings they would capture
@@ -2257,8 +2265,11 @@ _EXACT_ONLY_SOC_TITLES = frozenset(
 # role (BLS OEWS has no SOC of their own): Physician -> 29-1218 Obstetricians
 # and Gynecologists, UX Designer -> Graphic Designers, Account Manager -> Sales
 # Managers, Data Analyst -> Data Scientists, DevOps/SRE/Cloud -> Network and
-# Computer Systems Administrators. BLS wages blend into the client salary, so
-# these get no BLS wage (the benchmark stays) rather than a neighbour's wage.
+# Computer Systems Administrators, Product Manager -> Marketing Managers (SOC
+# 2018 has no product-manager occupation), Project Manager -> 11-9199 Managers,
+# All Other (a residual bucket, not the job). BLS wages blend into the client
+# salary, so these get no BLS wage (the benchmark stays) rather than a
+# neighbour's wage.
 _BLS_NO_WAGE_TITLES = frozenset(
     {
         "physician",
@@ -2268,6 +2279,8 @@ _BLS_NO_WAGE_TITLES = frozenset(
         "devops engineer",
         "site reliability engineer",
         "cloud engineer",
+        "product manager",
+        "project manager",
     }
 )
 
@@ -2446,27 +2459,44 @@ def _soc_for_role_by_title_run(role_lower: str) -> str:
     )
 
 
+def _soc_for_salary_role(role: str) -> Tuple[str, str]:
+    """``(soc, "")`` for the SOC the fail-closed matcher gives ``role``;
+    ``("", why)`` when it has none (and so gets no BLS wage)."""
+    role_lower = role.strip().lower()
+    soc = "" if role_lower in _BLS_NO_WAGE_TITLES else SOC_CODES.get(role_lower)
+    if not soc:
+        # A known title inside the role ("Senior Software Engineer"), under
+        # the fail-closed modifier allowlist above. Never the reverse
+        # direction: a bare "Manager" or "Associate" is contained in many
+        # titles and picked the first one (Product Manager 11-2021,
+        # Warehouse Associate 53-7065).
+        soc = _soc_for_role_by_title_run(role_lower)
+    # No word-overlap fallback: one shared word ("associate", "manager",
+    # "service") used to pick the first matching SOC, which mapped Sales
+    # Associate -> Sales Managers, Store Manager -> Marketing Managers and
+    # Customer Service Representative -> Fast Food workers. No confident
+    # SOC means no BLS wage for that role, not a wrong one. The
+    # standardizer's alias table is deliberately NOT consulted here: it
+    # maps Sales Representative / Account Executive / BDR to 11-2022.
+    if soc:
+        return soc, ""
+    if role_lower in _BLS_NO_WAGE_TITLES:
+        return "", "no BLS occupation is this job; benchmark kept"
+    return "", "no confident SOC mapping"
+
+
 def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
-    """Fetch salary data for a list of role titles via BLS."""
+    """Fetch salary data for a list of role titles via BLS.
+
+    Each wage carries the SOC, the series IDs and the reference year/period it
+    came from (``soc_code``, ``series_ids``, ``reference_year``,
+    ``reference_period``). A role with no confident SOC, or whose lookup finds
+    no usable BLS wage, is absent: see :func:`salary_skip_reasons`.
+    """
     salary_data: Dict[str, Any] = {}
 
     for role in roles:
-        role_lower = role.strip().lower()
-        soc = "" if role_lower in _BLS_NO_WAGE_TITLES else SOC_CODES.get(role_lower)
-        if not soc:
-            # A known title inside the role ("Senior Software Engineer"), under
-            # the fail-closed modifier allowlist above. Never the reverse
-            # direction: a bare "Manager" or "Associate" is contained in many
-            # titles and picked the first one (Product Manager 11-2021,
-            # Warehouse Associate 53-7065).
-            soc = _soc_for_role_by_title_run(role_lower)
-        # No word-overlap fallback: one shared word ("associate", "manager",
-        # "service") used to pick the first matching SOC, which mapped Sales
-        # Associate -> Sales Managers, Store Manager -> Marketing Managers and
-        # Customer Service Representative -> Fast Food workers. No confident
-        # SOC means no BLS wage for that role, not a wrong one. The
-        # standardizer's alias table is deliberately NOT consulted here: it
-        # maps Sales Representative / Account Executive / BDR to 11-2022.
+        soc, _why = _soc_for_salary_role(role)
         if not soc:
             _log_warn(f"No SOC code mapping for role: {role}")
             continue
@@ -2479,6 +2509,24 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
             _log_warn(f"BLS salary fetch failed for {role}: {exc}")
 
     return salary_data
+
+
+def salary_skip_reasons(roles: List[str], data: Dict[str, Any]) -> Dict[str, str]:
+    """``{role: reason}`` for each role in ``roles`` that has no wage in
+    ``data`` (the result of :func:`fetch_salary_data` for the same roles), so a
+    refresh can say "8/10 refreshed; skipped: ..." instead of a bare count."""
+    reasons: Dict[str, str] = {}
+    for role in roles:
+        if role in data:
+            continue
+        soc, why = _soc_for_salary_role(role)
+        if not soc:
+            reasons[role] = why
+            continue
+        with _BLS_FAILURES_LOCK:
+            failure = _BLS_FAILURES.get(_bls_oews.normalize_soc(soc))
+        reasons[role] = f"SOC {soc}: {failure or 'BLS returned no wage'}"
+    return reasons
 
 
 # ---------------------------------------------------------------------------
@@ -2514,7 +2562,8 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
     """Fetch metro-level salary data from BLS OEWS.
 
     Uses the OEWS area series format: OEUM{area_code}{industry}{occupation}{data_type}
-    where area_code is a 5-digit MSA FIPS code.
+    where area_code is the 5-digit CBSA code zero-padded to 7 digits (see
+    ``bls_oews``).
 
     Args:
         location: City/metro name (e.g., 'San Francisco').
@@ -2523,8 +2572,6 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
     Returns:
         Dict with metro salary benchmarks or empty dict on failure.
     """
-    import datetime
-
     api_key = os.environ.get("BLS_API_KEY") or ""
     if not api_key:
         return {}
@@ -2539,10 +2586,22 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
     if not fips:
         return {}
 
-    # Build series ID: OEUM + area(5) + industry(000000) + occupation(6) + datatype(2)
-    # occupation 000000 = all occupations; datatype 13 = annual mean wage
+    # Metro series: OEUM + area(7 = "00" + 5-digit CBSA) + industry(000000) +
+    # occupation(6; 000000 = all) + datatype(2). The area used to be the bare
+    # 5-digit CBSA (23 characters), which BLS answers "Series does not exist".
+    # Datatype 04 is the annual MEAN wage, which is what the result is named
+    # (13, formerly used, is the annual median).
+    area = _bls_oews.cbsa_area_code(fips)
+    try:
+        series_id = _bls_oews.oews_series_id(
+            soc_code or None,
+            _bls_oews.DATATYPE_ANNUAL_MEAN,
+            areatype=_bls_oews.AREATYPE_METRO,
+            area=area,
+        )
+    except ValueError:
+        return {}
     occ_code = soc_code.replace("-", "") if soc_code else "000000"
-    series_id = f"OEUM{fips}000000{occ_code}13"
 
     cache_key = f"bls_metro_{fips}_{occ_code}"
     cached = _get_cached(cache_key)
@@ -2551,12 +2610,13 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
 
     try:
         url = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
+        start_year, end_year = _bls_oews.year_window()
         payload = json.dumps(
             {
                 "seriesid": [series_id],
                 "registrationkey": api_key,
-                "startyear": str(datetime.datetime.now().year - 1),
-                "endyear": str(datetime.datetime.now().year),
+                "startyear": start_year,
+                "endyear": end_year,
             }
         ).encode("utf-8")
 
@@ -2567,18 +2627,20 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
             data = json.loads(resp.read().decode("utf-8"))
 
         series = (data.get("Results") or {}).get("series") or []
-        if not series or not series[0].get("data"):
+        latest = _bls_oews.newest_points(series).get(series_id)
+        annual_mean = (
+            _bls_oews.parse_wage_value(latest.get("value")) if latest else None
+        )
+        if latest is None or annual_mean is None:
             return {}
-
-        latest = series[0]["data"][0]
-        annual_mean = float(latest.get("value") or 0)
 
         result: Dict[str, Any] = {
             "metro": location,
             "fips": fips,
-            "annual_mean_wage": annual_mean,
+            "annual_mean_wage": float(annual_mean),
             "period": latest.get("periodName") or "",
             "year": latest.get("year") or "",
+            "reference_period": _bls_oews.reference_label(int(latest.get("year") or 0)),
             "source": "BLS OEWS",
         }
         _set_cached(cache_key, result)

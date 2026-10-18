@@ -164,17 +164,37 @@ class DataRefreshPipeline:
                 logger.debug("[DataRefresh] fetch_salary_data not found")
                 return
 
-            data = fetch_fn(_BENCHMARK_ROLES)
+            import bls_oews
+
+            fetched = fetch_fn(_BENCHMARK_ROLES)
+            fetched = fetched if isinstance(fetched, dict) else {}
+            reasons_fn = getattr(enrichment, "salary_skip_reasons", None)
+            skipped = reasons_fn(_BENCHMARK_ROLES, fetched) if reasons_fn else {}
+            stored = self._read_saved_refresh(source)
+            data, rejected = bls_oews.guard_refreshed_wages(fetched, stored)
+            for role, reason in rejected.items():
+                skipped[role] = f"rejected, previous value kept: {reason}"
+            note = (
+                "; not refreshed: " + bls_oews.describe_skips(skipped)
+                if skipped
+                else ""
+            )
             if data:
-                self._save_refresh(source, data)
+                # a rejected role keeps the value already on disk
+                self._save_refresh(source, {**stored, **data})
                 logger.info(
-                    "[DataRefresh] BLS salary refreshed: %d/%d roles",
+                    "[DataRefresh] BLS salary refreshed: %d/%d roles%s",
                     len(data),
                     len(_BENCHMARK_ROLES),
+                    note,
                 )
             else:
-                logger.warning("[DataRefresh] BLS salary returned empty data")
-                self._record_failure(source, "empty response")
+                logger.warning(
+                    "[DataRefresh] BLS salary refreshed 0/%d roles%s",
+                    len(_BENCHMARK_ROLES),
+                    note,
+                )
+                self._record_failure(source, "0 roles refreshed" + note)
         except Exception as exc:
             logger.warning("[DataRefresh] BLS salary refresh failed: %s", exc)
             self._record_failure(source, str(exc))
@@ -362,6 +382,16 @@ class DataRefreshPipeline:
     def _rate_limit_pause() -> None:
         """Sleep to respect rate limits between API calls."""
         time.sleep(_API_CALL_DELAY)
+
+    @staticmethod
+    def _read_saved_refresh(key: str) -> dict[str, Any]:
+        """The ``data`` dict last saved for ``key`` (``{}`` if none/unreadable)."""
+        try:
+            with open(_DATA_DIR / f"{key}.json", encoding="utf-8") as f:
+                saved = json.load(f).get("data")
+        except (OSError, ValueError, AttributeError):
+            return {}
+        return saved if isinstance(saved, dict) else {}
 
     def _save_refresh(self, key: str, data: Any) -> None:
         """Save refreshed data to disk and update in-memory status.

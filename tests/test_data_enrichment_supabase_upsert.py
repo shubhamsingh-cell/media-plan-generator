@@ -38,6 +38,7 @@ from typing import Any, Callable
 import pytest
 
 import data_enrichment as de
+from tests.bls_wage_fixture import wage
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BASE = "https://example.supabase.co"
@@ -200,14 +201,7 @@ def test_salary_rows_only_use_columns_that_exist_in_the_schema(
     mp.setattr(
         api_enrichment,
         "fetch_salary_data",
-        lambda roles: {
-            "Registered Nurse": {
-                "median": 82000,
-                "p10": 59000,
-                "p90": 120000,
-                "source": "BLS OES",
-            }
-        },
+        lambda roles: {"Registered Nurse": wage("29-1141", 82000, 59000, 120000)},
     )
     net = _install(sb, _Net(lambda req: None))
     eng = _engine(mp)

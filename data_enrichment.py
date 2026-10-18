@@ -977,18 +977,58 @@ class DataEnrichmentEngine:
             if len(self._enrichment_log) > _MAX_LOG_ENTRIES:
                 self._enrichment_log = self._enrichment_log[-_MAX_LOG_ENTRIES:]
 
+    @staticmethod
+    def _load_previous_bls_wages() -> dict[str, dict[str, Any]]:
+        """The BLS wages currently stored in ``salary_data`` (national, overall),
+        keyed by role, so a refresh can refuse a wage that jumps implausibly.
+        Best effort: ``{}`` when Supabase is off or the read fails."""
+        try:
+            from supabase_data import _query_supabase
+
+            rows = _query_supabase(
+                "salary_data",
+                "select=role,median_salary,salary_10th,salary_90th"
+                "&data_source=eq.BLS&location=eq.national&industry=eq.overall"
+                "&limit=200",
+            )
+        except Exception as exc:  # noqa: BLE001 - the guard must not stop a refresh
+            logger.debug("Previous BLS wages unavailable: %s", exc)
+            return {}
+        return {
+            str(r["role"]): r
+            for r in rows or []
+            if isinstance(r, dict) and r.get("role")
+        }
+
     def _enrich_bls_salary(self) -> None:
         """Refresh BLS salary data for top roles.
 
-        Writes to Supabase salary_data table with LLM-generated insights.
+        Writes to Supabase salary_data table with LLM-generated insights. A
+        wage is written only if its series IDs are the national wage series of
+        the SOC it names, it carries its reference year/period, and it is
+        within +/-50% of the stored one (``bls_oews.guard_refreshed_wages``);
+        otherwise the stored value stays and the reason is logged.
         """
         if not self._is_stale("bls_salary"):
             return
         try:
+            import bls_oews
             from api_enrichment import fetch_salary_data
 
-            data = fetch_salary_data(_TOP_SALARY_ROLES)
-            refreshed = len(data) if data else 0
+            fetched = fetch_salary_data(_TOP_SALARY_ROLES)
+            fetched = fetched if isinstance(fetched, dict) else {}
+            try:
+                from api_enrichment import salary_skip_reasons
+
+                skipped = salary_skip_reasons(_TOP_SALARY_ROLES, fetched)
+            except ImportError:  # pragma: no cover - older api_enrichment
+                skipped = {}
+            data, rejected = bls_oews.guard_refreshed_wages(
+                fetched, self._load_previous_bls_wages()
+            )
+            for role, reason in rejected.items():
+                skipped[role] = f"rejected, previous value kept: {reason}"
+            refreshed = len(data)
 
             if refreshed > 0 and isinstance(data, dict):
                 now_iso = datetime.now(timezone.utc).isoformat()
@@ -1044,11 +1084,13 @@ class DataEnrichmentEngine:
                     _upsert_to_supabase("salary_data", sb_rows)
 
             self._mark_refreshed("bls_salary", refreshed > 0, refreshed)
-            logger.info(
-                "Enriched BLS salary data: %d/%d roles refreshed",
+            summary = "Enriched BLS salary data: %d/%d roles refreshed" % (
                 refreshed,
                 len(_TOP_SALARY_ROLES),
             )
+            if skipped:
+                summary += "; not refreshed: " + bls_oews.describe_skips(skipped)
+            (logger.info if refreshed else logger.warning)(summary)
 
         except ImportError:
             logger.warning("api_enrichment not available for BLS salary data")

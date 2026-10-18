@@ -44,6 +44,7 @@ from typing import Any, Callable
 import pytest
 
 import data_enrichment as de
+from tests.bls_wage_fixture import wage
 
 BASE = "https://example.supabase.co"
 
@@ -137,7 +138,7 @@ def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
     counts = {"bls": 0}
     bls_delay = {"s": 0.0}
     bls_result: dict[str, Any] = {
-        "data": {"Registered Nurse": {"median": 82000, "p10": 59000, "p90": 120000}}
+        "data": {"Registered Nurse": wage("29-1141", 82000, 59000, 120000)}
     }
 
     def fake_fetch_salary_data(roles: list[str]) -> dict[str, Any]:
@@ -439,7 +440,7 @@ def test_a_transient_bls_failure_is_retried_after_six_hours_not_a_week(
     world["bls"]["data"] = {}  # 429 / quota: the fetch returns nothing
     _boot(world).run_cycle()
     assert world["counts"]["bls"] == 1
-    world["bls"]["data"] = {"Registered Nurse": {"median": 82000}}  # recovered
+    world["bls"]["data"] = {"Registered Nurse": wage("29-1141", 82000)}  # recovered
 
     _age_persisted_rows(world, "bls_salary", hours=7)
     _boot(world).run_cycle()  # next deploy, 7 h after the failure
