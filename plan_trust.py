@@ -31,13 +31,13 @@ DEFAULT_DATA_DIR = os.path.join(_BASE_DIR, "data")
 
 NOT_RECORDED = "date not recorded"
 
-# The repository is the full listing and carries ONE date (its own
-# ``last_updated``).  Every other supply date is an individual board edit on
-# top of it (an owner confirmation, a sales-barred board): the newest of those
-# is the latest *exception*, and is never described as a refresh of the
-# network.
-SUPPLY_NETWORK_LABEL = "Supply status exceptions"
-SUPPLY_REPO_LABEL = "Supply repository (full listing)"
+# The supply data (the repository, the full listing) carries ONE date: its own
+# ``last_updated``.  Every other supply date is an individual board's
+# availability edit on top of it (an owner confirmation, a sales-barred
+# board): the newest of those is how far board availability has been updated,
+# and is never described as a refresh of the listing.
+SUPPLY_NETWORK_LABEL = "Board availability updates"
+SUPPLY_REPO_LABEL = "Supply data (full listing)"
 BENCHMARKS_LABEL = "Joveo benchmarks (CPC / CPA)"
 
 # ONE honesty note for every client-visible industry-benchmark table (the
@@ -241,7 +241,7 @@ def _family_row(
     else:
         lo, hi = min(dated), max(dated)
         if mode == "latest":
-            text = f"latest confirmed change {hi}"
+            text = f"updated through {hi}"
         else:
             text = lo if lo == hi else f"{lo} to {hi}"
         if undated:
@@ -322,29 +322,38 @@ def _row_date(rows: Sequence[Dict[str, Any]], label: str, which: str) -> str:
     return NOT_RECORDED
 
 
+def _supply_dates(rows: Sequence[Dict[str, Any]]) -> str:
+    """'Supply data dated 2026-03-31; board availability updated through
+    2026-10-17': the listing's own date, and separately how far individual
+    board availability has been updated.  A missing date says so."""
+    repo = _row_date(rows, SUPPLY_REPO_LABEL, "oldest")
+    latest = _row_date(rows, SUPPLY_NETWORK_LABEL, "latest")
+    listing = "date not recorded" if repo == NOT_RECORDED else f"dated {repo}"
+    updates = (
+        "update date not recorded"
+        if latest == NOT_RECORDED
+        else f"updated through {latest}"
+    )
+    return f"Supply data {listing}; board availability {updates}"
+
+
 def headline(rows: Sequence[Dict[str, Any]]) -> str:
     """One line for the Executive Summary and the checklist, in plain words:
-    when the supply repository (the full listing) was last updated, the
-    newest individual board exception confirmed on top of it, and the
-    benchmarks (oldest file, so it never overstates).  The exception date is
-    never presented as a refresh of the repository."""
+    the supply data's own date, how far individual board availability has been
+    updated since, and the benchmarks (oldest file, so it never overstates).
+    The board-availability date is never presented as a refresh of the full
+    supply listing."""
+    supply = _supply_dates(rows)
     return (
-        f"Data as of: supply repository last updated "
-        f"{_row_date(rows, SUPPLY_REPO_LABEL, 'oldest')}; board exceptions "
-        f"confirmed up to {_row_date(rows, SUPPLY_NETWORK_LABEL, 'latest')}"
+        f"Data as of: {supply[0].lower() + supply[1:]}"
         f" | benchmarks {_row_date(rows, BENCHMARKS_LABEL, 'oldest')}"
     )
 
 
 def footer_headline(rows: Sequence[Dict[str, Any]]) -> str:
-    """The two supply dates in the width of a slide footer: the repository's
-    own date, and separately the latest confirmed exception.  The benchmarks
+    """The two supply dates in the width of a slide footer.  The benchmarks
     date stays in the slide notes and on the workbook."""
-    return (
-        f"Supply repository {_row_date(rows, SUPPLY_REPO_LABEL, 'oldest')}"
-        f" | latest confirmed exception "
-        f"{_row_date(rows, SUPPLY_NETWORK_LABEL, 'latest')}"
-    )
+    return _supply_dates(rows)
 
 
 def provenance_stamp(info: Dict[str, Any]) -> str:

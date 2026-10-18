@@ -14,8 +14,17 @@ What these pin, each of which failed before the fix:
       (general_entry_level, legal_services, military_recruitment, rideshare)
       while deck slide 5 still named the boards.
 
-Every expected date and count is read from the data files in the test, never
-typed: a bumped file moves both sides, a made-up value fails.
+Review round (2026-10-18, Opus verify): a barred board must never read as
+"in network" (OCC Mundial / HelloWork), the depth figure counts only
+in-network JOB BOARDS the repository names for the country, a combined entry
+is confirmed only if every board it names is, statuses print with their date,
+the Local Job Boards table follows the Global / Regional ticks, and a
+disagreement between global_supply.json's notes and the repository is said.
+
+Dates are read from the data files in the test, never typed.  The depth
+counts are the one exception: they are hand-checked literals (see
+test_depth_counts_are_hand_checked_literals), because a test that recomputes
+the figure with the code's own method approves whatever the method gets wrong.
 """
 
 from __future__ import annotations
@@ -153,12 +162,43 @@ def test_in_network_board_is_never_marked():
     assert pf.annotate(["Reed.co.uk"], "United Kingdom") == (["Reed.co.uk"], False)
 
 
-def test_parenthesised_compound_is_in_network_when_one_named_board_is():
-    # "Recruit (Rikunabi / Indeed Japan)": Indeed is Global / In Joveo Network
-    assert (
-        pf.relationship_unverified("Recruit (Rikunabi / Indeed Japan)", "Japan")
-        is False
-    )
+def test_combined_entry_is_confirmed_only_if_every_board_it_names_is():
+    # Indeed has a (global) in-network row, Recruit and Rikunabi have none:
+    # one confirmed part must not clear the others
+    name = "Recruit (Rikunabi / Indeed Japan)"
+    record = pf.board_supply_record(name, "Japan")
+    parts = {p["name"].lower(): p["state"] for p in record["parts"]}
+    assert parts == {
+        "recruit": pf.SUPPLY_NO_RECORD,
+        "rikunabi": pf.SUPPLY_NO_RECORD,
+        "indeed japan": pf.SUPPLY_IN_NETWORK,
+    }
+    assert record["state"] == pf.SUPPLY_NO_RECORD
+    assert record["as_of"] == ""
+    assert pf.relationship_unverified(name, "Japan") is True
+    assert pf.annotate([name], "Japan") == ([f"{name} {pf.RELATIONSHIP_MARK}"], True)
+    # the same rule for a slash compound (Belgium: only Actiris has a row)
+    slash = pf.board_supply_record("VDAB / Forem / Actiris", "Belgium")
+    assert slash["state"] == pf.SUPPLY_NO_RECORD
+    assert pf.relationship_unverified("VDAB / Forem / Actiris", "Belgium") is True
+
+
+def test_combined_entry_is_in_network_when_every_part_is():
+    name = "Indeed Japan / LinkedIn Japan"
+    record = pf.board_supply_record(name, "Japan")
+    assert record["state"] == pf.SUPPLY_IN_NETWORK
+    assert record["as_of"] == REPO["last_updated"]  # the oldest of its parts
+    assert pf.relationship_unverified(name, "Japan") is False
+
+
+def test_a_lone_parenthetical_is_a_note_not_a_second_board():
+    # "(France Travail)" is the same board; it resolves through the alias
+    assert pf._compound_parts("Pole Emploi (France Travail)") == []
+    assert pf._compound_parts("Recruit (Rikunabi / Indeed Japan)") == [
+        "Recruit",
+        "Rikunabi",
+        "Indeed Japan",
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -215,24 +255,89 @@ def test_record_carries_only_dates_the_data_holds():
     )
     confirmed = pf.board_supply_record("Totaljobs", "United Kingdom")
     assert confirmed["as_of"] == group_as_of
-    assert pf.availability_label(confirmed) == f"availability as of {group_as_of}"
+    assert pf.status_label(confirmed) == f"In Joveo Network, as of {group_as_of}"
     # a repository row: the repository's own last_updated
     plain = pf.board_supply_record("VietnamWorks", "Vietnam")
     assert plain["as_of"] == REPO["last_updated"] == pf.repository_date()
-    # no record: no date to show
+    # no record: no status and no date to show
     nothing = pf.board_supply_record("Zzyzx Careers Portal", "Vietnam")
-    assert nothing["as_of"] == "" and pf.availability_label(nothing) == ""
+    assert nothing["as_of"] == "" and pf.status_label(nothing) == ""
 
 
-def test_status_phrase_states_state_and_date():
-    assert pf.supply_status_phrase(
-        pf.board_supply_record("VietnamWorks", "Vietnam")
-    ) == (f"VietnamWorks: in network, availability as of {REPO['last_updated']}")
-    assert pf.supply_status_phrase(
+def test_the_date_always_follows_the_status_it_belongs_to():
+    # a VONQ-only board must never read as "available as of <date>"
+    row = _repo_row("France Travail France")
+    vonq = pf.board_supply_record("Pole Emploi (France Travail)", "France")
+    assert pf.status_label(vonq) == f"{row['status']}, as of {REPO['last_updated']}"
+    assert pf.supply_status_phrase(vonq) == (
+        f"Pole Emploi (France Travail): {row['status']}, as of "
+        f"{REPO['last_updated']} (relationship unverified)"
+    )
+    for record in (vonq, pf.board_supply_record("VietnamWorks", "Vietnam")):
+        assert "availability as of" not in pf.supply_status_phrase(record)
+        assert "availability as of" not in pf.status_label(record)
+
+
+def test_status_phrase_for_a_board_with_no_row_is_literally_true():
+    phrase = pf.supply_status_phrase(
         pf.board_supply_record("Zzyzx Careers Portal", "Vietnam")
-    ) == ("Zzyzx Careers Portal: no supply record")
-    apec = pf.supply_status_phrase(pf.board_supply_record("APEC", "France"))
-    assert apec.startswith("APEC: listed as ") and "not in network" in apec
+    )
+    assert phrase == (
+        "Zzyzx Careers Portal: relationship unverified for this country "
+        "(repository has no row for Vietnam)"
+    )
+    # MyCareersFuture: the repository does hold a row whose PARENT names it,
+    # filed under another country -- "no supply record" would be false
+    mcf = pf.supply_status_phrase(
+        pf.board_supply_record("MyCareersFuture (MCF)", "Singapore")
+    )
+    assert "no supply record" not in mcf
+    assert "repository has no row for Singapore" in mcf
+
+
+# ---------------------------------------------------------------------------
+# a barred board is "unavailable", never "in network" (OCC Mundial, HelloWork)
+# ---------------------------------------------------------------------------
+
+AVAILABILITY = json.loads((DATA_DIR / "publisher_availability.json").read_text())
+
+
+def _barred(name: str) -> Dict[str, Any]:
+    return next(e for e in AVAILABILITY["entries"] if e["name"] == name)
+
+
+@pytest.mark.parametrize(
+    "board,country,entry",
+    [
+        ("OCC Mundial", "Mexico", "OCC Mundial"),
+        ("OCC", "Mexico", "OCC Mundial"),
+        ("HelloWork", "France", "HelloWork"),
+        ("HelloWork (formerly RegionsJob)", "France", "HelloWork"),
+    ],
+)
+def test_a_barred_board_is_unavailable_with_the_files_own_date(board, country, entry):
+    barred = _barred(entry)
+    # the repository still lists OCC as in network: the bar must win
+    record = pf.board_supply_record(board, country)
+    assert record["state"] == pf.SUPPLY_UNAVAILABLE
+    assert record["status"] == "Not available through Joveo"
+    assert record["as_of"] == barred["as_of"]
+    assert (
+        pf.status_label(record)
+        == f"Not available through Joveo, as of {barred['as_of']}"
+    )
+    assert pf.relationship_unverified(board, country) is True
+    assert "in network" not in pf.supply_status_phrase(record).lower()
+
+
+def test_a_bar_is_scoped_to_its_country_and_exits_read_plainly():
+    assert (
+        pf.board_supply_record("OCC Mundial", "Canada")["state"]
+        != pf.SUPPLY_UNAVAILABLE
+    )
+    exited = pf.board_supply_record("ZipRecruiter", "United Kingdom")
+    assert exited["state"] == pf.SUPPLY_UNAVAILABLE
+    assert exited["status"] == "No longer operating in this market"
 
 
 def test_market_band_exposes_the_record_of_every_board_shown():
@@ -250,9 +355,25 @@ def test_market_band_exposes_the_record_of_every_board_shown():
 # ---------------------------------------------------------------------------
 
 
-def test_confirmed_boards_precede_equal_rank_boards_without_a_record():
-    # France: the market's #1 board (France Travail, 22%) is VONQ-only; Indeed
-    # (20%) and LinkedIn (18%) are peers and in network -> they come first
+def _with_shares(monkeypatch, shares: Dict[str, float]) -> None:
+    monkeypatch.setattr(
+        pf,
+        "_dataset_shares",
+        lambda country: {pf.normalize(k): v for k, v in shares.items()},
+    )
+
+
+def test_confirmed_boards_precede_equal_rank_boards_without_a_record(monkeypatch):
+    # synthetic shares: the #1 board (22%) has no confirmed record; Indeed
+    # (20%) and LinkedIn (18%) are peers (within 5 points) and in network
+    _with_shares(
+        monkeypatch,
+        {
+            "Pole Emploi (France Travail)": 22,
+            "Indeed France": 20,
+            "LinkedIn France": 18,
+        },
+    )
     ordered = pf.supply_ordered(
         ["Pole Emploi (France Travail)", "Indeed France", "LinkedIn France"], "France"
     )
@@ -263,14 +384,25 @@ def test_confirmed_boards_precede_equal_rank_boards_without_a_record():
     ]
 
 
+def test_a_board_that_is_not_a_peer_keeps_its_rank(monkeypatch):
+    _with_shares(
+        monkeypatch,
+        {"VietnamWorks": 30, "TopCV.vn": 20, "LinkedIn Vietnam": 12},
+    )
+    names = ["VietnamWorks", "TopCV.vn", "LinkedIn Vietnam"]
+    assert pf.supply_ordered(names, "Vietnam") == names
+
+
 def test_market_leading_board_without_a_record_stays_and_is_marked():
     (band,) = pf.plan_market_boards({"locations": ["Paris, France"]})
     assert "Pole Emploi (France Travail) †" in band["boards"]
-    assert band["boards"][0] == "Indeed France"
-    # Vietnam: TopCV.vn (20%) is NOT a peer of the leader (30%): it keeps its
-    # rank position, marked
     (vn,) = pf.plan_market_boards({"locations": ["Hanoi, Vietnam"]})
-    assert vn["boards"][:2] == ["VietnamWorks", "TopCV.vn †"]
+    assert "TopCV.vn †" in vn["boards"]
+    for band in (band, vn):
+        for record, shown in zip(band["records"], band["boards"]):
+            assert shown.endswith(pf.RELATIONSHIP_MARK) == (
+                record["state"] != pf.SUPPLY_IN_NETWORK
+            )
 
 
 def test_ordering_never_adds_or_removes_a_board():
@@ -285,37 +417,78 @@ def test_ordering_never_adds_or_removes_a_board():
 # ---------------------------------------------------------------------------
 
 
-def _depth_expected(country: str, shown_keys: List[str]) -> Dict[str, int]:
-    keys: Set[str] = set()
-    for p in _repo_rows():
-        if p["status"] != IN_NETWORK:
-            continue
-        cs = _row_countries(p)
-        if country in cs or "Global" in cs:
-            keys.add(pf.normalize(p["name"]))
-    return {
-        "total": len(keys),
-        "shown": sum(1 for k in shown_keys if k in keys),
-    }
+# Hand-checked from data/joveo_global_supply_repository.json (last_updated
+# 2026-03-31): rows whose status is "In Joveo Network", whose countries column
+# NAMES the market (no "Global" rows), and whose category is a job-board
+# category (Universal, University Job Board, DEI, Govt, Health, Tech,
+# Classifieds, Free, Veterinary).  Counted once per distinct name.
+#   Vietnam 13   13 rows spell "Vietnam"; 2 more in-network rows naming it are
+#                not boards (9cv9 = DSP, Athyna = Staffing Partner)
+#   France 102   102 distinct names ("Job Matrix" / "The Job Matrix" and
+#                "KelJob" / "The Network: Keljob (France)" are separate rows)
+#   United Kingdom 240   235 rows spell "United Kingdom" + 5 spell "UK"
+# Update these when the repository is refreshed.  Before the fix the line said
+# 48 / 134 / 281: it added the repository's 33 global in-network rows (Spotify,
+# Amazon Ads, Uber Ads, Taboola, influencer tools ...).
+_HAND_COUNTED_BOARDS = {"Vietnam": 13, "France": 102, "United Kingdom": 240}
 
 
-def test_depth_is_counted_straight_from_the_repository():
+def test_depth_counts_are_hand_checked_literals():
+    for country, total in _HAND_COUNTED_BOARDS.items():
+        assert pf.supply_depth(country, [])["total"] == total, country
+
+
+def test_depth_counts_no_global_platform_and_no_non_board():
+    boards = pf._repo_network_boards("Vietnam")
+    keys = set(boards.values())
+    assert {"vietnamworks", "careerviet", "jobstreet"} <= keys
+    # global ad / social / audio / influencer rows and the DSP and staffing
+    # partner rows that DO name Vietnam are not job boards
+    for platform in (
+        "spotify",
+        "amazon",
+        "uber",
+        "taboola",
+        "creatoriq",
+        "upfluence",
+        "facebook",
+        "9cv9",
+        "athyna",
+    ):
+        assert platform not in keys, platform
+    assert len(boards) == _HAND_COUNTED_BOARDS["Vietnam"]
+
+
+def test_shown_counts_only_boards_the_repository_names_for_the_country():
+    # VietnamWorks has a Vietnam row; LinkedIn runs everywhere (a Global row);
+    # TopCV.vn has no row at all
     shown = ["VietnamWorks", "TopCV.vn", "LinkedIn Vietnam"]
-    depth = pf.supply_depth("Vietnam", shown)
-    want = _depth_expected("Vietnam", [pf.normalize(n) for n in shown])
-    assert depth == {"country": "Vietnam", **want}
-    assert 0 < depth["shown"] < depth["total"]
+    assert pf.supply_depth("Vietnam", shown) == {
+        "country": "Vietnam",
+        "shown": 1,
+        "total": _HAND_COUNTED_BOARDS["Vietnam"],
+    }
+    assert pf.supply_depth("Vietnam", ["VietnamWorks", "CareerViet"])["shown"] == 2
+    # a combined entry counts only if every board it names is counted
+    assert pf.supply_depth("Japan", ["Recruit (Rikunabi / Indeed Japan)"])["shown"] == 0
+
+
+def test_depth_line_says_how_boards_are_chosen_and_nothing_untrue():
+    depth = pf.supply_depth("Vietnam", ["VietnamWorks", "TopCV.vn", "LinkedIn Vietnam"])
     line = pf.supply_depth_line([{"depth": depth}])
     assert line == (
-        f"{want['shown']} of {want['total']} in-network boards for Vietnam shown; "
-        "the rest are not role-matched."
+        "Boards shown are chosen by market share, not matched to the role. "
+        "The repository names 13 in-network job boards for Vietnam; 1 is among "
+        "those shown."
     )
+    assert "role-matched" not in line
 
 
-def test_depth_is_skipped_when_it_cannot_be_derived():
+def test_depth_figure_is_left_out_when_it_cannot_be_derived():
     assert pf.supply_depth("Atlantis", ["Anything"]) is None
     assert pf.supply_depth("", ["Anything"]) is None
-    assert pf.supply_depth_line([{"depth": None}]) == ""
+    only = pf.supply_depth_line([{"depth": None}])
+    assert only == "Boards shown are chosen by market share, not matched to the role."
     assert pf.supply_depth_line([]) == ""
     two = pf.supply_depth_line(
         [
@@ -324,7 +497,7 @@ def test_depth_is_skipped_when_it_cannot_be_derived():
         ]
     )
     assert "France 2 of 9" in two and "Germany 3 of 12" in two
-    assert two.endswith("The rest are not role-matched.")
+    assert two.startswith(only) and "role-matched" not in two.replace(only, "")
 
 
 # ---------------------------------------------------------------------------
@@ -364,42 +537,40 @@ def test_workbook_local_boards_and_intl_benchmarks_carry_the_marker(vn_surfaces)
     assert any(pf.RELATIONSHIP_NOTE in c for c in intl)
 
 
-def test_workbook_shows_availability_as_of_the_date_the_data_holds(vn_surfaces):
+def test_workbook_prints_each_status_with_its_date(vn_surfaces):
     channels = _cells(vn_surfaces["wb"]["Channels & Strategy"])
-    status = next(c for c in channels if c.startswith("VietnamWorks: in network"))
-    assert f"availability as of {REPO['last_updated']}" in status
-    assert "TopCV.vn: no supply record" in status
-    # no invented date on the board without a record
+    status = next(c for c in channels if c.startswith("VietnamWorks: In Joveo Network"))
+    assert f"VietnamWorks: In Joveo Network, as of {REPO['last_updated']}" in status
+    assert (
+        "TopCV.vn: relationship unverified for this country "
+        "(repository has no row for Vietnam)" in status
+    )
+    assert "availability as of" not in status
+    # no invented date on the board without a row
     assert not re.search(r"TopCV\.vn[^;.]*as of", status)
 
 
 def test_workbook_depth_line_matches_the_deck_method(vn_surfaces):
     channels = _cells(vn_surfaces["wb"]["Channels & Strategy"])
-    depth_cells = [c for c in channels if "in-network boards for Vietnam shown" in c]
+    depth_cells = [c for c in channels if "in-network job boards for Vietnam" in c]
     assert len(depth_cells) == 1
-    assert depth_cells[0].endswith("the rest are not role-matched.")
-
-
-def test_nova_ad_platform_tool_carries_the_same_verdict():
-    from nova import Nova
-
-    nova = Nova.__new__(Nova)
-    nova._data_cache = {
-        "international_benchmarks": json.loads(
-            (DATA_DIR / "international_benchmarks_2026.json").read_text()
-        )
-    }
-    result = nova._query_ad_platform(
-        {"role_type": "professional", "country": "Vietnam"}
+    assert depth_cells[0].startswith(pf.SELECTION_NOTE)
+    assert "role-matched" not in depth_cells[0]
+    assert f"names {_HAND_COUNTED_BOARDS['Vietnam']} in-network job boards" in (
+        depth_cells[0]
     )
-    status = {row["name"]: row for row in result["supply_status"]}
-    assert status["TopCV.vn"]["state"] == pf.SUPPLY_NO_RECORD
-    assert status["TopCV.vn"]["as_of"] == ""
-    assert status["VietnamWorks"]["state"] == pf.SUPPLY_IN_NETWORK
-    assert status["VietnamWorks"]["as_of"] == REPO["last_updated"]
-    assert result["supply_note"] == pf.RELATIONSHIP_NOTE
-    # nothing is re-ranked or hidden by the annotation
-    assert result["top_platforms"][0] == result["platforms_ranked"][0]["name"]
+
+
+def test_workbook_carries_the_key_to_the_statuses(vn_surfaces):
+    channels = _cells(vn_surfaces["wb"]["Channels & Strategy"])
+    assert pf.SUPPLY_STATUS_KEY in channels
+    for phrase in (
+        "In Joveo Network",
+        "VONQ Only",
+        "Relationship unverified",
+        "Not available",
+    ):
+        assert phrase in pf.SUPPLY_STATUS_KEY
 
 
 def _nova() -> Any:
@@ -408,6 +579,96 @@ def _nova() -> Any:
     nova = Nova.__new__(Nova)
     nova._data_cache = {"international_benchmarks": INTL}
     return nova
+
+
+def test_nova_ad_platform_tool_carries_the_same_verdict():
+    result = _nova()._query_ad_platform(
+        {"role_type": "professional", "country": "Vietnam"}
+    )
+    status = {row["name"]: row for row in result["supply_status"]}
+    assert status["TopCV.vn"]["state"] == pf.SUPPLY_NO_RECORD
+    assert (
+        status["TopCV.vn"]["as_of"] == "" and status["TopCV.vn"]["status_as_of"] == ""
+    )
+    assert status["TopCV.vn"]["relationship_note"] == (
+        "relationship unverified for this country "
+        "(repository has no row for Vietnam)"
+    )
+    assert status["VietnamWorks"]["state"] == pf.SUPPLY_IN_NETWORK
+    assert status["VietnamWorks"]["as_of"] == REPO["last_updated"]
+    assert status["VietnamWorks"]["status_as_of"] == (
+        f"In Joveo Network, as of {REPO['last_updated']}"
+    )
+    assert "relationship_note" not in status["VietnamWorks"]
+    assert result["supply_note"] == pf.RELATIONSHIP_NOTE
+    # nothing is re-ranked or hidden by the annotation
+    assert result["top_platforms"][0] == result["platforms_ranked"][0]["name"]
+
+
+@pytest.mark.parametrize(
+    "board,country,entry",
+    [("OCC Mundial", "Mexico", "OCC Mundial"), ("HelloWork", "France", "HelloWork")],
+)
+def test_every_nova_tool_keeps_a_barred_board_out_and_says_it_is_unavailable(
+    board, country, entry
+):
+    barred = _barred(entry)
+    nova = _nova()
+    ad = nova._query_ad_platform({"role_type": "hourly", "country": country})
+    collar = nova._query_collar_strategy(
+        {"role": "Retail Associate", "country": country}
+    )
+    bench = nova._query_recruitment_benchmarks(
+        {"industry": "retail", "country": country}
+    )
+    named = {
+        "ad_platform": [p["name"] for p in ad["platforms_ranked"]]
+        + ad["top_platforms"],
+        "collar": collar["recommended_strategy"]["preferred_platforms"],
+        "benchmarks": [p["name"] for p in bench["top_platforms"]],
+    }
+    needle = board.split()[0].lower()
+    for tool, names in named.items():
+        assert not [n for n in names if needle in n.lower()], (tool, names)
+    for result in (ad, collar, bench):
+        # whatever the tool says about the board is the bar -- never "in network"
+        assert all(needle not in r["name"].lower() for r in result["supply_status"])
+        (note,) = [
+            u for u in result["unavailable_boards"] if needle in u["name"].lower()
+        ]
+        assert note["note"] == f"Not available through Joveo, as of {barred['as_of']}"
+    assert (
+        "in network"
+        not in json.dumps(
+            [r for res in (ad, collar, bench) for r in res["unavailable_boards"]]
+        ).lower()
+    )
+
+
+def test_knowledge_base_and_recommender_do_not_list_a_barred_board():
+    import channel_recommender
+
+    nova = _nova()
+    blocks = [nova._intl_country_data("Mexico"), nova._intl_country_data("France")]
+    assert not [
+        p["name"]
+        for b in blocks
+        for p in b["platforms"]
+        if "OCC" in p["name"] or "HelloWork" in p["name"]
+    ]
+    local = [
+        p["name"]
+        for loc in ("Monterrey, Mexico", "Paris, France")
+        for p in channel_recommender._get_intl_local_platforms([loc])
+    ]
+    assert local and not [n for n in local if "OCC" in n or "HelloWork" in n]
+    mx = channel_recommender._enrich_with_global_supply(["Mexico"])
+    tier1 = mx["country_intelligence"]["Mexico"]["tier_1_boards"]
+    assert not [n for n in tier1 if "OCC" in n]
+    rec = channel_recommender.recommend_channels(
+        "retail_consumer", "Retail Associate", 100000, ["Monterrey, Mexico"]
+    )
+    assert "OCC" not in json.dumps(rec, default=str)
 
 
 def test_every_nova_tool_that_reads_the_local_board_list_carries_the_verdict():
@@ -423,6 +684,31 @@ def test_every_nova_tool_that_reads_the_local_board_list_carries_the_verdict():
         assert states["TopCV.vn"] == pf.SUPPLY_NO_RECORD, result.keys()
         assert states["VietnamWorks"] == pf.SUPPLY_IN_NETWORK
         assert result["supply_note"] == pf.RELATIONSHIP_NOTE
+
+
+@pytest.mark.parametrize(
+    "country,board",
+    [("Singapore", "MyCareersFuture (Govt)"), ("Brazil", "InfoJobs Brazil")],
+)
+def test_global_supply_tool_surfaces_the_disagreement_with_the_repository(
+    country, board
+):
+    # the notes file says "Confirmed part of Joveo network" for these boards;
+    # the repository has no row for them in the country
+    supply = json.loads((DATA_DIR / "global_supply.json").read_text())
+    entry = next(
+        b for b in supply["country_job_boards"][country]["boards"] if b["name"] == board
+    )
+    assert "Confirmed part of Joveo network" in entry["_verification_notes"]
+    nova = _nova()
+    nova._data_cache["global_supply"] = supply
+    out = nova._query_global_supply({"country": country})
+    row = next(b for b in out["country_boards"]["boards"] if b["name"] == board)
+    assert row["relationship"] == "unverified"
+    assert row["relationship_note"] == (
+        "relationship unverified for this country (supply notes list it as "
+        f"confirmed; repository has no row for {country})"
+    )
 
 
 def test_a_us_query_gets_no_supply_annotation():
@@ -449,7 +735,11 @@ def test_new_copy_carries_no_us_only_marker():
         pf.RELATIONSHIP_NOTE,
         pf.supply_depth_line([{"depth": pf.supply_depth("France", ["Indeed France"])}]),
         *[pf.supply_status_phrase(r) for r in records],
-        *[pf.availability_label(r) for r in records],
+        *[pf.status_label(r) for r in records],
+        pf.unverified_note(
+            pf.board_supply_record("GulfTalent", "United Arab Emirates")
+        ),
+        pf.SUPPLY_STATUS_KEY,
     ]
     copy = [t for t in copy if t]  # a board with no record has no date label
     assert len(copy) >= 8
@@ -513,3 +803,121 @@ def test_us_plan_gets_no_local_boards_block():
     assert not any(c.upper() == "LOCAL JOB BOARDS" for c in cells)
     assert not any("in-network boards for" in c for c in cells)
     assert pf.plan_market_boards({"locations": ["Dallas, TX"]}) == []
+
+
+# ---------------------------------------------------------------------------
+# a barred board never reaches the deck or the workbook; a conflict is said
+# ---------------------------------------------------------------------------
+
+_BARRED_RE = re.compile(r"\bOCC\b|OCC Mundial|HelloWork|RegionsJob|occ\.com\.mx")
+
+
+@pytest.mark.parametrize(
+    "industry,loc",
+    [("blue_collar_trades", "Monterrey, Mexico"), ("retail_consumer", "Paris, France")],
+)
+def test_deck_and_workbook_never_name_a_barred_board(industry, loc):
+    plan = _plan(industry, loc)
+    texts = _deck_texts(plan)
+    wb = _workbook(plan)
+    for ws in wb.worksheets:
+        texts += _cells(ws)
+    assert not [t for t in texts if _BARRED_RE.search(t)], [
+        t[:80] for t in texts if _BARRED_RE.search(t)
+    ]
+
+
+def test_deck_marks_a_combined_entry_with_one_unconfirmed_board():
+    deck = _deck_texts(_plan("education", "Tokyo, Japan"))
+    line = next(t for t in deck if t.startswith("Japan:"))
+    assert "Recruit (Rikunabi / Indeed Japan) †" in line
+
+
+def test_workbook_says_when_the_notes_and_the_repository_disagree():
+    wb = _workbook(_plan("finance_banking", "Singapore"))
+    row = next(
+        c
+        for c in _cells(wb["Channels & Strategy"])
+        if c.startswith("MyCareersFuture (MCF): relationship unverified")
+        or "MyCareersFuture (MCF): relationship unverified" in c
+    )
+    assert (
+        "MyCareersFuture (MCF): relationship unverified for this country "
+        "(supply notes list it as confirmed; repository has no row for Singapore)"
+    ) in row
+    assert "no supply record" not in row
+    cells = _cells(wb["Channels & Strategy"])
+    assert not any("no supply record" in c for c in cells)
+
+
+# ---------------------------------------------------------------------------
+# Local Job Boards follows the Global / Regional ticks, never the Niche tick
+# ---------------------------------------------------------------------------
+
+_OTHERS_ON = {
+    "programmatic_dsp": True,
+    "social_media": True,
+    "employer_branding": True,
+}
+
+
+def _local_table_printed(industry: str, **ticks: bool) -> bool:
+    plan = _plan(industry, "Paris, France")
+    plan["channel_categories"] = {**_OTHERS_ON, **ticks}
+    cells = _cells(_workbook(plan)["Channels & Strategy"])
+    return any(c.upper() == "LOCAL JOB BOARDS" for c in cells) or any(
+        c.upper().startswith("NICHE CHANNELS: ") for c in cells
+    )
+
+
+@pytest.mark.parametrize("industry", _NO_NICHE_LIST + ["healthcare_medical"])
+def test_unticking_niche_alone_no_longer_hides_the_local_boards(industry):
+    assert _local_table_printed(
+        industry, niche_boards=False, global_boards=True, regional_boards=True
+    )
+
+
+@pytest.mark.parametrize("industry", ["general_entry_level", "healthcare_medical"])
+def test_a_plan_that_funds_no_job_board_category_prints_no_local_boards(industry):
+    off = dict(niche_boards=False, global_boards=False, regional_boards=False)
+    assert not _local_table_printed(industry, **off)
+    # the Niche tick is ignored: global and regional off hides it with niche ON
+    assert not _local_table_printed(
+        industry, niche_boards=True, global_boards=False, regional_boards=False
+    )
+
+
+def test_one_of_global_or_regional_is_enough():
+    assert _local_table_printed(
+        "general_entry_level",
+        niche_boards=False,
+        global_boards=False,
+        regional_boards=True,
+    )
+    assert _local_table_printed(
+        "general_entry_level",
+        niche_boards=False,
+        global_boards=True,
+        regional_boards=False,
+    )
+
+
+# ---------------------------------------------------------------------------
+# the help page says the new states in plain words
+# ---------------------------------------------------------------------------
+
+
+def test_help_page_explains_the_statuses_and_the_selection_rule():
+    html = (PROJECT_ROOT / "templates" / "help-media-plans.html").read_text()
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"&[a-z]+;", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    for phrase in (
+        "VONQ Only",
+        "has no row for it in that market",
+        "Not available through Joveo",
+        "is never shown in a plan",
+        "chosen by market share, not matched to the role",
+        "As of".lower(),
+    ):
+        assert phrase.lower() in text.lower(), phrase

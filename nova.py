@@ -2033,35 +2033,78 @@ _CURRENCY_SYMBOLS: Dict[str, str] = {
 }
 
 
-def _supply_verdicts(names: List[str], country: str) -> Dict[str, Any]:
+def _supply_verdicts(
+    names: List[str],
+    country: str,
+    unavailable: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     """The supply verdict deck slide 5 and the workbook print for these local
     boards, as tool output: ``supply_status`` (state, the repository / group
-    status word, and the date the data carries -- '' when there is no record)
-    plus the shared "relationship unverified" note when any board is not
-    confirmed in network.  {} when nothing can be said.  Annotation only:
-    nothing is hidden or re-ranked."""
+    status word, the status with the date the data carries -- '' when there is
+    no record -- and, for a board that is not confirmed, the plain reason,
+    which also says when data/global_supply.json's notes disagree with the
+    repository) plus the shared "relationship unverified" note when any board
+    is not confirmed in network.  ``unavailable`` are boards the availability
+    file bars for this country: they were removed from the lists the tool
+    returns, and are named here, plainly, so nobody re-adds them.  {} when
+    nothing can be said."""
     rows: List[Dict[str, Any]] = []
     try:
         for board in names:
             record = publisher_filter.board_supply_record(board, country)
-            rows.append(
-                {
-                    "name": board,
-                    "state": record["state"],
-                    "status": record["status"],
-                    "as_of": record["as_of"],
-                    "availability": publisher_filter.availability_label(record),
-                }
-            )
+            row: Dict[str, Any] = {
+                "name": board,
+                "state": record["state"],
+                "status": record["status"],
+                "as_of": record["as_of"],
+                "status_as_of": publisher_filter.status_label(record),
+            }
+            note = publisher_filter.unverified_note(record)
+            if note:
+                row["relationship_note"] = note
+            rows.append(row)
     except (TypeError, ValueError, KeyError, AttributeError):
         logger.error("board supply verdicts failed", exc_info=True)
         return {}
-    if not rows:
-        return {}
-    out: Dict[str, Any] = {"supply_status": rows}
-    if any(r["state"] != publisher_filter.SUPPLY_IN_NETWORK for r in rows):
-        out["supply_note"] = publisher_filter.RELATIONSHIP_NOTE
+    out: Dict[str, Any] = {}
+    if rows:
+        out["supply_status"] = rows
+        if any(r["state"] != publisher_filter.SUPPLY_IN_NETWORK for r in rows):
+            out["supply_note"] = publisher_filter.RELATIONSHIP_NOTE
+    if unavailable:
+        out["unavailable_boards"] = [
+            {
+                "name": u.get("name"),
+                "note": publisher_filter.status_label(
+                    publisher_filter.board_supply_record(u.get("name"), country)
+                ),
+            }
+            for u in unavailable
+        ]
     return out
+
+
+def _without_unavailable_platforms(
+    block: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """The benchmark country block with every board data/publisher_availability.json
+    bars for that country (and every folded / renamed one) taken out of its
+    ``platforms`` -- a copy; the cached dataset is never edited.  The barred
+    boards are kept as ``unavailable_platforms`` so a tool can say so plainly."""
+    if not isinstance(block, dict):
+        return block
+    country = block.get("name") or ""
+    platforms = block.get("platforms") or []
+    barred = [
+        p
+        for p in platforms
+        if isinstance(p, dict)
+        and publisher_filter.availability_for(p.get("name"), country)
+    ]
+    cleaned = publisher_filter.clean_items(platforms, None, country=country)
+    if not barred and len(cleaned) == len(platforms):
+        return block
+    return {**block, "platforms": cleaned, "unavailable_platforms": barred}
 
 
 def _currency_symbol(currency_code: Optional[str]) -> str:
@@ -8478,6 +8521,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             "network_group": _hit["group"],
                         }
                         _net_seen.setdefault(_hit["group"], _hit)
+                    elif isinstance(_b, dict):
+                        # a board the supply data does not confirm for this
+                        # country says so, and says when data/global_supply.json's
+                        # own notes ("Confirmed part of Joveo network") disagree
+                        # with the repository -- neither is silently preferred
+                        _rec = publisher_filter.board_supply_record(
+                            _b.get("name"), country_resolved
+                        )
+                        _note = publisher_filter.unverified_note(_rec)
+                        if _note:
+                            _b = {
+                                **_b,
+                                "relationship": "unverified",
+                                "relationship_note": _note,
+                            }
                     _net_boards.append(_b)
                 boards = _net_boards
                 if _net_seen:
@@ -9356,7 +9414,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 if _matched_country:
                     result["international_benchmarks"] = {
                         "country": _matched_country,
-                        "data": countries[_matched_country],
+                        "data": _without_unavailable_platforms(
+                            countries[_matched_country]
+                        ),
                         "source": "international_benchmarks_2026 (38 countries)",
                     }
                 else:
@@ -10047,6 +10107,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
     }
 
     def _intl_country_data(self, country: Optional[str]) -> Optional[Dict[str, Any]]:
+        """The country block with boards the availability file bars for that
+        country already taken out (see _without_unavailable_platforms): no tool
+        that reads the platform list can recommend OCC Mundial in Mexico or
+        HelloWork in France."""
+        return _without_unavailable_platforms(self._intl_country_block(country))
+
+    def _intl_country_block(self, country: Optional[str]) -> Optional[Dict[str, Any]]:
         """Return the per-country block from international_benchmarks_2026.json, or None.
 
         Accepts canonical country names ("United Kingdom", "India") as well as the
@@ -10827,7 +10894,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "region": intl_block.get("region") or "",
             }
             # the same supply verdict the deck and workbook print
-            _intl_result.update(_supply_verdicts(_top_names, _intl_country))
+            _intl_result.update(
+                _supply_verdicts(
+                    _top_names, _intl_country, intl_block.get("unavailable_platforms")
+                )
+            )
             return _intl_result
 
         kb = self._data_cache.get("knowledge_base", {})
@@ -11140,6 +11211,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             _supply_verdicts(
                                 _intl_platform_names,
                                 _intl_block.get("name") or country_arg,
+                                _intl_block.get("unavailable_platforms"),
                             )
                         )
                 result["data_confidence"] = classification.get("confidence", 0.5)
@@ -11174,7 +11246,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
                 result.update(
                     _supply_verdicts(
-                        _intl_platform_names, _intl_block.get("name") or country_arg
+                        _intl_platform_names,
+                        _intl_block.get("name") or country_arg,
+                        _intl_block.get("unavailable_platforms"),
                     )
                 )
             result["data_confidence"] = 0.85
@@ -11780,6 +11854,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _supply_verdicts(
                     [p.get("name") for p in top_platforms if p.get("name")],
                     intl_result["country"],
+                    intl_block.get("unavailable_platforms"),
                 )
             )
             # Filter platforms to requested metric where possible.

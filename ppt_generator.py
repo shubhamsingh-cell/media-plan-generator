@@ -13639,12 +13639,12 @@ def _iter_slide_texts(prs: Presentation):
 
 # The slide-2 footer line must stay clear of the credit on the right. The
 # credit's text starts ~7.6in from the left edge (5.1in of 9pt Poppins ending at
-# the right margin), the footer line starts at 2.0in: 72 characters of 9pt
-# Poppins is at most ~4.9in, so the longest line that passes ends before ~6.9in.
+# the right margin), the footer line starts at 2.0in: 76 characters of 9pt
+# Poppins is at most ~5.0in, so the longest line that passes ends before ~7.0in.
 # Longer headlines ("... date not recorded") fall back to a pointer.
-_ASOF_FOOTER_MAX_CHARS = 72
-_ASOF_FOOTER_WIDTH_IN = 4.9
-_ASOF_CREDIT_LEFT_IN = 7.0
+_ASOF_FOOTER_MAX_CHARS = 76
+_ASOF_FOOTER_WIDTH_IN = 5.15
+_ASOF_CREDIT_LEFT_IN = 7.1
 
 
 def _stamp_data_asof_footer(slide, headline: str, today: str) -> None:
@@ -13706,7 +13706,10 @@ def _apply_trust_pack(prs: Presentation, data: Dict[str, Any]) -> None:
         if len(slides) >= 2:
             today = datetime.date.today().strftime("%B %d, %Y")
             _stamp_data_asof_footer(slides[1], info["footer_headline"], today)
-            lines = ["DATA AS OF (per source file; a newer exception date is not a repository refresh)"]
+            lines = [
+                "DATA AS OF (per source file; a newer board-availability date does "
+                "not mean the full supply listing was refreshed)"
+            ]
             lines += [f"{f['label']}: {f['as_of']}" for f in info["families"]]
             lines += [info["live_line"], stamp]
             slides[1].notes_slide.notes_text_frame.text = "\n".join(lines)

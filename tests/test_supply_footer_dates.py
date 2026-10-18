@@ -92,59 +92,124 @@ def _latest_exception_date() -> str:
 
 
 # ---------------------------------------------------------------------------
-# #5: footers state the repository date and, separately, the latest exception
+# #5: footers state the supply data's date and, separately, how far board
+# availability has been updated -- in words a recruiter reads
 # ---------------------------------------------------------------------------
+
+
+def _footer(repo_date: str, latest: str) -> str:
+    return f"Supply data dated {repo_date}; board availability updated through {latest}"
 
 
 def test_footers_say_what_each_date_is():
     info = plan_trust.data_asof({})
     repo_date = REPO["last_updated"]
-    exception = _latest_exception_date()
-    assert exception > repo_date  # else the two dates could not be told apart
-    assert f"supply repository last updated {repo_date}" in info["headline"]
-    assert f"board exceptions confirmed up to {exception}" in info["headline"]
-    assert info["footer_headline"] == (
-        f"Supply repository {repo_date} | latest confirmed exception {exception}"
+    latest = _latest_exception_date()
+    assert info["headline"] == (
+        f"Data as of: supply data dated {repo_date}; board availability updated "
+        f"through {latest} | benchmarks "
+        f"{plan_trust._row_date(info['families'], plan_trust.BENCHMARKS_LABEL, 'oldest')}"
     )
+    assert info["footer_headline"] == _footer(repo_date, latest)
     for text in (info["headline"], info["footer_headline"]):
         assert "supply network" not in text.lower()
         assert "refresh" not in text.lower()
+        assert "exception" not in text.lower()  # internal jargon
 
 
-def test_exception_family_is_not_called_an_update_of_the_network():
+def test_the_two_dates_stay_separate_whichever_is_newer(tmp_path):
+    # synthetic files: the data being tested must not decide which is newer
+    for repo_date, board_date in (
+        ("2026-03-31", "2026-10-17"),
+        ("2026-11-02", "2026-10-17"),
+        ("2026-05-05", "2026-05-05"),
+    ):
+        (tmp_path / "repo.json").write_text(json.dumps({"last_updated": repo_date}))
+        (tmp_path / "groups.json").write_text(
+            json.dumps({"groups": [{"as_of": board_date}]})
+        )
+        info = plan_trust.data_asof(
+            {},
+            data_dir=str(tmp_path),
+            families=[
+                (
+                    plan_trust.SUPPLY_NETWORK_LABEL,
+                    (("groups.json", "as_of"),),
+                    "latest",
+                ),
+                (plan_trust.SUPPLY_REPO_LABEL, ("repo.json",)),
+            ],
+        )
+        assert info["footer_headline"] == _footer(repo_date, board_date)
+        assert f"supply data dated {repo_date}; board availability updated" in (
+            info["headline"]
+        )
+
+
+def test_a_missing_date_says_so_instead_of_borrowing_the_other(tmp_path):
+    (tmp_path / "repo.json").write_text(json.dumps({"last_updated": "2026-03-31"}))
+    info = plan_trust.data_asof(
+        {},
+        data_dir=str(tmp_path),
+        families=[
+            (plan_trust.SUPPLY_NETWORK_LABEL, (("missing.json", "as_of"),), "latest"),
+            (plan_trust.SUPPLY_REPO_LABEL, ("repo.json",)),
+        ],
+    )
+    assert info["footer_headline"] == (
+        "Supply data dated 2026-03-31; board availability update date not recorded"
+    )
+
+
+def test_board_availability_family_is_not_called_a_refresh():
     info = plan_trust.data_asof({})
     fam = next(
         f for f in info["families"] if f["label"] == plan_trust.SUPPLY_NETWORK_LABEL
     )
-    assert fam["as_of"] == f"latest confirmed change {_latest_exception_date()}"
-    assert "updated" not in fam["as_of"]
+    assert fam["as_of"] == f"updated through {_latest_exception_date()}"
+    repo = next(
+        f for f in info["families"] if f["label"] == plan_trust.SUPPLY_REPO_LABEL
+    )
+    assert repo["as_of"] == REPO["last_updated"]
+    assert "exception" not in fam["label"].lower()
 
 
 def test_workbook_footer_states_both_dates_in_plain_words():
     wb = _workbook(_plan())
     text = "\n".join(_cells(wb["Executive Summary"]))
-    assert f"supply repository last updated {REPO['last_updated']}" in text
-    assert f"board exceptions confirmed up to {_latest_exception_date()}" in text
+    assert f"supply data dated {REPO['last_updated']}" in text
+    assert f"board availability updated through {_latest_exception_date()}" in text
     assert "supply network" not in text.lower()
+    assert "exception" not in text.lower()
     sources = "\n".join(_cells(wb["Sources & Confidence"]))
-    assert "not a refresh of the repository" in sources
+    assert "does not mean the full listing was refreshed" in sources
     assert "Last Refreshed" not in sources
 
 
 def test_deck_footer_names_both_dates_and_stays_clear_of_the_credit():
-    deck = _deck_texts(_plan())
-    footer = (
-        f"Supply repository {REPO['last_updated']} | "
-        f"latest confirmed exception {_latest_exception_date()}"
-    )
-    assert footer in deck
-    # measured with real Poppins advances, not a character count: the line
-    # starts at 2.0in and must end before the credit text begins
+    prs = Presentation(io.BytesIO(ppt_generator.generate_pptx(_plan())))
+    slide = prs.slides[1]
+    boxes = {
+        sh.text_frame.text: sh
+        for sh in slide.shapes
+        if sh.has_text_frame and sh.text_frame.text
+    }
+    footer = _footer(REPO["last_updated"], _latest_exception_date())
+    assert footer in boxes
+    credit = next(t for t in boxes if t.startswith("Created by"))
+    assert len(footer) <= ppt_generator._ASOF_FOOTER_MAX_CHARS
+    # measured with real Poppins advances (the deck's own font), not a
+    # character count: the line starts 0.1in inside its box and must end
+    # before the credit's text begins
     sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "deck_qa"))
     import _textlayout as tl  # noqa: E402
 
-    credit = next(t for t in deck if t.startswith("Created by"))
-    credit_left = 12.78 - 0.1 - tl.adv_in(credit, 9, False)
-    footer_right = 1.9 + 0.1 + tl.adv_in(footer, 9, False)
-    assert footer_right < credit_left - 0.2, (footer_right, credit_left)
-    assert len(footer) <= ppt_generator._ASOF_FOOTER_MAX_CHARS
+    emu = 914400.0
+    foot, cred = boxes[footer], boxes[credit]
+    footer_ink_right = foot.left / emu + 0.1 + tl.adv_in(footer, 9, False)
+    credit_ink_left = (cred.left + cred.width) / emu - 0.1 - tl.adv_in(credit, 9, False)
+    assert footer_ink_right < credit_ink_left - 0.3, (footer_ink_right, credit_ink_left)
+    # the two text boxes never share space either
+    assert foot.left + foot.width <= cred.left
+    # and the line stays inside the 16:9 slide
+    assert (cred.left + cred.width) / emu <= prs.slide_width / emu

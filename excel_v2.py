@@ -2796,6 +2796,16 @@ def _niche_boards_selected(data: dict) -> bool:
     return "niche_boards" not in gs_lib.deselected_channel_categories(data)
 
 
+def _local_boards_selected(data: dict) -> bool:
+    """False when the user turned off BOTH the Global and the Regional job-board
+    channel categories: such a plan funds no job board, so the workbook does not
+    recommend local ones.  The Niche tick plays no part -- local boards are not
+    niche boards (it used to hide the table for an industry that has a niche
+    list, and the table never existed for the four that have none)."""
+    off = gs_lib.deselected_channel_categories(data)
+    return not {"global_boards", "regional_boards"} <= set(off)
+
+
 def _non_us_signals(data: dict) -> List[str]:
     """Location strings that drove ``_is_us_plan`` to False, for honest
     non-US messaging. Thin delegate to :func:`plan_geo.non_us_signals`."""
@@ -8554,14 +8564,16 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 "High - Specialized for " + industry_label,
             ]
             row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
-    elif not _is_us_plan(data):
+    elif not _is_us_plan(data) and _local_boards_selected(data):
         # Local job boards for each non-US market -- the SAME list deck slide 5
         # names, for EVERY industry (a plan whose industry has no niche-board
         # list used to get no table here while the deck still named the boards).
         # The "Niche Channels" heading and its US-niche note appear only for an
         # industry that really has a niche list (and only while the user keeps
         # Niche Boards ticked); otherwise the section is just "Local Job
-        # Boards" -- no niche claim is made for an industry with none.
+        # Boards" -- no niche claim is made for an industry with none.  The
+        # table follows the Global / Regional job-board ticks (not the Niche
+        # tick): see _local_boards_selected.
         #
         # INCIDENT FIX: this note used to claim "Local specialty board data
         # was not available for this campaign" -- false. The same workbook's
@@ -8665,6 +8677,8 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                     )
                     + ".",
                 )
+            if _any_unverified:
+                row = _write_kv_row(ws, row, "Note", publisher_filter.SUPPLY_STATUS_KEY)
             _depth_line = publisher_filter.supply_depth_line(
                 [
                     {"depth": publisher_filter.supply_depth(_c, _n)}
@@ -15630,9 +15644,9 @@ def _append_asof_to_sources(ws, info: dict) -> None:
         row,
         "Dates are read from each data file's own metadata. A source with no "
         f"recorded date reads '{plan_trust.NOT_RECORDED}' - it is never estimated. "
-        "The supply repository is the full listing; supply status exceptions "
-        "are individual boards confirmed or barred after it, so a newer "
-        "exception date is not a refresh of the repository.",
+        "The supply data is the full listing; board availability updates are "
+        "individual boards confirmed or barred after it, so a newer board "
+        "date does not mean the full listing was refreshed.",
     )
 
 

@@ -12,6 +12,8 @@ import math
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+import publisher_filter
+
 logger = logging.getLogger(__name__)
 
 # ── International benchmarks (38 countries) -- loaded once at module level ──
@@ -51,7 +53,12 @@ def _get_intl_local_platforms(locations: List[str]) -> List[Dict[str, Any]]:
         for _ck, _cv in countries.items():
             _cname = (_cv.get("name") or "").lower()
             if _ck in loc_lower or _cname in loc_lower or loc_lower in _cname:
-                for p in (_cv.get("platforms") or [])[:3]:
+                # boards Joveo cannot sell in this country (publisher
+                # availability file) are never recommended
+                _clean = publisher_filter.clean_items(
+                    _cv.get("platforms") or [], None, country=_cv.get("name") or _ck
+                )
+                for p in _clean[:3]:
                     _pname = p.get("name", "")
                     if _pname and _pname not in _seen:
                         _seen.add(_pname)
@@ -1066,7 +1073,9 @@ def _enrich_with_global_supply(locations: List[str]) -> Dict[str, Any]:
         loc_lower = (loc or "").lower().strip()
         for country_name, country_data in country_boards.items():
             if loc_lower in country_name.lower() or country_name.lower() in loc_lower:
-                boards = country_data.get("boards", [])
+                boards = publisher_filter.clean_items(
+                    country_data.get("boards", []), None, country=country_name
+                )
                 entry: Dict[str, Any] = {
                     "total_boards": len(boards),
                     "tier_1_boards": [

@@ -139,7 +139,7 @@ def test_family_range_when_files_differ(tmp_path):
 def test_repo_families_match_the_files_own_metadata():
     info = plan_trust.data_asof({})
     repo = json.loads((DATA_DIR / "joveo_global_supply_repository.json").read_text())
-    assert _fam(info, "Supply repository")["as_of"] == repo["last_updated"]
+    assert _fam(info, "Supply data")["as_of"] == repo["last_updated"]
     seasonal = json.loads((DATA_DIR / "seasonal_hiring_trends.json").read_text())
     assert seasonal["metadata"]["last_updated"] in _fam(info, "Seasonal")["as_of"]
     adzuna = json.loads((DATA_DIR / "adzuna_benchmarks.json").read_text())
@@ -170,25 +170,24 @@ def _nested_dates(path, key):
 
 def test_supply_network_family_reports_the_latest_real_date():
     info = plan_trust.data_asof({})
-    network = _fam(info, "Supply status exceptions")
+    network = _fam(info, "Board availability updates")
     groups = max(_nested_dates(DATA_DIR / "joveo_network_groups.json", "as_of"))
     avail = max(_nested_dates(DATA_DIR / "publisher_availability.json", "as_of"))
     rows = max(
         _nested_dates(DATA_DIR / "joveo_global_supply_repository.json", "network_as_of")
     )
     newest = max(groups, avail, rows)
-    assert network["as_of"] == f"latest confirmed change {newest}"
+    assert network["as_of"] == f"updated through {newest}"
     # the full listing keeps its own, older, top-level date
     repo = json.loads((DATA_DIR / "joveo_global_supply_repository.json").read_text())
-    assert _fam(info, "Supply repository")["as_of"] == repo["last_updated"]
-    assert newest > repo["last_updated"]
+    assert _fam(info, "Supply data")["as_of"] == repo["last_updated"]
     # plain words, and the newest edit is never called a refresh of the network
-    assert f"board exceptions confirmed up to {newest}" in info["headline"]
-    assert f"supply repository last updated {repo['last_updated']}" in info["headline"]
+    assert f"board availability updated through {newest}" in info["headline"]
+    assert f"supply data dated {repo['last_updated']}" in info["headline"]
     assert "supply network" not in info["headline"]
     assert info["footer_headline"] == (
-        f"Supply repository {repo['last_updated']}"
-        f" | latest confirmed exception {newest}"
+        f"Supply data dated {repo['last_updated']}"
+        f"; board availability updated through {newest}"
     )
 
 
@@ -219,7 +218,7 @@ def test_nested_as_of_readers_and_latest_mode(tmp_path):
             ("Supply repository (full listing)", ("repo.json",)),
         ],
     )
-    assert info["families"][0]["as_of"] == "latest confirmed change 2026-10-12"
+    assert info["families"][0]["as_of"] == "updated through 2026-10-12"
     assert info["families"][1]["as_of"] == "2026-03-31"
 
 
@@ -267,7 +266,7 @@ def test_workbook_executive_summary_has_asof_line(workbook):
     repo = json.loads((DATA_DIR / "joveo_global_supply_repository.json").read_text())
     info = plan_trust.data_asof({})
     assert info["headline"] in text
-    assert "supply repository last updated " + repo["last_updated"] in text
+    assert "supply data dated " + repo["last_updated"] in text
     assert "Nova " in text and "UTC" in text
 
 
@@ -326,8 +325,8 @@ def test_deck_footer_asof_falls_back_when_dates_are_long():
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     ppt_generator._add_footer(slide, "October 17, 2026")
     long_headline = (
-        "Supply repository date not recorded"
-        " | latest confirmed exception date not recorded"
+        "Supply data date not recorded; board availability update date not "
+        "recorded (see the workbook)"
     )
     assert len(long_headline) > ppt_generator._ASOF_FOOTER_MAX_CHARS
     ppt_generator._stamp_data_asof_footer(slide, long_headline, "October 17, 2026")
@@ -464,7 +463,7 @@ def test_exclusions_item_names_the_boards():
 def test_standing_items_always_present_and_total_in_range():
     base = _items()
     assert _has(base, "Confirm the channel mix and budget split with supply")
-    assert _has(base, "Data as of: supply repository last updated")
+    assert _has(base, "Data as of: supply data dated")
     assert _has(base, "responsible for what you send")
     everything = _items(
         unverified=2,
