@@ -22,6 +22,7 @@ import re
 
 import client_story
 import plan_projection
+import plan_trust
 import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -2719,14 +2720,20 @@ def _kb_extract_range(node: Any) -> str:
     These KB nodes are free-form dicts (see data loaded via
     kb_loader.load_knowledge_base()): a "range" sub-key when present,
     otherwise the newest-looking numeric-year sub-key (e.g. "2025"), else
-    "median"/"total_cost_per_hire"/"recruitment_marketing_only", else the
-    first string-valued sub-key found. Returns "" when nothing usable.
+    "median"/"total_cost_per_hire", else the first string-valued sub-key
+    found. Returns "" when nothing usable.
+
+    ``recruitment_marketing_only`` (media spend alone) is never returned --
+    not as a named key and not as the "first string" -- because a cost-per-
+    hire cell is the all-in total or nothing; the ``cph`` node itself is
+    read through ``budget_engine.kb_cph_node_text`` (the one shared
+    selector), this function serves cpa / cpc / apply_rate.
     """
     if isinstance(node, str):
         return node
     if not isinstance(node, dict):
         return ""
-    for key in ("range", "total_cost_per_hire", "median", "recruitment_marketing_only"):
+    for key in ("range", "total_cost_per_hire", "median"):
         val = node.get(key)
         if isinstance(val, str) and val.strip():
             return val.strip()
@@ -2735,7 +2742,9 @@ def _kb_extract_range(node: Any) -> str:
         val = node.get(max(year_keys))
         if isinstance(val, str) and val.strip():
             return val.strip()
-    for val in node.values():
+    for key, val in node.items():
+        if key == "recruitment_marketing_only":
+            continue
         if isinstance(val, str) and val.strip():
             return val.strip()
     return ""
@@ -2806,10 +2815,17 @@ def _kb_recruitment_industry_benchmark(
     if not isinstance(entry, dict):
         return None
     _cpc_node = entry.get("cpc")
+    try:
+        import budget_engine as _be_cph_row
+
+        _kb_cph_text = _be_cph_row.kb_cph_node_text(entry.get("cph"))
+    except ImportError as exc:
+        logger.error("KB cph row selector unavailable: %s", exc, exc_info=True)
+        _kb_cph_text = ""
     out = {
         "cpa": _kb_extract_range(entry.get("cpa")),
         "cpc": _kb_extract_range(entry.get("cpc")),
-        "cph": _kb_extract_range(entry.get("cph")),
+        "cph": _kb_cph_text,
         "apply_rate": _kb_extract_range(entry.get("apply_rate")),
         # consistency:atria#4: the CPC YoY trend quoted anywhere in the deck
         # must be this SAME "trend_yoy" figure (not trend_engine's
@@ -4152,6 +4168,87 @@ def _fits_one_line(text: str, width_in: float, font_pt: float, bold: bool = Fals
         _estimate_lines(text, width_in, font_pt) <= 1
         and _measure_lines(text, width_in, font_pt, bold) <= 1
     )
+
+
+_BENCH_NAMED_SOURCES = {
+    "appcast_kb": "Appcast 2026 Recruitment Benchmark Report",
+    "trend_engine": "Nova Trend Engine (platform CPC/CPA data)",
+}
+
+
+def _bench_source_text(
+    benchmarks: Dict[str, Any],
+    has_ad_platform: bool,
+    cph_local_sources: List[str],
+    width_in: float,
+    font_pt: float,
+) -> Tuple[str, int]:
+    """``(text, n_lines)`` for the line under slide 6's "Industry Benchmarks"
+    table.
+
+    * Knowledge-base rows (``confidence == "market_intelligence_kb"``): the
+      shared estimate note (``plan_trust.BENCHMARK_FOOTNOTE``) -- never the
+      table citing itself -- followed by the cited local cost-per-hire
+      publisher(s) when the plan has them (a real source beside the
+      estimate). The note alone already fills two lines of this 4.9in box,
+      so the old ", Nova Ad Platform Intelligence" suffix (Nova's own
+      product, not an external source) no longer fits beside it; the
+      ad-platform rows name their platform in their own labels. The fuller
+      variant that measures onto at most two lines wins; the local publisher
+      is never dropped to make room.
+    * Every other confidence keeps its single-line "Sources: ..." form (the
+      Appcast report, the Trend Engine, or the generic "Industry benchmarks
+      <year>"), exactly as before.
+    """
+    confidence = benchmarks.get("confidence", "curated")
+    if confidence == "market_intelligence_kb":
+        note = plan_trust.BENCHMARK_FOOTNOTE.rstrip(".")
+        variants: List[str] = []
+        if cph_local_sources:
+            full = ", ".join(cph_local_sources)
+            # last resort: the publisher alone ("Eurojob-Consulting") -- the
+            # full label with its scope stays in the workbook
+            pub = ", ".join(
+                re.split(r"[,(:]", n, maxsplit=1)[0].strip() for n in cph_local_sources
+            )
+            variants = [f"{note}; local CPH: {full}.", f"{note}; local CPH: {pub}."]
+        else:
+            variants = [plan_trust.BENCHMARK_FOOTNOTE]
+        text = next(
+            (v for v in variants if _measure_lines(v, width_in, font_pt) <= 2),
+            variants[-1],
+        )
+        return text, max(1, min(3, _measure_lines(text, width_in, font_pt)))
+
+    named = _BENCH_NAMED_SOURCES.get(confidence)
+    text = (
+        f"Sources: {named}"
+        if named
+        else f"Sources: Industry benchmarks {datetime.date.today().year}"
+    )
+    if has_ad_platform:
+        text += ", Nova Ad Platform Intelligence"
+    if cph_local_sources:
+        # design-judge item 3: a local cost-per-hire figure names its own
+        # source on the slide (one line: the short form when the full one
+        # would wrap). Measured at 8pt -- _set_font floors the 7pt request
+        # to 8 -- inside the box's 0.1in side insets.
+        local_names = ", ".join(cph_local_sources)
+        bare = re.sub(r" \([^)]*\)", "", text)
+        local_pub = ", ".join(
+            re.split(r"[,(:]", n, maxsplit=1)[0].strip() for n in cph_local_sources
+        )
+        text = _first_one_line(
+            [
+                f"{text}; local cost per hire: {local_names}",
+                f"{text}; local CPH: {local_names}",
+                f"{bare}; local CPH: {local_names}",
+                f"{bare}; local CPH: {local_pub}",
+            ],
+            width_in,
+            font_pt,
+        )
+    return text, 1
 
 
 def _first_one_line(
@@ -6855,14 +6952,38 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         _bench_cell_h_in.append(max(_val_h_in, _met_h_in))
         _bench_row_font_pt.append(_val_pt)
 
+    # The source line under the table. trust-and-proof#1: "validated
+    # recruitment data" was an unearned trust word -- nothing on the slide (or
+    # in the data) said what validated it or who did. Name the actual
+    # provenance the benchmark row data carries (benchmarks["confidence"], set
+    # by _get_benchmarks' resolution cascade) instead, or drop the claim
+    # entirely when the row is just Nova's own static fallback table with no
+    # external source to point to.
+    #
+    # The knowledge-base rows (confidence "market_intelligence_kb") used to
+    # cite "Joveo Recruitment Benchmarks KB (2026)" -- the table citing itself.
+    # Those ranges are Nova's own working estimates (2026-10-17 audit: no row's
+    # CPA / CPH / apply-rate headline traces to one primary source), so the
+    # line is the shared honesty note, the SAME string the workbook prints
+    # under its benchmark block (plan_trust.BENCHMARK_FOOTNOTE). It is decided
+    # here, before the rows are fitted, because it can wrap to a second line
+    # and the table must leave room for however many lines it takes.
+    _bench_src_w_in = table_w / 914400 - 0.2
+    _bench_src_pt = 8.0  # _set_font floors the 7pt request to 8
+    source_text, _bench_src_lines = _bench_source_text(
+        benchmarks, bool(ad_plat), _cph_local_sources, _bench_src_w_in, _bench_src_pt
+    )
+    _bench_src_box_h_in = _bench_src_lines * (_bench_src_pt * 1.35) / 72.0 + 0.05
+
     # Fit the rows above the attribution band. Rows are taken in priority
     # order (observed evidence before curated benchmark rows); a row that does
     # not fit is skipped and a later, shorter one may still take the space.
     # The body rows first compact from 0.38in to 0.34in (a one-line 10pt cell
     # needs ~0.27in) if that keeps a row that would otherwise be dropped.
-    # The sources line sits 0.05in under the last row and is 0.2in tall, so the
-    # table may end 0.30in above the attribution heading.
-    _bench_avail_bottom_in = _attrib_top_in - 0.30
+    # The sources line sits 0.05in under the last row; its box is 0.2in tall
+    # for one line (0.35in for two), so the table may end that much plus
+    # 0.10in above the attribution heading.
+    _bench_avail_bottom_in = _attrib_top_in - 0.10 - _bench_src_box_h_in
     _bench_head_bottom_in = table_top / 914400 + _bench_base_row_h_in
 
     def _bench_fit(base_in: float) -> List[int]:
@@ -6879,9 +7000,17 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     _bench_kept = _bench_fit(_bench_body_base_in)
     _bench_kept_compact = _bench_fit(min(_bench_base_row_h_in, 0.34))
 
-    def _bench_score(kept: List[int]) -> Tuple[int, int]:
-        """Prefer keeping more must-have/observed rows, then more rows."""
-        return (sum(1 for k in kept if bench_meta[k]["rank"] <= 1), len(kept))
+    def _bench_score(kept: List[int]) -> Tuple[int, int, int]:
+        """Prefer keeping more must-have/observed rows, then more rows, then
+        the layout whose kept rows are the higher-priority ones (a lower rank
+        sum: with the two-line source note a compact layout keeps the Apply
+        Rate row where the roomy one would swap it for a rank-4 ad-platform
+        row -- same row count, wrong row)."""
+        return (
+            sum(1 for k in kept if bench_meta[k]["rank"] <= 1),
+            len(kept),
+            -sum(bench_meta[k]["rank"] for k in kept),
+        )
 
     if _bench_score(_bench_kept_compact) > _bench_score(_bench_kept):
         _bench_body_base_in = min(_bench_base_row_h_in, 0.34)
@@ -6962,55 +7091,16 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
 
     # Source - positioned below the LAST content-derived row (not a fixed
     # row_h * count multiple, which is exactly what let the source line and
-    # the category cards below it collide with a table that had grown).
-    # trust-and-proof#1: "validated recruitment data" was an unearned trust
-    # word -- nothing on the slide (or in the data) said what validated it
-    # or who did. Name the actual provenance the benchmark row data carries
-    # (benchmarks["confidence"], set by _get_benchmarks' resolution cascade)
-    # instead, or drop the claim entirely when the row is just Nova's own
-    # static fallback table with no external source to point to.
+    # the category cards below it collide with a table that had grown). The
+    # text and its line count were decided BEFORE the rows were fitted (see
+    # ``_bench_source_text`` above), so the table already left room for it.
     source_top = Inches(_bench_cur_top_in) + Inches(0.05)
-    _bench_named_source = {
-        "appcast_kb": "Appcast 2026 Recruitment Benchmark Report",
-        "market_intelligence_kb": "Joveo Recruitment Benchmarks KB (2026)",
-        "trend_engine": "Nova Trend Engine (platform CPC/CPA data)",
-    }.get(benchmarks.get("confidence", "curated"))
-    source_text = (
-        f"Sources: {_bench_named_source}"
-        if _bench_named_source
-        else f"Sources: Industry benchmarks {datetime.date.today().year}"
-    )
-    if ad_plat:
-        source_text += ", Nova Ad Platform Intelligence"
-    if _cph_local_sources:
-        # design-judge item 3: a local cost-per-hire figure names its own
-        # source on the slide (one line: the short form when the full one
-        # would wrap). Measured at 8pt -- _set_font floors the 7pt request
-        # to 8 -- inside the box's 0.1in side insets.
-        _src_w_in = table_w / 914400 - 0.2
-        _local_names = ", ".join(_cph_local_sources)
-        _src_bare = re.sub(r" \([^)]*\)", "", source_text)
-        # last resort: the publisher alone ("Eurojob-Consulting") -- the
-        # full label with its scope stays in the workbook
-        _local_pub = ", ".join(
-            re.split(r"[,(:]", n, maxsplit=1)[0].strip() for n in _cph_local_sources
-        )
-        source_text = _first_one_line(
-            [
-                f"{source_text}; local cost per hire: {_local_names}",
-                f"{source_text}; local CPH: {_local_names}",
-                f"{_src_bare}; local CPH: {_local_names}",
-                f"{_src_bare}; local CPH: {_local_pub}",
-            ],
-            _src_w_in,
-            8.0,
-        )
     _add_textbox(
         slide,
         table_left,
         source_top,
         table_w,
-        Inches(0.2),
+        Inches(_bench_src_box_h_in),
         text=source_text,
         font_size=7,
         italic=True,
@@ -8564,9 +8654,13 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     _add_top_band(slide, "PLAN COMPARISON & IMPLEMENTATION", today)
 
     # Action title
+    # The right-hand column's figures (typical channel count, programmatic
+    # share, market count) are Nova's own coded constants, not published
+    # statistics (2026-10-17 audit), so neither the subhead nor the column
+    # header may call them an industry "average".
     action_text = (
-        f"{_fmt.possessive(client)} optimized media plan vs. {industry_label} industry averages "
-        f"with phased implementation roadmap"
+        f"{_fmt.possessive(client)} optimized media plan vs. Nova's working estimates "
+        f"for {industry_label} with phased implementation roadmap"
     )
     # C12 fix: this subhead sat in a fixed 0.92in/0.45in one-line box at a
     # constant 15pt, with the comparison panels pinned to a fixed y=1.55in
@@ -9000,11 +9094,20 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         r2.text = f"  {indicator}"
         _set_font(r2, size=10, bold=True, color=status_color)
 
-    # ==== RIGHT PANEL: Industry Average ====
+    # ==== RIGHT PANEL: Nova working estimate for the industry ====
     _add_rounded_rect(slide, right_panel_x, comp_top, panel_w, panel_h, WHITE)
     _add_filled_rect(slide, right_panel_x, comp_top, panel_w, Inches(0.45), MUTED_TEXT)
     # Same shrink-to-fit as the left panel header, for a long industry_label.
-    _right_header_text = f"\u25cb  {industry_label} Average"
+    # The header says WHAT the column is ("Nova working estimate", not an
+    # "<industry> Average" that reads as a published statistic) and names the
+    # industry by its leading name -- the NAICS detail is on the cover and in
+    # the subhead -- falling back to the bare label when even that would wrap.
+    _right_header_text = (
+        f"\u25cb  {plan_trust.INDUSTRY_REFERENCE_LABEL}: "
+        f"{_industry_head_name(industry_label)}"
+    )
+    if _measure_lines(_right_header_text, (panel_w / 914400) - 0.4, 8.0, bold=True) > 1:
+        _right_header_text = f"\u25cb  {plan_trust.INDUSTRY_REFERENCE_LABEL}"
     _right_header_pt = _fit_font_to_measured_lines(
         _right_header_text,
         (panel_w / 914400) - 0.4,
@@ -9915,13 +10018,17 @@ def _competitive_landscape_sources_line(comp_intel: Dict) -> str:
         names.append("Clearbit company data")
     if trends.get("employment_count") is not None:
         names.append(f"{trends.get('source') or 'BLS'} industry employment")
-    if (
-        trends.get("kb_context")
-        or trends.get("market_context")
-        or trends.get("avg_time_to_fill")
-    ):
+    if trends.get("kb_context") or trends.get("market_context"):
         names.append("curated knowledge base")
-    if not names:
+    # The knowledge-base industry-row fallback (time-to-fill, offer
+    # acceptance, source mix -- see the fallback in
+    # _build_slide_competitive_landscape) is Nova's own working estimate, not
+    # a "curated knowledge base" source: it gets the shared estimate note the
+    # benchmark table and the workbook print, never an invented source.
+    kb_row_estimate = any(
+        trends.get(k) for k in ("avg_time_to_fill", "offer_acceptance_rate", "top_sources")
+    )
+    if not names and not kb_row_estimate:
         return ""
     meta = comp_intel.get("_meta")
     meta = meta if isinstance(meta, dict) else {}
@@ -9930,7 +10037,10 @@ def _competitive_landscape_sources_line(comp_intel: Dict) -> str:
         if meta.get("competitor_evidence_count") == 0
         else ""
     )
-    return f"Sources: {', '.join(names)}{suffix}"
+    line = f"Sources: {', '.join(names)}{suffix}" if names else ""
+    if kb_row_estimate:
+        line = f"{line} {plan_trust.BENCHMARK_FOOTNOTE}".strip()
+    return line
 
 
 def _build_slide_competitive_landscape(prs: Presentation, data: Dict):

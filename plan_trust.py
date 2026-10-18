@@ -35,6 +35,26 @@ SUPPLY_NETWORK_LABEL = "Supply network status"
 SUPPLY_REPO_LABEL = "Supply repository (full listing)"
 BENCHMARKS_LABEL = "Joveo benchmarks (CPC / CPA)"
 
+# ONE honesty note for every client-visible industry-benchmark table (the
+# workbook's Executive Summary "Recruitment Benchmarks" block and the deck's
+# "Industry Benchmarks" slide read this same string, so the two can never say
+# different things about where the ranges come from). The ranges are Nova's
+# own typed estimates -- an audit (2026-10-17) found no row's CPA / CPH /
+# apply-rate headline traceable to one primary source -- so the note says so
+# instead of naming a source the figures do not trace to. It is printed on
+# client deliverables for every market, so it must stay free of the
+# ``us_only_markers`` vocabulary (a test pins that).
+BENCHMARK_FOOTNOTE = (
+    "Industry ranges are Nova working estimates informed by public industry "
+    "reports (e.g. Appcast apply-rate data); indicative, not independently "
+    "audited."
+)
+
+# Column / row label for any figure beside the plan that is Nova's own coded
+# constant rather than a published statistic (the deck's plan-vs-industry
+# comparison panel: typical channel count, programmatic share, market count).
+INDUSTRY_REFERENCE_LABEL = "Nova working estimate"
+
 # Source families: (label, files[, mode]). A file is a name (its top-level or
 # metadata date) or (name, key) for a date carried on rows deep inside it
 # (every nested ``key``; the newest is used). mode "latest" reports the most

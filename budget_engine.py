@@ -1254,15 +1254,46 @@ def resolve_industry_cph(
     )
 
 
+# The cost-per-hire sub-keys of a knowledge-base ``cph`` node that carry an
+# ALL-IN figure, in preference order. ``recruitment_marketing_only`` (media
+# spend alone, a fraction of what a hire costs) is deliberately NOT here, and
+# neither is a "first string value" fallback (the first string in these nodes
+# IS the media-only one, or a prose note): a client-visible "Industry
+# Cost-per-Hire" is the all-in total or nothing.
+_KB_CPH_ALL_IN_KEYS = ("range", "total_cost_per_hire", "median")
+
+
+def kb_cph_node_text(node: Any) -> str:
+    """The display string of one knowledge-base ``cph`` node
+    (``recruitment_benchmarks.industry_benchmarks[industry].cph``): a plain
+    string as-is, else the first all-in sub-key (``_KB_CPH_ALL_IN_KEYS``),
+    else the newest numeric-year key. ``""`` when the node carries no all-in
+    figure -- never the media-only ``recruitment_marketing_only`` string. The
+    deck's benchmark table (ppt_generator) and ``_kb_industry_cph_row`` both
+    read this one function, so they can never print different rows."""
+    if isinstance(node, str):
+        return node.strip()
+    if not isinstance(node, dict):
+        return ""
+    for key in _KB_CPH_ALL_IN_KEYS:
+        val = node.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    years = [k for k in node if isinstance(k, str) and re.fullmatch(r"20\d{2}", k)]
+    val = node.get(max(years)) if years else None
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    return ""
+
+
 def _kb_industry_cph_row(
     knowledge_base: Optional[Dict[str, Any]], industry: str
 ) -> Optional[Dict[str, Any]]:
     """The knowledge base's own cost-per-hire row for ``industry``
     (``recruitment_benchmarks.industry_benchmarks[industry].cph``) -- the
-    row the deck's slide 5 and the workbook print when the industry has no
+    row the deck's slide 6 and the workbook print when the industry has no
     range in ``INDUSTRY_CPH_RANGES``. Picks the string the deck picks
-    (ppt_generator._kb_extract_range: "range", "total_cost_per_hire",
-    "median", "recruitment_marketing_only", newest year, first string) and
+    (``kb_cph_node_text``: an all-in total, never the media-only figure) and
     parses its US$ figures. ``{"text", "low", "high", "mid"}`` or None."""
     if not isinstance(knowledge_base, dict):
         return None
@@ -1270,25 +1301,7 @@ def _kb_industry_cph_row(
     ib = rb.get("industry_benchmarks") if isinstance(rb, dict) else None
     entry = ib.get(industry) if isinstance(ib, dict) else None
     node = entry.get("cph") if isinstance(entry, dict) else None
-    text = ""
-    if isinstance(node, str):
-        text = node.strip()
-    elif isinstance(node, dict):
-        for key in ("range", "total_cost_per_hire", "median", "recruitment_marketing_only"):
-            val = node.get(key)
-            if isinstance(val, str) and val.strip():
-                text = val.strip()
-                break
-        if not text:
-            years = [k for k in node if isinstance(k, str) and re.fullmatch(r"20\d{2}", k)]
-            val = node.get(max(years)) if years else None
-            if isinstance(val, str) and val.strip():
-                text = val.strip()
-        if not text:
-            text = next(
-                (v.strip() for v in node.values() if isinstance(v, str) and v.strip()),
-                "",
-            )
+    text = kb_cph_node_text(node)
     nums: List[float] = []
     for amt, suffix in re.findall(r"\$\s*([\d,]+(?:\.\d+)?)\s*([kKmM])?\b", text):
         try:
@@ -2237,7 +2250,8 @@ def compute_funnel_stages(
     }
 
     assumption_note = (
-        "Hire totals are anchored to industry cost-per-hire benchmarks, not "
+        "Hire totals are anchored to an assumed all-in industry cost per hire "
+        "(a Nova working estimate, not a published benchmark), not "
         "to this funnel -- the stage rates below are planning assumptions "
         "(raw->qualified 8-30%, qualified->interview 20-50%, "
         "interview->hire 15-35%) fitted per channel so their product "

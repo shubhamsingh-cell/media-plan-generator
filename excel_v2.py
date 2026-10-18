@@ -3360,9 +3360,23 @@ def _fx_per_usd_phrase(cph_info: Dict[str, Any]) -> str:
     return out
 
 
+def _cph_anchor_phrase(cph_info: Dict[str, Any]) -> str:
+    """What the hire totals are anchored to, in words that match the plan's
+    real cost-per-hire basis (``plan_projection.cph_basis``, the one function
+    the wizard, the checklist and the assumptions block read): "an assumed
+    all-in industry cost per hire (Nova table, unsourced)" for a plan on the
+    ``INDUSTRY_CPH_RANGES`` table -- never "cost-per-hire benchmarks", which
+    reads as a published source the table does not have -- or the cited local
+    range / knowledge-base row / cross-industry default it actually used."""
+    basis = plan_projection.cph_basis(cph_info)
+    if basis["kind"] == "nova_table":
+        return "an " + plan_projection.NOVA_TABLE_BASIS_LABEL
+    return basis["phrase"]
+
+
 def _roi_methodology_note(budget_alloc: Any) -> str:
     """The ROI Projections methodology line, true to what drives the hire
-    totals. With a cost-per-hire benchmark the totals are capped by its
+    totals. With an industry cost per hire the totals are capped by its
     floor; WITHOUT one (suppressed claim) they are the funnel's projection
     capped by an FX-translated US bound that is never printed -- the old
     "anchored to industry cost-per-hire benchmarks" claimed a benchmark the
@@ -3385,8 +3399,8 @@ def _roi_methodology_note(budget_alloc: Any) -> str:
             f"per-hire figure; {stage}"
         )
     return (
-        "Methodology: hire totals are anchored to industry cost-per-hire "
-        f"benchmarks (not to this funnel); {stage}"
+        f"Methodology: hire totals are anchored to {_cph_anchor_phrase(info)} "
+        f"(not to this funnel); {stage}"
     )
 
 
@@ -3611,10 +3625,12 @@ def _kb_industry_cph_benchmark(
         return 0.0
     cph_section = ind_bench.get("cph")
     if isinstance(cph_section, dict):
-        for key in ("total_cost_per_hire", "recruitment_marketing_only"):
-            parsed = _parse_cph_point_estimate(cph_section.get(key))
-            if parsed > 0:
-                return parsed
+        # the all-in total or nothing: ``recruitment_marketing_only`` (media
+        # spend alone) is never an "industry average cost per hire" -- phase B,
+        # item 3, the same rule as budget_engine.kb_cph_node_text
+        parsed = _parse_cph_point_estimate(cph_section.get("total_cost_per_hire"))
+        if parsed > 0:
+            return parsed
     # Flat fallback for KB variants that store CPH at the top level.
     for key in ("total_cost_per_hire", "cost_per_hire", "cph"):
         raw = ind_bench.get(key)
@@ -3657,6 +3673,80 @@ def _kb_industry_benchmark_section(
     return ind_bench if isinstance(ind_bench, dict) else {}
 
 
+def _benchmark_row_view(ind_bench: Dict[str, Any]) -> Dict[str, Any]:
+    """The client-visible slice of one knowledge-base industry benchmark row.
+
+    The row (``recruitment_benchmarks.industry_benchmarks[industry]``) is a
+    free-form dict of Nova working estimates plus notes, sub-statistics and
+    inline attributions typed in 2026-03 -- the 2026-10-17 audit found no
+    row's CPA / CPH / apply-rate headline traceable to one primary source.
+    The Executive Summary used to print EVERY key of it, so every inline
+    "Appcast 2026" / "Recruitics" / "NSI 2025" aside, trend note and
+    sub-statistic reached the client with no link behind it. Only a
+    WHITELIST is printed now, under ONE shared estimate footnote
+    (``plan_trust.BENCHMARK_FOOTNOTE``):
+
+    * ``cpa`` -- range and median;
+    * ``cpc`` -- range, plus its YoY trend (the deck's CPC row prints the same
+      trend; the workbook must quote what the deck quotes);
+    * ``cph`` -- the all-in total (``budget_engine.kb_cph_node_text``; never
+      the media-only figure), consulted only where the plan resolver has no
+      range of its own;
+    * ``apply_rate`` -- the latest year's figure (the string the deck prints);
+    * ``time_to_fill`` -- the average;
+    * ``seasonal_patterns`` -- peak / trough months (the plan's own
+      Activation Event Calendar overrides them at the call site), no notes.
+
+    Everything else (offer acceptance, quality / source of hire, turnover,
+    labor-market context, the data-file ``provenance`` string, ...) is left
+    out of this table. Returns a new dict in the row's own key order.
+    """
+    out: Dict[str, Any] = {}
+    if not isinstance(ind_bench, dict):
+        return out
+    for key, val in ind_bench.items():
+        if key == "cpa":
+            if isinstance(val, dict):
+                sub = {k: val[k] for k in ("range", "median") if val.get(k)}
+                if sub:
+                    out[key] = sub
+            elif isinstance(val, str) and val.strip():
+                out[key] = val
+        elif key == "cpc":
+            if isinstance(val, dict):
+                sub = {k: val[k] for k in ("range", "trend_yoy") if val.get(k)}
+                if sub:
+                    out[key] = sub
+            elif isinstance(val, str) and val.strip():
+                out[key] = val
+        elif key == "cph":
+            try:
+                import budget_engine as _be_kb_cph
+
+                text = _be_kb_cph.kb_cph_node_text(val)
+            except ImportError as exc:
+                logger.error("KB cph selector unavailable: %s", exc, exc_info=True)
+                text = ""
+            if text:
+                out[key] = text
+        elif key == "apply_rate":
+            latest = _latest_kb_year_value(val)
+            if isinstance(latest, str) and latest.strip():
+                out[key] = latest.strip()
+        elif key == "time_to_fill":
+            avg = val.get("average_days") or val.get("average") if isinstance(val, dict) else val
+            if isinstance(avg, (int, float)) and not isinstance(avg, bool):
+                out[key] = f"{avg:g} days"
+            elif isinstance(avg, str) and avg.strip():
+                out[key] = f"{avg.strip()} days" if avg.strip().replace(".", "", 1).isdigit() else avg.strip()
+        elif key == "seasonal_patterns":
+            if isinstance(val, dict):
+                sub = {k: val[k] for k in ("peak_months", "trough_months") if val.get(k)}
+                if sub:
+                    out[key] = sub
+    return out
+
+
 def _parse_numeric_range(text: Any) -> Optional[Tuple[float, float]]:
     """Parse the first two numbers out of a benchmark string like
     "$12-$35", "5.5-7.5%", or "25-40 days" into a ``(low, high)`` tuple.
@@ -3680,14 +3770,22 @@ def _model_vs_benchmark_note(data: dict, ind_bench: Dict[str, Any]) -> Optional[
     Executive Summary benchmark block and ROI Projections (findings
     data:manpower#3/#4, visual:manpower#3, strategy:manpower#3).
 
-    Computes the plan's own blended CPA and apply rate LIVE from
-    ``_budget_allocation`` and compares them against the cited industry
-    benchmark's CPA floor and most-recent apply-rate ceiling. Returns a
-    one-line honest disclosure ONLY when the plan sits outside the cited
-    range in the direction that would otherwise look unexplained (modeled
-    CPA below the floor, or modeled apply rate above the ceiling). Returns
-    ``None`` when the plan is within range, or when there isn't enough data
-    to compute either side of the comparison -- never fabricates a note.
+    Computes the plan's own blended CPA LIVE from ``_budget_allocation`` and
+    compares it with the industry CPA the benchmark table above prints as its
+    headline -- the cited MEDIAN (the range midpoint when a row carries no
+    median). Returns a one-line disclosure ONLY when the plan's CPA sits below
+    that figure; ``None`` otherwise, or when either side cannot be computed --
+    never fabricates a note.
+
+    It used to compare against the row's CPA FLOOR and its apply-rate CEILING.
+    Those are the two least-sourced numbers in the row (2026-10-17 audit: 14 of
+    22 rows carry an apply-rate ceiling above the highest rate Appcast
+    reports, 7.14%; the CPA floor is a hand-typed range end), and the note's
+    old second sentence asserted what the benchmark ranges "reflect" -- a
+    provenance claim no data file backs. The apply-rate comparison is gone (no
+    median exists to compare against) and the CPA one now reads against the
+    value the table shows, in words that state only how the two figures were
+    produced.
     """
     if not isinstance(ind_bench, dict) or not ind_bench:
         return None
@@ -3703,7 +3801,6 @@ def _model_vs_benchmark_note(data: dict, ind_bench: Dict[str, Any]) -> Optional[
 
     total_dollars = 0.0
     total_apps = 0.0
-    total_clicks = 0.0
     for ch_data in channel_allocs.values():
         if not isinstance(ch_data, dict):
             continue
@@ -3711,80 +3808,48 @@ def _model_vs_benchmark_note(data: dict, ind_bench: Dict[str, Any]) -> Optional[
             ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
         )
         total_apps += _safe_num(ch_data.get("projected_applications") or 0)
-        total_clicks += _safe_num(ch_data.get("projected_clicks") or 0)
 
     if total_dollars <= 0 or total_apps <= 0:
         return None
 
     blended_cpa = total_dollars / total_apps
-    apply_rate_pct = (total_apps / total_clicks) * 100.0 if total_clicks > 0 else None
 
-    # CPA floor from the benchmark's "range" field (e.g. "$12-$35" -> 12).
-    cpa_floor = None
+    # The industry CPA the table prints: its cited median, else the midpoint
+    # of its cited range.
     cpa_field = ind_bench.get("cpa")
+    reference: Optional[float] = None
+    reference_word = "median"
     if isinstance(cpa_field, dict):
-        cpa_range = _parse_numeric_range(cpa_field.get("range"))
-    else:
-        cpa_range = _parse_numeric_range(cpa_field)
-    if cpa_range:
-        cpa_floor = cpa_range[0]
-
-    # Apply-rate ceiling: prefer the most recent (highest) cited year, e.g.
-    # {"2024": "5-7%", "2025": "5.5-7.5%"} -> use "2025"'s ceiling (7.5).
-    apply_ceiling = None
-    apply_field = ind_bench.get("apply_rate")
-    apply_source: Any = None
-    if isinstance(apply_field, dict):
-        year_keys = sorted(
-            (k for k in apply_field if str(k).strip().isdigit()), reverse=True
-        )
-        if year_keys:
-            apply_source = apply_field.get(year_keys[0])
+        _med = re.search(r"\d[\d,]*(?:\.\d+)?", str(cpa_field.get("median") or ""))
+        if _med:
+            reference = float(_med.group(0).replace(",", ""))
         else:
-            for v in apply_field.values():
-                if isinstance(v, str) and re.search(r"\d", v):
-                    apply_source = v
-                    break
+            _rng = _parse_numeric_range(cpa_field.get("range"))
+            if _rng:
+                reference = (_rng[0] + _rng[1]) / 2.0
+                reference_word = "range midpoint"
     else:
-        apply_source = apply_field
-    apply_range = _parse_numeric_range(apply_source)
-    if apply_range:
-        apply_ceiling = apply_range[1]
+        _rng = _parse_numeric_range(cpa_field)
+        if _rng:
+            reference = (_rng[0] + _rng[1]) / 2.0
+            reference_word = "range midpoint"
 
-    reasons = []
-    # The cited CPA range is a US-dollar KB constant; the plan's blended CPA
-    # is in the plan's own currency (declare-not-convert: no FX is applied).
-    # On a non-USD plan, comparing the two -- and printing the USD floor
-    # with the plan's symbol, e.g. "(£11.14) sits below ... floor (£35)" --
-    # asserts a relationship that only exists because no conversion
-    # happened. Skip the money comparison there; the apply-rate comparison
-    # is unit-free and still applies.
+    # The cited CPA is a US-dollar KB constant; the plan's blended CPA is in
+    # the plan's own currency (declare-not-convert: no FX is applied). On a
+    # non-USD plan, comparing the two -- and printing the USD figure with the
+    # plan's symbol, e.g. "(£11.14) sits below ... (£35)" -- asserts a
+    # relationship that only exists because no conversion happened. Skip it.
     if _get_active_currency() != "USD":
-        cpa_floor = None
-    if cpa_floor is not None and blended_cpa < cpa_floor:
-        reasons.append(
-            f"this plan's blended CPA ({_fmt_currency(blended_cpa, show_cents=True)}) "
-            f"sits below the cited benchmark floor ({_fmt_currency(cpa_floor)})"
-        )
-    if (
-        apply_ceiling is not None
-        and apply_rate_pct is not None
-        and apply_rate_pct > apply_ceiling
-    ):
-        reasons.append(
-            f"this plan's blended apply rate ({apply_rate_pct:.1f}%) sits above the "
-            f"cited benchmark ceiling ({apply_ceiling:.1f}%)"
-        )
-
-    if not reasons:
+        return None
+    if reference is None or reference <= 0 or blended_cpa >= reference:
         return None
 
     return (
-        "Model vs. benchmark: "
-        + " and ".join(reasons)
-        + ". This is a deliberate modeling position, not an error: programmatic "
-        "buying and ML bid optimization price applications below posted-rate "
-        "benchmarks; benchmark ranges reflect classic post-and-pray channel pricing."
+        "Model vs. benchmark: this plan's blended CPA "
+        f"({_fmt_currency(blended_cpa, show_cents=True)}) sits below the "
+        f"indicative industry {reference_word} ({_fmt_currency(reference, show_cents=True)}). "
+        "The industry figure is an unaudited Nova working estimate; this "
+        "plan's CPA is computed from its own channel mix and pricing."
     )
 
 
@@ -4181,7 +4246,36 @@ def _write_kv_row(
     cell_v.font = _FONT_BODY
     cell_v.alignment = _ALIGN_WRAP
     cell_v.border = _BORDER_THIN
+    # The value is a MERGED cell, which Excel never auto-fits: size the row
+    # from the text so line 2+ is not clipped.
+    height = _merged_value_row_height(ws, value, col_start + 2, COL_END)
+    if height is not None:
+        ws.row_dimensions[row].height = max(ws.row_dimensions[row].height or 0, height)
     return row + 1
+
+
+def _merged_value_row_height(
+    ws, text: str, first_col: int, last_col: int
+) -> float | None:
+    """Explicit row height for a value merged across ``first_col..last_col``
+    that wraps to 2+ lines at the 10 pt body font.
+
+    Excel does not auto-fit the height of a MERGED cell, so a long value in a
+    ``_write_kv_row`` row kept the default one-line height and everything
+    after its first line was clipped (the Executive Summary benchmark rows).
+    Lines are estimated from the merged width (sum of the column widths) at
+    ~1.0 character per width unit for 10 pt Calibri/Arial; ``None`` when one
+    line is enough."""
+    total_width = sum(
+        ws.column_dimensions[get_column_letter(c)].width or 8.43
+        for c in range(first_col, last_col + 1)
+    )
+    per_line = max(10.0, total_width * 1.0)
+    lines = sum(
+        max(1, math.ceil(len(part) / per_line)) for part in str(text).split("\n")
+    )
+    # Excel's hard row-height ceiling is 409.5 pt
+    return None if lines <= 1 else min(409.0, round(lines * 13.0 + 3, 1))
 
 
 def _footnote_row_height(ws, text: str) -> float | None:
@@ -5564,10 +5658,9 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         cph_field = ind_bench.get("cph")
         cph_val = 0.0
         if isinstance(cph_field, dict):
-            cph_val = _parse_cph_point_estimate(
-                cph_field.get("total_cost_per_hire")
-                or cph_field.get("recruitment_marketing_only")
-            )
+            # all-in total only: the media-only figure is never offered to the
+            # narrative as the "industry cost per hire" (phase B, item 3)
+            cph_val = _parse_cph_point_estimate(cph_field.get("total_cost_per_hire"))
         if cph_val > 0 and not ctx.get("cph_suppressed"):
             lines.append(f"Industry Cost/Hire Benchmark: {_fmt_currency(cph_val)}")
 
@@ -6915,6 +7008,7 @@ def _build_sheet_executive_summary(
             row = _write_subsection_header(
                 ws, row, f"Industry Benchmarks: {industry_label}"
             )
+            _bench_rows_start = row
 
             # If benchmarks have regional breakdown, filter to client regions
             regional = ind_bench.get("regional", ind_bench.get("by_region", {}))
@@ -6986,7 +7080,7 @@ def _build_sheet_executive_summary(
                     else None
                 )
                 _omitted_us_bench = False
-                for key, val in ind_bench.items():
+                for key, val in _benchmark_row_view(ind_bench).items():
                     if key not in ("regional", "by_region", "metadata"):
                         if _no_us_market and key in ("cpa", "cpc"):
                             if key == "cpa" and _local_cpa:
@@ -7057,7 +7151,12 @@ def _build_sheet_executive_summary(
                         # board is dropped from the row.
                         val_str = publisher_filter.scrub_text(val_str, data)
                         if val_str:
-                            _bm_label = _humanize_snake_key(key)
+                            _bm_label = (
+                                # the deck's slide-6 label for the same row
+                                "Industry Cost-per-Hire"
+                                if key == "cph"
+                                else _humanize_snake_key(key)
+                            )
                             # These are US-calibrated KB constants, not this
                             # plan's own figures. On a non-USD plan, state the
                             # denomination on the row itself (the "(USD)"
@@ -7095,10 +7194,16 @@ def _build_sheet_executive_summary(
                         "industry CPA/CPC are US figures and are not shown).",
                     )
 
+            # ONE honesty note under the table, the SAME string the deck's
+            # benchmark slide prints (plan_trust.BENCHMARK_FOOTNOTE): the
+            # ranges above are Nova working estimates, not audited figures.
+            if row > _bench_rows_start:
+                row = _write_footnote(ws, row, plan_trust.BENCHMARK_FOOTNOTE)
+
             # S89A FIX (findings data:manpower#3/#4, visual:manpower#3,
-            # strategy:manpower#3): when this plan's own blended CPA/apply
-            # rate falls outside the benchmark range just cited above,
-            # explain why honestly instead of leaving it unreconciled.
+            # strategy:manpower#3): when this plan's own blended CPA sits
+            # below the industry median cited above, say how the two figures
+            # were produced instead of leaving them unreconciled.
             _bm_note = _model_vs_benchmark_note(
                 data, ind_bench if isinstance(ind_bench, dict) else {}
             )
@@ -14859,7 +14964,8 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
             if _plan_industry_cph(data.get("_budget_allocation") or {}).get(
                 "claim_suppressed"
             )
-            else "This plan anchors total hires to cost-per-hire benchmarks "
+            else "This plan anchors total hires to "
+            f"{_cph_anchor_phrase(_plan_industry_cph(data.get('_budget_allocation') or {}))} "
             "rather than a funnel model (see ROI Projections, Methodology)"
         )
         _niche_purpose = (

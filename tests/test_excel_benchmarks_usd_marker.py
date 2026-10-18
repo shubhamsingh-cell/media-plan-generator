@@ -93,7 +93,11 @@ def atria():
 def test_gbp_plan_marks_every_dollar_benchmark_row_usd(london_us_market):
     rows = _benchmark_rows(london_us_market["xlsx_bytes"])
     money = [(lbl, v) for lbl, v in rows if "$" in v]
-    assert len(money) >= 3, rows  # CPA / CPC / CPH at minimum
+    # CPA and CPC are the money rows of the whitelisted block. (Before the
+    # 2026-10-18 whitelist a third one was the Quality Of Hire row's NSI
+    # "US$294,976 per 1%" figure; that row is no longer printed, and this
+    # fixture's CPH row reads "No local benchmark for this market".)
+    assert len(money) >= 2, rows
     for lbl, v in money:
         assert lbl.endswith("(USD)"), (lbl, v)
     for lbl, v in rows:
