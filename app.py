@@ -5121,7 +5121,7 @@ def _market_region(entry: Any) -> "str | None":
     "" for an entry that names no market (blank text, or a bare "Remote").
     _GUESS for a bare name that proves no market: a city plan_location can
     only match to US towns by name ("London", "Munich", "Chicago"), or one
-    nothing recognises ("Sao Paulo", "Mumbai"). None when the location
+    nothing recognises ("Bombay", "Bengaluru"). None when the location
     cannot be placed: world-scope text ("Worldwide", "Global"), a name with a
     country no table knows ("Accra, Ghana"), or a dict with no place in it."""
     if isinstance(entry, dict):
@@ -5159,7 +5159,7 @@ def _market_region(entry: Any) -> "str | None":
             # ZIP, county, "USA"/"Nationwide" or a "City, ST" pair proves one.
             if res.matched_via in _BARE_CITY_MATCHES:
                 return _GUESS
-            # A bare name nothing recognises ("Sao Paulo", "Mumbai") is a
+            # A bare name nothing recognises ("Bombay", "Bengaluru") is a
             # guess too; one carrying a foreign country ("Accra, Ghana",
             # matched_via non_us_signal) is an unplaceable market.
             if res.status == "unresolved" and not res.matched_via:
