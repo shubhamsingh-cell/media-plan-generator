@@ -248,14 +248,27 @@ SOC_CODES: Dict[str, str] = {
     "certified nurse midwife": "29-1161",
     "physical therapist assistant": "31-2021",
     "dentist": "29-1021",
-    "medical technologist": "29-2011",
+    # BLS OEWS publishes some SOC 2018 detailed occupations only as their broad
+    # group, so a series ID built from the detailed code (31-1121 Home Health
+    # Aides, 31-1122 Personal Care Aides, 29-2011 Medical and Clinical
+    # Laboratory Technologists) never exists: each lookup was an empty answer
+    # that is never cached. The corrected codes were read on
+    # https://www.bls.gov/oes/2025/may/oes_stru.htm (published rows): 31-1120
+    # Home Health and Personal Care Aides, 29-2010 Clinical Laboratory
+    # Technologists and Technicians, 51-2090 Miscellaneous Assemblers and
+    # Fabricators (51-2098 is in neither the SOC 2018 nor the OEWS structure).
+    # No entry for "professor" (25-1099 does not exist; 25-1000 is a heading
+    # with no published series and 25-1199 is the "All Other" bucket) or
+    # "warehouse manager" (53-1042 is a first-line SUPERVISOR code with no OEWS
+    # row; its OEWS counterpart 53-1047 is not established as this title): no
+    # confident SOC means no BLS wage.
+    "medical technologist": "29-2010",
     "medical coder": "29-2072",
     "phlebotomist": "31-9097",
     "lawyer": "23-1011",
     "paralegal": "23-2011",
     "compliance officer": "13-1041",
     "teacher": "25-2031",
-    "professor": "25-1099",
     "mechanical engineer": "17-2141",
     "electrical engineer": "17-2071",
     "civil engineer": "17-2051",
@@ -277,7 +290,6 @@ SOC_CODES: Dict[str, str] = {
     "branch manager": "11-3031",
     "warehouse associate": "53-7065",
     "warehouse worker": "53-7065",
-    "warehouse manager": "53-1042",
     "forklift operator": "53-7051",
     "delivery driver": "53-3031",
     "truck driver": "53-3032",
@@ -332,15 +344,15 @@ SOC_CODES: Dict[str, str] = {
     "server": "35-3031",
     "bartender": "35-3011",
     "dishwasher": "35-9021",
-    "caregiver": "31-1122",
-    "home health aide": "31-1121",
+    "caregiver": "31-1120",
+    "home health aide": "31-1120",
     "cna": "31-1131",
     "certified nursing assistant": "31-1131",
     "medical assistant": "31-9092",
     "dental assistant": "31-9091",
     "emt": "29-2042",
     "paramedic": "29-2043",
-    "assembly worker": "51-2098",
+    "assembly worker": "51-2090",
     "production worker": "51-9199",
     "machine operator": "51-9199",
     "quality inspector": "51-9061",
@@ -2398,25 +2410,40 @@ def _title_run_with_harmless_rest(
     return False
 
 
-def _soc_for_role_by_title_run(role_lower: str) -> str:
-    """SOC for the longest known title that ``role_lower`` carries with only
-    harmless modifiers; "" when none, or when equally long titles disagree."""
+def _longest_title_run_code(
+    table: Dict[str, str], role_lower: str, skip: frozenset = frozenset()
+) -> str:
+    """Code in ``table`` for the longest title that ``role_lower`` carries with
+    only harmless modifiers; "" when none, or when equally long titles
+    disagree. ``skip`` titles never match as a run. The per-code modifier extras
+    are keyed by the 7-character SOC ("29-1141"), so an O*NET-SOC code such as
+    "29-1141.00" shares them."""
     role_tokens = _soc_tokens(role_lower)
     best_len = 0
     best_codes: set = set()
-    for title, code in SOC_CODES.items():
-        if title in _EXACT_ONLY_SOC_TITLES or title in _BLS_NO_WAGE_TITLES:
+    for title, code in table.items():
+        if title in skip:
             continue
         title_tokens = _soc_tokens(title)
         if len(title_tokens) < best_len:
             continue
-        allowed = _SOC_HARMLESS_MODIFIERS | _SOC_EXTRA_MODIFIERS.get(code, frozenset())
+        allowed = _SOC_HARMLESS_MODIFIERS | _SOC_EXTRA_MODIFIERS.get(
+            code.split(".")[0], frozenset()
+        )
         if not _title_run_with_harmless_rest(title_tokens, role_tokens, allowed):
             continue
         if len(title_tokens) > best_len:
             best_len, best_codes = len(title_tokens), set()
         best_codes.add(code)
     return next(iter(best_codes)) if len(best_codes) == 1 else ""
+
+
+def _soc_for_role_by_title_run(role_lower: str) -> str:
+    """BLS SOC for the longest known title that ``role_lower`` carries with only
+    harmless modifiers; "" when none, or when equally long titles disagree."""
+    return _longest_title_run_code(
+        SOC_CODES, role_lower, _EXACT_ONLY_SOC_TITLES | _BLS_NO_WAGE_TITLES
+    )
 
 
 def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
@@ -3954,6 +3981,13 @@ def fetch_search_trends(keywords: List[str]) -> Dict[str, Any]:
 ONET_SOC_CODES: Dict[str, str] = {
     "software engineer": "15-1252.00",
     "software developer": "15-1252.00",
+    # Exact aliases for titles the old substring/shared-word match happened to
+    # map to the right occupation: the whole-word matcher needs them spelled out.
+    "frontend engineer": "15-1252.00",
+    "backend engineer": "15-1252.00",
+    "full stack developer": "15-1252.00",
+    "information security analyst": "15-1212.00",
+    "human resources manager": "11-3121.00",
     "web developer": "15-1254.00",
     "data scientist": "15-2051.00",
     "data analyst": "15-2051.00",
@@ -3987,6 +4021,33 @@ ONET_SOC_CODES: Dict[str, str] = {
     "operations manager": "11-1021.00",
     "supply chain": "13-1081.00",
 }
+
+
+def _onet_soc_for_role(role: str) -> str:
+    """O*NET-SOC for ``role`` under the same fail-closed rule as the BLS
+    matcher: an exact ONET_SOC_CODES title, else a known title that appears in
+    the role as a run of WHOLE words with only harmless modifiers around it.
+    "" when nothing is confident.
+
+    This used to be ``key in role or role in key`` plus a one-shared-word
+    fallback, so "Nursery Associate" took Registered Nurses, "Licensed
+    Practical Nurse" and "Nurse Practitioner" took Registered Nurses,
+    "Security Guard" took Information Security Analysts, and a bare "Engineer",
+    "Data" or "Manager" took Software Developers / Data Scientists / Marketing
+    Managers. It feeds fetch_onet_occupation_data (including its curated
+    fallback, which needs no O*NET credential) and fetch_h1b_wage_benchmarks.
+    Both are dispatched only when ENRICH_ROLE_SOURCES allows "O*NET" /
+    "H1B-Wages" (off by default), but an invalid O*NET key does not make them
+    unreachable, so the match itself has to be right.
+    """
+    role_lower = (role or "").strip().lower()
+    if not role_lower:
+        return ""
+    exact = ONET_SOC_CODES.get(role_lower)
+    if exact:
+        return exact
+    return _longest_title_run_code(ONET_SOC_CODES, role_lower)
+
 
 _ONET_FALLBACK: Dict[str, Dict[str, Any]] = {
     "15-1252.00": {
@@ -4499,27 +4560,8 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
     result: Dict[str, Any] = {"source": "O*NET", "occupations": {}}
 
     for role in roles[:10]:
-        role_lower = role.lower().strip()
-        soc_code = None
-        for key, code in ONET_SOC_CODES.items():
-            if key in role_lower or role_lower in key:
-                soc_code = code
-                break
-
-        if not soc_code:
-            # Try word-level matching
-            role_words = set(role_lower.split())
-            best_match = None
-            best_score = 0
-            for key, code in ONET_SOC_CODES.items():
-                key_words = set(key.split())
-                overlap = len(role_words & key_words)
-                if overlap > best_score:
-                    best_score = overlap
-                    best_match = code
-            if best_score >= 1:
-                soc_code = best_match
-
+        # Fail-closed: no substring or shared-word guess (see _onet_soc_for_role).
+        soc_code = _onet_soc_for_role(role)
         if not soc_code:
             continue
 
@@ -14515,15 +14557,8 @@ def fetch_h1b_wage_benchmarks(roles: List[str]) -> Dict[str, Any]:
     result: Dict[str, Any] = {"source": "DOL OFLC LCA Disclosure Data"}
 
     for role in roles:
-        rl = role.lower().strip()
-        # Match via ONET_SOC_CODES first (reuse existing mapping)
-        soc = ONET_SOC_CODES.get(rl)
-        if not soc:
-            # Try partial match
-            for key, code in ONET_SOC_CODES.items():
-                if key in rl or rl in key:
-                    soc = code
-                    break
+        # ONET_SOC_CODES titles, fail-closed (see _onet_soc_for_role).
+        soc = _onet_soc_for_role(role)
 
         if soc and soc in _H1B_WAGE_DATA:
             h1b = _H1B_WAGE_DATA[soc]

@@ -568,14 +568,37 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
     "sales_manager": {
         "aliases": [
             "account manager",
-            "account executive",
             "business development",
-            "bdr",
-            "sdr",
-            "sales representative",
-            "sales associate",
         ],
         "soc": "11-2022",
+        "tier": "professional",
+        "category": "sales_marketing",
+    },
+    # Sales representatives are not Sales Managers (11-2022): they used to be
+    # aliases of sales_manager, so "Sales Representative" carried the Sales
+    # Managers SOC into collar_intelligence and app.py's per-role SOC. SOC titles
+    # read on https://www.bls.gov/soc/2018/major_groups.htm: 41-4012 Sales
+    # Representatives, Wholesale and Manufacturing, Except Technical and
+    # Scientific Products; 41-3091 Sales Representatives of Services, Except
+    # Advertising, Insurance, Financial Services, and Travel. A retail "Sales
+    # Associate" is a Retail Salesperson (41-2031): see retail_associate.
+    "sales_representative": {
+        "aliases": [
+            "sales representative",
+        ],
+        "soc": "41-4012",
+        "tier": "professional",
+        "category": "sales_marketing",
+    },
+    # The canonical key itself ("account executive") is also a lookup alias.
+    "account_executive": {
+        "aliases": [
+            "business development representative",
+            "sales development representative",
+            "bdr",
+            "sdr",
+        ],
+        "soc": "41-3091",
         "tier": "professional",
         "category": "sales_marketing",
     },
@@ -810,6 +833,7 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
     "retail_associate": {
         "aliases": [
             "store associate",
+            "sales associate",
             "cashier",
             "retail manager",
             "merchandiser",

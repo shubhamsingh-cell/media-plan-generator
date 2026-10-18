@@ -171,6 +171,100 @@ _BARE_CITY_DENYLIST = frozenset(
 )
 
 
+# Well-known world cities written BARE -> the research.COUNTRY_DATA country they
+# are in. Moved here from research._detect_country (2026-10-18) so plan_geo reads
+# the same list instead of keeping a second opinion on "Munich". Entries may
+# share a name with a US place ("Berlin", "Toronto"); research reads them as the
+# city abroad (after its US-metro guard), while plan_geo only acts on a name the
+# US gazetteer does not also hold (see plan_geo._bare_foreign_city). Keys are
+# matched whole-word in research, so keep them lower-case.
+WORLD_CITY_COUNTRY: Dict[str, str] = {
+    "london": "United Kingdom",
+    "manchester": "United Kingdom",
+    "edinburgh": "United Kingdom",
+    "birmingham uk": "United Kingdom",
+    "berlin": "Germany",
+    "munich": "Germany",
+    "hamburg": "Germany",
+    "frankfurt": "Germany",
+    "paris": "France",
+    "lyon": "France",
+    "marseille": "France",
+    "amsterdam": "Netherlands",
+    "rotterdam": "Netherlands",
+    "the hague": "Netherlands",
+    "tokyo": "Japan",
+    "osaka": "Japan",
+    "nagoya": "Japan",
+    "milan": "Italy",
+    "milano": "Italy",
+    "rome": "Italy",
+    "turin": "Italy",
+    "mumbai": "India",
+    "bangalore": "India",
+    "delhi": "India",
+    "hyderabad": "India",
+    "sydney": "Australia",
+    "melbourne": "Australia",
+    "brisbane": "Australia",
+    "toronto": "Canada",
+    "vancouver": "Canada",
+    "montreal": "Canada",
+    "dublin": "Ireland",
+    "cork": "Ireland",
+    "galway": "Ireland",
+    "johannesburg": "South Africa",
+    "cape town": "South Africa",
+    "nairobi": "Kenya",
+    "buenos aires": "Argentina",
+    "são paulo": "Brazil",
+    "rio de janeiro": "Brazil",
+    "sao paulo": "Brazil",
+    "zurich": "Switzerland",
+    "geneva": "Switzerland",
+    "basel": "Switzerland",
+    "dubai": "UAE",
+    "abu dhabi": "UAE",
+    "madrid": "Spain",
+    "barcelona": "Spain",
+    "mexico city": "Mexico",
+    "monterrey": "Mexico",
+    "warsaw": "Poland",
+    "krakow": "Poland",
+    "copenhagen": "Denmark",
+    "prague": "Czech Republic",
+    "stockholm": "Sweden",
+    "oslo": "Norway",
+    "helsinki": "Finland",
+    "lisbon": "Portugal",
+    "brussels": "Belgium",
+    "vienna": "Austria",
+    "bogotá": "Colombia",
+    "bogota": "Colombia",
+    "santiago": "Chile",
+    "manila": "Philippines",
+    "kuala lumpur": "Malaysia",
+    "auckland": "New Zealand",
+    "wellington": "New Zealand",
+    "seoul": "South Korea",
+    "tel aviv": "Israel",
+    "shanghai": "China",
+    "beijing": "China",
+    "shenzhen": "China",
+    "jakarta": "Indonesia",
+    "bangkok": "Thailand",
+    "ho chi minh": "Vietnam",
+    # The rest of Germany's ten largest cities (research listed 4 of the 10).
+    "cologne": "Germany",
+    "stuttgart": "Germany",
+    "düsseldorf": "Germany",
+    "dusseldorf": "Germany",
+    "leipzig": "Germany",
+    "dortmund": "Germany",
+    "essen": "Germany",
+}
+
+
 def _fold(text: Any) -> str:
     raw = (
         unicodedata.normalize("NFKD", str(text or ""))
@@ -282,3 +376,26 @@ def detect_extra(location: Any) -> Optional[str]:
     # a bare well-known city: "Istanbul" or the head of "Istanbul, <anything>"
     head = folded.split(",", 1)[0].strip()
     return _CITIES.get(head)
+
+
+_WORLD_CITIES_FOLDED: Dict[str, str] = {
+    _fold(city): country for city, country in WORLD_CITY_COUNTRY.items()
+}
+
+
+def world_city_country(location: Any) -> Optional[str]:
+    """COUNTRY_DATA country of a location that is, as a whole, one BARE
+    well-known world city ("Dortmund", "Munich", "Düsseldorf"), else None.
+
+    Only the whole string counts: "Dortmund, Germany" and "Peru, Indiana" are
+    other forms with their own readers, and a US form ("Berlin, NH") is never
+    a world city here. A name that is also a US place is still returned --
+    deciding what to do about the collision is the caller's job
+    (``plan_geo._bare_foreign_city``).
+    """
+    if not isinstance(location, str) or not location.strip():
+        return None
+    folded = _fold(location)
+    if not folded or "," in folded or _is_us_form(folded):
+        return None
+    return _WORLD_CITIES_FOLDED.get(folded)

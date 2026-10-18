@@ -77,6 +77,19 @@ SOC_COLLAR_MAP: Dict[str, str] = {
     "55": "blue_collar",  # Military Specific
 }
 
+# SOC minor groups (major group + first digit of the minor group, no dash) whose
+# collar differs from their major group. Major group 41 is "Sales (retail/field)"
+# -> blue collar, but 41-3000 Sales Representatives, Services and 41-4000 Sales
+# Representatives, Wholesale and Manufacturing are professional B2B selling
+# (Sales Representative, Account Executive, BDR). Those roles resolved to Sales
+# Managers (11-2022 -> white collar) before the standardizer gave them their own
+# 41-xxxx SOC, so this keeps their collar where it was instead of letting the
+# corrected SOC flip them to blue collar.
+SOC_MINOR_COLLAR_OVERRIDES: Dict[str, str] = {
+    "413": "white_collar",  # 41-3000 Sales Representatives, Services
+    "414": "white_collar",  # 41-4000 Sales Representatives, Wholesale and Manufacturing
+}
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. KEYWORD-BASED CLASSIFICATION (fallback when SOC unavailable)
@@ -306,7 +319,9 @@ def classify_collar(
         major_group = (
             resolved_soc.split("-")[0] if "-" in resolved_soc else resolved_soc[:2]
         )
-        collar = SOC_COLLAR_MAP.get(major_group)
+        collar = SOC_MINOR_COLLAR_OVERRIDES.get(
+            resolved_soc.replace("-", "")[:3]
+        ) or SOC_COLLAR_MAP.get(major_group)
         if collar:
             indicators.append(f"SOC major group {major_group}")
             sub_type = _get_sub_type(role_lower, collar)

@@ -255,6 +255,39 @@ def _us_state_signal(loc_str: str) -> bool | None:
     return None
 
 
+def _has_us_namesake(name: str) -> bool:
+    """True unless the US place gazetteer (``plan_location``) holds nothing that
+    ``name`` could be: no exact place, no ambiguous set, no typo-corrected
+    match. Fails safe: when the gazetteer cannot answer, assume a US place
+    exists (the caller then leaves the name unresolved, as before)."""
+    try:
+        import plan_location  # lazy: plan_location imports this module
+
+        res = plan_location.resolve_location(name)
+    except Exception:  # noqa: BLE001 - best-effort; unknown stays unknown
+        return True
+    return res.status != "unresolved" or bool(res.matched_via)
+
+
+def _bare_foreign_city(loc_str: str) -> bool:
+    """True when ``loc_str`` is ONE bare well-known city of another country
+    ("Dortmund", "Mumbai") with no US namesake.
+
+    A bare name nothing else resolves is read as US by default (back-compat),
+    which printed US data for a plan whose only market was "Dortmund". The
+    narrowest safe correction: only a name the shared world-city list
+    (``country_registry.WORLD_CITY_COUNTRY``, the one ``research`` reads) knows
+    AND the US gazetteer does not hold at all becomes foreign. A name both hold
+    ("Berlin" has Berlin NH/WI/CT, "Munich" has Munich ND, "Toronto" has
+    Toronto OH) is a real ambiguity and stays unresolved: guessing foreign
+    would turn a Berlin, NH plan into a non-US one, and the "City, ST" /
+    "City, Country" forms already resolve either way.
+    """
+    if not country_registry.world_city_country(loc_str):
+        return False
+    return not _has_us_namesake(loc_str)
+
+
 def _resolve_candidate(loc_str: str) -> bool | None:
     """Resolve a single location string to True (US), False (non-US), or
     None (unresolvable -- caller must NOT treat this as a hard False)."""
@@ -286,6 +319,20 @@ def _resolve_candidate(loc_str: str) -> bool | None:
     return None
 
 
+def _resolve_location_str(loc_str: str) -> bool | None:
+    """:func:`_resolve_candidate`, then one more rule for a bare foreign city.
+
+    Kept apart from ``_resolve_candidate`` on purpose: ``plan_location`` calls
+    that one as its "is this outside the US?" classifier AFTER it has already
+    failed to find a US place, and ``_has_us_namesake`` below calls
+    ``plan_location`` -- folding the rule in would recurse.
+    """
+    result = _resolve_candidate(loc_str)
+    if result is None and _bare_foreign_city(loc_str):
+        return False
+    return result
+
+
 def location_is_us(loc: Any) -> bool | None:
     """Resolve ONE location (str or dict) to True (US), False (non-US) or
     None (unresolvable -- the caller decides the default).
@@ -294,7 +341,7 @@ def location_is_us(loc: Any) -> bool | None:
     must decide market by market (a plan listing "New York, NY" and
     "London, UK" is non-US as a whole, yet its New York rows are US data).
     """
-    return _resolve_candidate(_extract_str(loc))
+    return _resolve_location_str(_extract_str(loc))
 
 
 def _gather_candidates(data: dict) -> list[Any]:
@@ -326,7 +373,7 @@ def _evaluate(data: dict) -> tuple[bool, list[str]]:
         loc_str = _extract_str(raw)
         if not loc_str:
             continue
-        result = _resolve_candidate(loc_str)
+        result = _resolve_location_str(loc_str)
         # Unresolvable candidate => continue (never hard-return False on the
         # first miss -- that exact bug shipped).
         if result is False:
