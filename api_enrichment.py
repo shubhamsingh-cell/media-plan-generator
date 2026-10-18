@@ -2269,7 +2269,10 @@ _EXACT_ONLY_SOC_TITLES = frozenset(
 # 2018 has no product-manager occupation), Project Manager -> 11-9199 Managers,
 # All Other (a residual bucket, not the job). BLS wages blend into the client
 # salary, so these get no BLS wage (the benchmark stays) rather than a
-# neighbour's wage.
+# neighbour's wage. (Every title whose SOC is an "All Other" bucket, ending
+# 99, is refused by _soc_for_salary_role without being listed here: Program
+# Manager, Risk Manager, Solutions Architect, SAP Consultant, Machine Operator,
+# Production Worker and whatever is added to SOC_CODES later.)
 _BLS_NO_WAGE_TITLES = frozenset(
     {
         "physician",
@@ -2478,6 +2481,17 @@ def _soc_for_salary_role(role: str) -> Tuple[str, str]:
     # SOC means no BLS wage for that role, not a wrong one. The
     # standardizer's alias table is deliberately NOT consulted here: it
     # maps Sales Representative / Account Executive / BDR to 11-2022.
+    if soc and _bls_oews.is_all_other_soc(soc):
+        # "Managers, All Other" / "Computer Occupations, All Other" /
+        # "Production Workers, All Other" are residual buckets, not a job:
+        # Program Manager, Risk Manager, Solutions Architect, SAP Consultant,
+        # Machine Operator and Production Worker all landed on one and a
+        # national all-managers mean was printed as "BLS OES" over a better
+        # curated figure. No wage beats a wrong wage.
+        return (
+            "",
+            f"SOC {soc} is a BLS 'All Other' catch-all, not this job; benchmark kept",
+        )
     if soc:
         return soc, ""
     if role_lower in _BLS_NO_WAGE_TITLES:
@@ -2570,7 +2584,16 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
         soc_code: SOC occupation code (e.g., '15-1252'). Optional.
 
     Returns:
-        Dict with metro salary benchmarks or empty dict on failure.
+        Dict with metro salary benchmarks or empty dict on failure. Without a
+        ``soc_code`` (the all-occupation metro mean) it also carries
+        ``national_annual_mean_wage`` / ``national_reference_period``: the
+        national all-occupation annual MEAN of the SAME reference year and
+        datatype, so a caller can form a like-for-like metro/national ratio.
+        The national series rides in the same POST as the metro one (one
+        request either way) and is cached with it; it is absent when BLS did
+        not return it for the metro's reference year, and a caller then falls
+        back to its own dated constant rather than to a mean/median or year
+        mismatch.
     """
     api_key = os.environ.get("BLS_API_KEY") or ""
     if not api_key:
@@ -2608,12 +2631,22 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
     if cached:
         return cached
 
+    # The all-occupation metro mean is only meaningful against the all-
+    # occupation NATIONAL mean (same datatype, same vintage): OEUN + 0000000 +
+    # 000000 + 000000 + 04. An occupation-specific metro lookup has no such
+    # comparator here.
+    national_id = ""
+    request_ids = [series_id]
+    if not soc_code:
+        national_id = _bls_oews.oews_series_id(None, _bls_oews.DATATYPE_ANNUAL_MEAN)
+        request_ids.append(national_id)  # same POST: one request either way
+
     try:
         url = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
         start_year, end_year = _bls_oews.year_window()
         payload = json.dumps(
             {
-                "seriesid": [series_id],
+                "seriesid": request_ids,
                 "registrationkey": api_key,
                 "startyear": start_year,
                 "endyear": end_year,
@@ -2627,9 +2660,17 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
             data = json.loads(resp.read().decode("utf-8"))
 
         series = (data.get("Results") or {}).get("series") or []
-        latest = _bls_oews.newest_points(series).get(series_id)
+        points = _bls_oews.newest_points(series)
+        latest = points.get(series_id)
         annual_mean = (
             _bls_oews.parse_wage_value(latest.get("value")) if latest else None
+        )
+
+        national_point = points.get(national_id) if national_id else None
+        national_mean = (
+            _bls_oews.parse_wage_value(national_point.get("value"))
+            if national_point
+            else None
         )
         if latest is None or annual_mean is None:
             return {}
@@ -2643,6 +2684,15 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
             "reference_period": _bls_oews.reference_label(int(latest.get("year") or 0)),
             "source": "BLS OEWS",
         }
+        # Only a national mean of the metro's own reference year is attached:
+        # never a stale vintage against a newer metro figure.
+        if (
+            national_point is not None
+            and national_mean
+            and str(national_point.get("year")) == str(result["year"])
+        ):
+            result["national_annual_mean_wage"] = float(national_mean)
+            result["national_reference_period"] = result["reference_period"]
         _set_cached(cache_key, result)
         return result
 

@@ -367,15 +367,25 @@ def _get_channel_cpc(
     return _FALLBACK_CPC.get(channel_key, 0.85)
 
 
-# National median annual wage (all occupations) for normalization
-_NATIONAL_MEDIAN_WAGE: float = 59_540.0
+# National all-occupation annual MEAN wage, BLS OEWS May 2025 (series
+# OEUN000000000000000000004, retrieved 2026-10-18). The denominator of the metro
+# multiplier below, used only when the live lookup returned no national mean of
+# the metro's own vintage. It must stay a MEAN: fetch_metro_salary_data returns
+# the all-occupation metro MEAN (datatype 04), and the old constant, 59,540, was
+# neither this vintage's mean (69,770) nor its median (50,980), so an average
+# metro read 1.17x. After the next May release this stand-in is a year stale (a
+# few percent), which is why the live pair is preferred.
+_NATIONAL_MEAN_WAGE_MAY_2025: float = 69_770.0
 
 
 def _get_metro_salary_multiplier(location: str) -> float:
     """Get a CPC/budget multiplier based on BLS metro-level salary data.
 
     Higher-wage metros have higher recruitment advertising costs.
-    Returns a multiplier centered around 1.0 (national average).
+    Returns a multiplier centered around 1.0 (national average): the metro's
+    all-occupation annual mean wage over the national all-occupation annual
+    mean wage of the SAME OEWS vintage (the lookup returns both; a dated May
+    2025 constant stands in when it returned no national figure).
 
     Args:
         location: Location string (city name or 'City, ST' format).
@@ -393,8 +403,11 @@ def _get_metro_salary_multiplier(location: str) -> float:
         annual_mean = metro_data.get("annual_mean_wage") or 0
         if annual_mean <= 0:
             return 1.0
-        # Ratio to national median, clamped to 0.8-1.4
-        ratio = annual_mean / _NATIONAL_MEDIAN_WAGE
+        national_mean = metro_data.get("national_annual_mean_wage") or 0
+        if not isinstance(national_mean, (int, float)) or national_mean <= 0:
+            national_mean = _NATIONAL_MEAN_WAGE_MAY_2025
+        # Mean over mean, same vintage, clamped to 0.8-1.4
+        ratio = annual_mean / national_mean
         return max(0.8, min(1.4, ratio))
     except Exception as exc:
         logger.debug("Geo cost index calculation failed: %s", exc)

@@ -226,7 +226,10 @@ def test_the_metro_lookup_sends_a_valid_25_character_id(
     monkeypatch.setattr(api_enrichment.urllib.request, "urlopen", fake_urlopen)
     out = api_enrichment.fetch_metro_salary_data("New York")
     ids = sent[0]["seriesid"]
-    assert ids == ["OEUM003562000000000000004"] and len(ids[0]) == 25
+    # the metro mean, then the national all-occupation mean of the same
+    # vintage (OEUN + 0000000 + 000000 + 000000 + 04) in the same POST
+    assert ids == ["OEUM003562000000000000004", "OEUN000000000000000000004"]
+    assert [len(i) for i in ids] == [25, 25] and len(sent) == 1
     assert out["annual_mean_wage"] == 86310.0 and out["reference_period"] == "May 2025"
     assert int(sent[0]["endyear"]) == datetime.datetime.now().year
 

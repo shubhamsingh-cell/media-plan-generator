@@ -141,6 +141,16 @@ from us_only_markers import _US_ONLY_MARKERS, _US_ONLY_MARKER_RES  # noqa: E402
 _US_HOLIDAY_MARKERS: frozenset[str] = frozenset(
     {"thanksgiving", "memorial day", "spring break"}
 )
+# The "BLS" marker is the wage SOURCE label ("BLS OES" in a salary table's
+# Sources line, "Sources: BLS OES, DOL H-1B/LCA"), printed against the rows of
+# the plan's US markets: the generator dispatches BLS only when the plan has a
+# US market and leaves a non-US row's wage "n/a". Like a holiday it is judged
+# by the plan's own US market presence, not by the plan-wide ``is_us_plan``
+# (False for an Austin + Berlin plan, whose Austin row legitimately cites BLS).
+# The other markers (Fed Funds, CPI, JOLTS, "Bls Sector Code", the US pay
+# statistics) are US macro CONTENT the Workforce Trends writer omits on any
+# plan that is not wholly US, so they keep the plan-wide gate.
+_US_MARKET_SCOPED_MARKERS: frozenset[str] = frozenset({"bls"})
 # The attribution the generator appends to a US holiday on a mixed plan:
 # "Memorial Day staffing (US markets)", "Spring break peak hiring (Mar, US
 # markets)", "... (often around July 4 in US markets)".
@@ -1837,8 +1847,11 @@ def _check_us_data_on_non_us_plan(
     market among its resolved locations; on a plan that mixes US and non-US
     markets each holiday must be attributed to "US markets" (a bare
     "Thanksgiving" there reads as every market's); an all-US plan prints
-    them bare. Everything else in the marker list (BLS, Fed Funds, US pay
-    statistics) keeps the plan-wide ``is_us_plan`` gate.
+    them bare. The "BLS" wage-source label (``_US_MARKET_SCOPED_MARKERS``) is
+    judged the same way: fine on any plan with a US market (the Austin row of
+    an Austin + Berlin plan cites BLS), a defect on a plan with none. The rest
+    of the marker list (Fed Funds, CPI, JOLTS, US pay statistics) keeps the
+    plan-wide ``is_us_plan`` gate.
     """
     is_us = True
     try:
@@ -1848,6 +1861,7 @@ def _check_us_data_on_non_us_plan(
     holiday_mode = _us_holiday_mode(data)
     if is_us and holiday_mode == "keep":
         return  # the existing non_us_text_on_us_plan rule covers this side
+    has_us_market = _plan_market_presence(data)[0]
 
     for u in units:
         text = u.text
@@ -1856,6 +1870,8 @@ def _check_us_data_on_non_us_plan(
             continue
         for marker, pattern in zip(_US_ONLY_MARKERS, _US_ONLY_MARKER_RES):
             is_holiday = marker.lower() in _US_HOLIDAY_MARKERS
+            if marker.lower() in _US_MARKET_SCOPED_MARKERS and has_us_market:
+                continue  # a wage source label on a plan with a US market
             if is_us and not is_holiday:
                 continue  # US-only data on a plan the US rule already owns
             m = pattern.search(text)

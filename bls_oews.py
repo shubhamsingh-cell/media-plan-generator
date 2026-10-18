@@ -86,6 +86,16 @@ def normalize_soc(soc: Any) -> str:
     return f"{m.group(1)}-{m.group(2)}" if m else ""
 
 
+def is_all_other_soc(soc: Any) -> bool:
+    """True for a BLS "All Other" residual occupation: a detailed SOC whose last
+    two digits are ``99`` (11-9199 Managers, All Other; 15-1299 Computer
+    Occupations, All Other; 51-9199 Production Workers, All Other). Every one of
+    the 46 such codes in the May 2025 OEWS title list is an "All Other" bucket.
+    A residual bucket is whatever is left once the named occupations are taken
+    out, so its wage is no wage for any one job title mapped to it."""
+    return normalize_soc(soc).endswith("99")
+
+
 def cbsa_area_code(cbsa: Any) -> str:
     """7-digit OEWS metro area code for a 5-digit CBSA ("35620" -> "0035620"),
     else ``""``."""
