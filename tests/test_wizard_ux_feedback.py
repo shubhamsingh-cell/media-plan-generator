@@ -615,7 +615,7 @@ def test_every_form_control_uses_the_visible_boundary_token():
     assert selectors.count(":not(.field-error)") >= 7
     # cards, the step rail and the neutral period select use it too
     assert ".studio .industry-card:not(.selected)" in last
-    assert re.search(r"\.studio \.step-circle\s*\{[^}]*var\(--np-field-line\)", last)
+    assert re.search(r"\.studio \.step-circle\s*\{[^}]*var\(--np-step-bar\)", last)
     assert "var(--np-field-line)" in re.search(
         r'#budgetPeriod:not\(\[aria-invalid="true"\]\)\s*\{([^}]*)\}', STYLES
     ).group(1)
@@ -935,14 +935,18 @@ def test_draft_status_says_what_is_true():
         "process.stdout.write(JSON.stringify([novaDraftStatusText(0, false), novaDraftStatusText(t, false),"
         " novaDraftStatusText(0, true)]));"
     )
-    assert got[0] == "Your inputs autosave in this browser tab while you work."
+    # ONE short line each (it used to be a 2-line note plus a status line)
+    assert all(len(line) <= 70 for line in got), got
+    # the autosave is tab-scoped, and the line says exactly that
+    assert got[0] == "Autosaves in this tab."
     assert re.fullmatch(
-        r"Draft saved in this tab( at [0-9:APM\u202f\u00a0 ]+)?\.", got[1]
+        r"Autosaved in this tab( at [0-9:APM\u202f\u00a0 ]+)?\.", got[1]
     ), got[1]
-    assert "could not be saved" in got[2] and "Download your inputs" in got[2]
+    assert "blocked" in got[2] and "Download" in got[2]
     # honest about scope: tab-only, and accounts are not claimed
-    assert "Saved plans for accounts are not turned on yet" in BODY
-    assert "a closed tab loses" in BODY
+    flat = re.sub(r"\s+", " ", BODY)  # (the markup wraps lines)
+    assert "Saved plans for accounts are not turned on yet" in flat
+    assert "a closed tab loses" not in flat  # it never mentioned the Save draft button
     assert 'id="downloadInputsBtn"' in BODY and 'id="restoreInputsBtn"' in BODY
     assert 'accept="application/json,.json"' in BODY
 
@@ -1169,6 +1173,7 @@ def _prefill_run(search: str, existing: list | None = None) -> dict:
             "function _prefillIndustryKey() { return ''; } function _prefillDurationOption() { return ''; }",
             # the page's addTag pushes the entry and re-renders (which saves the draft)
             "function addTag(container, input, arr, value) { arr.push(value); tags.push([container, value]); persisted++; }",
+            js_block(APP, "function novaLimit("),
             js_block(APP, "function commitExcludedBoards("),
             js_block(APP, "function _applyUrlParamPrefill("),
             "_applyUrlParamPrefill();",
@@ -1245,3 +1250,465 @@ def test_prefilled_exclusions_reach_the_estimate_and_generate_requests():
 def test_prefill_key_list_includes_the_exclusions():
     src = js_block(APP, "function _applyUrlParamPrefill(")
     assert '"excluded_publishers"' in src[: src.index("if (!keys.some")]
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 6. Follow-up after the design-judge pass (2026-10-18)
+# ══════════════════════════════════════════════════════════════════════════
+# 6a. The Quick answer card states only what it knows
+
+
+def _card(qa, names=None, budget="$80,000") -> str:
+    """The real novaQuickAnswerHtml for one NovaPreview.quickAnswer() answer."""
+    script = "\n".join(
+        [
+            "function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')"
+            ".replace(/>/g, '&gt;').replace(/\"/g, '&quot;'); }",
+            "var NovaPreview = { quickAnswer: function () { return "
+            + json.dumps(qa)
+            + "; } };",
+            js_block(APP, "function novaQuickAnswerHtml("),
+            "process.stdout.write(JSON.stringify(novaQuickAnswerHtml("
+            + json.dumps(names or [])
+            + ", "
+            + json.dumps(budget)
+            + ")));",
+        ]
+    )
+    return run_node(script)
+
+
+def _caption(html: str) -> str:
+    m = re.search(r'<p class="plan-quick-caption">(.*?)</p>', html, flags=re.S)
+    assert m, html
+    return m.group(1)
+
+
+_RANGE_SENTENCE = "Each figure runs from the low end to the high end of the estimate."
+_SINGLE_SENTENCE = "Single model estimate for this market; no range available."
+
+
+def _qa(**over) -> dict:
+    base = {
+        "ready": True,
+        "budget": "$80K",
+        "cpa": "$14.78–$89",
+        "applications": "1,685–10,149",
+        "hires": "15–30",
+        "supports": "",
+        "basis": "",
+        "note": "",
+        "tone": "info",
+        "channels": [],
+        "more": 0,
+    }
+    base.update(over)
+    return base
+
+
+@needs_node
+def test_quick_answer_calls_a_range_a_range_only_when_every_figure_is_one():
+    html = _card(_qa())  # USD: three ranges
+    assert _caption(html) == _RANGE_SENTENCE
+    assert "Single model estimate" not in html
+
+
+@needs_node
+def test_quick_answer_says_so_when_the_server_returned_single_values():
+    # EUR brief: cost per application and applications come back as one value
+    html = _card(_qa(cpa="€19.81", applications="4,039", hires=""))
+    assert _caption(html) == _SINGLE_SENTENCE
+    assert "Each figure runs" not in html and "low end to the high end" not in html
+
+
+@needs_node
+def test_quick_answer_does_not_call_a_mixed_card_all_ranges_or_all_single():
+    # the real EUR response: CPA 19.81 and 4,039 applications are points, hires 5-10 a range
+    html = _card(_qa(cpa="€19.81", applications="4,039", hires="5–10"))
+    cap = _caption(html)
+    assert "Each figure runs" not in cap  # not every figure is a range
+    assert cap != _SINGLE_SENTENCE  # ... and the hires range is not a single estimate
+    # it names which figures are single estimates and which run low to high
+    single, ranged = cap.split("Est. hires")[0], cap.split("Est. hires")[1]
+    assert "Cost per application" in single and "Applications" in single
+    assert "single model estimate for this market" in single.lower()
+    assert "low end to the high end" in ranged
+
+
+@needs_node
+def test_quick_answer_caption_ignores_figures_that_are_not_shown():
+    # hires suppressed for the market: the two figures shown are both ranges
+    assert (
+        _caption(_card(_qa(hires="", supports="No local cost-per-hire benchmark.")))
+        == _RANGE_SENTENCE
+    )
+    # only one figure shown, and it is a range
+    assert _caption(_card(_qa(applications="", hires=""))) == _RANGE_SENTENCE
+    # only one figure shown, and it is a point
+    assert (
+        _caption(_card(_qa(cpa="$19.81", applications="", hires="")))
+        == _SINGLE_SENTENCE
+    )
+
+
+@needs_node
+def test_quick_answer_without_an_estimate_claims_neither_a_range_nor_a_point():
+    for qa in (None, _qa(ready=False, cpa="", applications="", hires="")):
+        html = _card(qa, names=["Programmatic"])
+        assert "estimate was not available on screen" in html
+        assert _RANGE_SENTENCE not in html and "Single model estimate" not in html
+
+
+# 6b. The CPA caveat the preview and the estimate bar show is on the card too
+
+
+@needs_node
+def test_quick_answer_prints_the_cpa_caveat_under_the_figures():
+    note = "Industry benchmarks run higher: $35–$58 per application."
+    html = _card(_qa(note=note, supports="Supports an estimated 15–30 hires."))
+    assert note in html
+    figs_end = html.rindex("plan-quick-fig-value")
+    # under the figures, above the budget row
+    assert figs_end < html.index(note) < html.index("What your budget supports")
+
+
+@needs_node
+def test_quick_answer_prints_no_caveat_when_there_is_none_and_escapes_it_when_there_is():
+    assert "plan-quick-note" not in _card(_qa(note=""))
+    html = _card(_qa(note="<img src=x onerror=alert(1)> & more"))
+    assert "<img" not in html and "&lt;img" in html and "&amp; more" in html
+
+
+@needs_node
+def test_quick_answer_model_carries_the_servers_cpa_note():
+    est = json.loads(json.dumps(_EST))
+    est["projection"]["text"][
+        "cpa_note"
+    ] = "Industry benchmarks run higher: $35–$58 per application."
+    got = run_node(
+        _qa_script(
+            "process.stdout.write(JSON.stringify(quickAnswerModel("
+            + json.dumps(_M)
+            + ", "
+            + json.dumps(est)
+            + ", [])));"
+        )
+    )
+    assert got["note"] == "Industry benchmarks run higher: $35–$58 per application."
+
+
+# 6c. Draft controls: one status line and a menu, below the form
+
+
+def _draft_block() -> str:
+    m = re.search(
+        r'<div\s+class="draft-status".*?</details>\s*</div>', BODY, flags=re.S
+    )
+    assert m, "draft status block missing"
+    return m.group(0)
+
+
+def test_draft_controls_sit_below_the_form_not_above_the_first_heading():
+    at = BODY.index('id="draftStatus"')
+    # after the last step (so below the active step's Continue button), inside <main>
+    assert BODY.index('id="step5"') < at < BODY.index("</main>")
+    assert at > BODY.index('id="step1"') > BODY.index('id="presetRow"')
+
+
+def test_draft_controls_are_one_status_line_and_a_small_menu():
+    block = _draft_block()
+    assert block.count('role="status"') == 1 and 'id="draftStatusText"' in block
+    # the two-line note is gone; the buttons live in a menu, not in the row
+    assert "draftStatusNote" not in block and "draft-status-note" not in block
+    menu = re.search(r"<details[^>]*>.*</details>", block, flags=re.S).group(0)
+    for ident in ("saveDraftMenuBtn", "downloadInputsBtn", "restoreInputsBtn"):
+        assert f'id="{ident}"' in menu, ident
+    assert 'id="restoreInputsFile"' in menu
+    visible = re.sub(r"<details.*</details>", "", block, flags=re.S)
+    assert "<button" not in visible
+
+
+def test_draft_menu_wording_matches_what_each_save_actually_does():
+    block = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", _draft_block()))
+    # autosave: this tab; Save draft: this browser (localStorage); Download: a file
+    assert "Save draft" in block and "this browser" in block
+    assert "Download" in block and "file" in block
+    assert "Restore" in block
+    assert "closed tab loses" not in block
+    # the three storage claims are true of the code behind them
+    assert "sessionStorage.setItem(_FORM_STORAGE_KEY" in APP  # autosave
+    assert "localStorage.setItem(_DRAFT_STORAGE_KEY" in APP  # Save draft
+    assert "window.saveDraft = function saveDraft" in APP
+
+
+def test_the_save_draft_menu_item_runs_the_existing_named_draft():
+    wire = APP[
+        APP.index("function wireInputsFile") : APP.index("Unsaved changes warning")
+    ]
+    assert 'getElementById("saveDraftMenuBtn")' in wire and "saveDraft()" in wire
+
+
+# 6d. Restore from file: a bad value can neither throw nor half-apply
+
+
+def _opt_block(start: str) -> str:
+    """A helper the restore path may call (absent from older code, so the same
+    tests can be run against the pre-fix template and fail on its behaviour)."""
+    return js_block(APP, start) if start in APP else ""
+
+
+def _restore_script(file_obj, *, pre=None, boom=None, text=None) -> str:
+    pre = pre or {}
+    text = text if text is not None else json.dumps(file_obj)
+    return "\n".join(
+        [
+            _draft_fns(),
+            "var toasts = [], saves = 0, threw = null, console_error = console.error;",
+            "console.error = function () {};",
+            "var FIELD_IDS = ['clientName','clientWebsite','useCase','callTranscript','budgetRange','budgetPeriod',"
+            "'exactBudget','campaignDuration','campaignStartMonth','hireVolume','exactHires','targetDemographic',"
+            "'requesterName','requesterEmail'];",
+            "var PRE = " + json.dumps(pre) + ";",
+            "var FIELDS = {}; FIELD_IDS.forEach(function (id) { FIELDS[id] = { id: id, value: PRE[id] || '', style: {} }; });",
+            "var locations = PRE.locations || [], roles = PRE.roles || [], competitors = [], excludedPublishers = [], selectedJobCategories = [];",
+            "var selectedIndustry = PRE.selectedIndustry || null, selectedNaicsCode = null, selectedNaicsTitle = null, currentStep = 1;",
+            "function Card(key) { this.dataset = { industry: key }; this.selected = key === selectedIndustry; this.pressed = 'false';",
+            "  var self = this; this.classList = { add: function () { self.selected = true; }, remove: function () { self.selected = false; } };",
+            "  this.setAttribute = function (k, v) { if (k === 'aria-pressed') self.pressed = v; }; }",
+            "var CARDS = ['healthcare_medical', 'tech_engineering'].map(function (k) { return new Card(k); });",
+            "var document = {",
+            "  getElementById: function (id) { return FIELDS[id] || null; },",
+            # a real browser throws on an unbalanced quote in an attribute selector
+            '  querySelector: function (sel) { if ((sel.match(/"/g) || []).length % 2) throw new SyntaxError("\'" + sel + "\' is not a valid selector.");',
+            '    var m = /\\.industry-card\\[data-industry="([^"]*)"\\]$/.exec(sel); if (!m) return null;',
+            "    return CARDS.filter(function (c) { return c.dataset.industry === m[1]; })[0] || null; },",
+            "  querySelectorAll: function (sel) { return sel === '.industry-card' ? CARDS : []; } };",
+            "var window = { NovaPreview: { update: function () {} } };",
+            "function showToast(m, t) { toasts.push([t, m]); }",
+            "function saveFormState() { saves++; } function novaRenderStepNeeds() {} function goToStep() {}",
+            "function selectIndustry(el) { CARDS.forEach(function (c) { c.selected = false; c.pressed = 'false'; });"
+            " el.selected = true; el.pressed = 'true'; selectedIndustry = el.dataset.industry; }",
+            "function addTag(c, i, arr, v) { if (v === "
+            + json.dumps(boom)
+            + ") throw new Error('boom'); arr.push(v); }",
+            "function novaRestoreRegion() {} function setNovaChannelsTouched() {} function novaEnterpriseRestore() {}",
+            "function checkBudgetFeasibility() {} function novaSyncJobCategoryCards() {} function _renderNaicsChip() {}",
+            "function _collectDraftState() { var s = {}; FIELD_IDS.forEach(function (id) { s[id] = FIELDS[id].value; });",
+            "  s.selectedIndustry = selectedIndustry || null; s.selectedNaicsCode = selectedNaicsCode; s.selectedNaicsTitle = selectedNaicsTitle;",
+            "  s.locations = locations.slice(); s.roles = roles.slice(); s.competitors = competitors.slice();",
+            "  s.excludedPublishers = excludedPublishers.slice(); s.selectedJobCategories = selectedJobCategories.slice(); return s; }",
+            _opt_block("function novaIndustryCard("),
+            js_block(APP, "function _restoreDraftState("),
+            _opt_block("function novaRollbackInputs("),
+            js_block(APP, "function novaRestoreInputsFromText("),
+            "var ok = null;",
+            "try { ok = novaRestoreInputsFromText("
+            + json.dumps(text)
+            + ", 'inputs.json'); } catch (e) { threw = String(e); }",
+            "process.stdout.write(JSON.stringify({ ok: ok, threw: threw, toasts: toasts, saves: saves,",
+            "  fields: Object.fromEntries(FIELD_IDS.map(function (id) { return [id, FIELDS[id].value]; })),",
+            "  locations: locations, roles: roles, industry: selectedIndustry,",
+            "  cards: CARDS.map(function (c) { return [c.dataset.industry, c.selected, c.pressed]; }),",
+            "  polluted: ({}).polluted === undefined }));",
+        ]
+    )
+
+
+def _inputs(**inp) -> dict:
+    return {"app": "nova-media-plan-inputs", "version": 1, "inputs": inp}
+
+
+_PRE = {
+    "clientName": "Old Co",
+    "useCase": "Old brief",
+    "roles": ["Old Role"],
+    "locations": ["Old City, TX"],
+}
+
+
+@needs_node
+def test_restore_ignores_an_industry_that_could_break_the_card_lookup():
+    """Pre-fix: the value went into querySelector('...[data-industry="' + v + '"]'),
+    a quote threw an uncaught SyntaxError after the client name and brief had
+    already been replaced, and no toast said so."""
+    # `a"b` makes the selector invalid (throws); the first one is VALID and
+    # widens the lookup (selector injection) -- neither may reach the DOM
+    for hostile in ('a"b', 'x"] , *[a="', "a'b", 'tech_engineering"]'):
+        got = run_node(
+            _restore_script(
+                _inputs(
+                    clientName="New Co", useCase="New brief", selectedIndustry=hostile
+                ),
+                pre=_PRE,
+            )
+        )
+        assert got["threw"] is None, (hostile, got["threw"])
+        assert got["ok"] is True, hostile
+        assert got["fields"]["clientName"] == "New Co"  # the rest restored whole
+        assert got["industry"] is None and all(not c[1] for c in got["cards"]), hostile
+        # the user is told the industry was not taken from the file
+        assert any(
+            t == "success" and "industry" in m.lower() for t, m in got["toasts"]
+        ), hostile
+
+
+@needs_node
+def test_restore_accepts_an_industry_only_if_it_is_a_plain_key_with_a_card():
+    ok = run_node(
+        _restore_script(_inputs(selectedIndustry="healthcare_medical"), pre=_PRE)
+    )
+    assert ok["industry"] == "healthcare_medical"
+    assert ok["cards"] == [
+        ["healthcare_medical", True, "true"],
+        ["tech_engineering", False, "false"],
+    ]
+    # a plain key with no card behind it is not an industry the wizard has
+    nocard = run_node(
+        _restore_script(
+            _inputs(clientName="N", selectedIndustry="no_such_industry"), pre=_PRE
+        )
+    )
+    assert nocard["threw"] is None and nocard["industry"] is None
+    for bad in (
+        "Healthcare_Medical",
+        "tech engineering",
+        "tech-engineering",
+        "x1",
+        "a" * 5 + "'",
+    ):
+        got = run_node(
+            _restore_script(_inputs(clientName="N", selectedIndustry=bad), pre=_PRE)
+        )
+        assert got["threw"] is None and got["industry"] is None, bad
+
+
+@needs_node
+def test_restore_that_fails_midway_puts_the_old_inputs_back_and_says_so():
+    got = run_node(
+        _restore_script(
+            _inputs(
+                clientName="New Co",
+                useCase="New brief",
+                selectedIndustry="tech_engineering",
+                roles=["Fine", "BOOM"],
+                locations=["Elsewhere"],
+            ),
+            pre=_PRE,
+            boom="BOOM",
+        )
+    )
+    assert got["threw"] is None  # never an uncaught error
+    assert got["ok"] is False
+    assert (
+        got["fields"]["clientName"] == "Old Co"
+        and got["fields"]["useCase"] == "Old brief"
+    )
+    assert got["roles"] == ["Old Role"] and got["locations"] == ["Old City, TX"]
+    assert got["industry"] is None and all(not c[1] for c in got["cards"])
+    assert got["toasts"] and got["toasts"][-1][0] == "error"
+    assert "could not be restored" in got["toasts"][-1][1]
+    assert not any(t == "success" for t, _ in got["toasts"])
+
+
+@needs_node
+@pytest.mark.parametrize(
+    "text,why",
+    [
+        pytest.param("", "empty", id="empty"),
+        pytest.param("{nope", "invalid JSON", id="invalid-json"),
+        pytest.param(
+            json.dumps({"inputs": {"clientName": "x"}}), "wrong file", id="wrong-file"
+        ),
+        pytest.param(json.dumps(_inputs(zzz=1)), "no wizard inputs", id="no-inputs"),
+        pytest.param(
+            json.dumps({**_inputs(clientName="x"), "version": 9}),
+            "newer version",
+            id="newer",
+        ),
+        pytest.param("x" * 2_000_001, "over 2 MB", id="over-2mb"),
+    ],
+)
+def test_restore_refuses_what_is_not_an_inputs_file_and_changes_nothing(text, why):
+    got = run_node(_restore_script(None, pre=_PRE, text=text))
+    assert got["threw"] is None and got["ok"] is False, why
+    assert got["toasts"] and got["toasts"][-1][0] == "error", why
+    assert got["fields"]["clientName"] == "Old Co" and got["roles"] == ["Old Role"], why
+
+
+@needs_node
+def test_restore_keeps_hostile_text_as_data_and_drops_prototype_keys():
+    text = (
+        '{"app":"nova-media-plan-inputs","version":1,"inputs":{"clientName":"<script>alert(1)</script>",'
+        '"__proto__":{"polluted":1},"constructor":{"x":1},"evil":"<img src=x onerror=1>",'
+        '"channels":{"__proto__":true,"chSocial":true}}}'
+    )
+    got = run_node(_restore_script(None, pre=_PRE, text=text))
+    assert got["threw"] is None and got["ok"] is True and got["polluted"] is True
+    # the markup is only ever a field VALUE (the node stub has no innerHTML to abuse)
+    assert got["fields"]["clientName"] == "<script>alert(1)</script>"
+    assert "evil" not in got["fields"]
+
+
+# 6e. Over-long excluded job boards are dropped, not sent (they made /api/estimate 400)
+
+
+def test_excluded_board_input_is_capped_at_the_servers_limit():
+    import wizard_inputs
+
+    tag = re.search(
+        r'<input[^>]*id="excludedPublisherInput"[^>]*>', BODY, flags=re.S
+    ).group(0)
+    cap = wizard_inputs.INPUT_LIMITS["excluded_publisher_chars"]
+    assert f'maxlength="{cap}"' in tag
+
+
+@needs_node
+def test_url_prefill_drops_an_excluded_board_name_longer_than_the_servers_limit():
+    import wizard_inputs
+
+    cap = wizard_inputs.INPUT_LIMITS["excluded_publisher_chars"]
+    too_long = "a" * cap + ".com"  # cap + 4 characters
+    exactly = "b" * (cap - 4) + ".com"  # exactly cap characters
+    got = _prefill_run(
+        "?excluded_publishers=indeed.com%2C" + too_long + "%2C" + exactly + "%2CMonster"
+    )
+    assert got["excluded"] == ["indeed.com", exactly, "Monster"]
+    assert too_long not in got["excluded"]
+    assert str(cap) in got["note"]  # the user is told why one name was not added
+
+
+# 6f. Upcoming step bars: >= 3:1 against the pixels they really sit on
+# Brightest background pixel in the ring around an upcoming bar, from the
+# render measurement (own headless Chrome, text hidden, ring of the 3px bar's
+# box sampled; tools/bars.py in ledger/2026-10-18/wizard_ux_verify): the
+# aurora is brighter behind the rail at 375 than at 1440.
+BAR_BACKDROP = {"1440": "#2e2a58", "375": "#343d63"}
+
+
+def _bar_color() -> str:
+    t = _tokens()
+    rule = re.search(r"\.studio \.step-circle\s*\{([^}]*)\}", LAST).group(1)
+    ref = re.search(r"background:\s*(var\(--[a-z0-9-]+\)|#[0-9a-fA-F]{6})", rule).group(
+        1
+    )
+    if ref.startswith("var("):
+        ref = t[re.fullmatch(r"var\((--[a-z0-9-]+)\)", ref).group(1)]
+    return ref
+
+
+def test_upcoming_step_bars_clear_3_to_1_on_the_aurora_at_both_widths():
+    bar = _bar_color()
+    low = {
+        w: round(_ratio(bar, bg), 2)
+        for w, bg in BAR_BACKDROP.items()
+        if _ratio(bar, bg) < 3.0
+    }
+    assert not low, (bar, low)  # was #706d96: 2.2:1 at 375, 2.8:1 at 1440
+
+
+def test_the_bar_token_is_a_token_and_the_form_boundary_token_is_untouched():
+    t = _tokens()
+    assert "--np-step-bar" in t and re.fullmatch(r"#[0-9a-fA-F]{6}", t["--np-step-bar"])
+    rule = re.search(r"\.studio \.step-circle\s*\{([^}]*)\}", LAST).group(1)
+    assert "var(--np-step-bar)" in rule and "#" not in rule  # no raw hex in the rule
+    assert t["--np-field-line"] == "#706d96"  # the control boundary measured fine

@@ -963,14 +963,21 @@
     var h =
       '<details class="plan-quick" id="planQuickAnswer" open>' +
       '<summary class="plan-quick-title">Quick answer</summary>';
-    if (qa.ready) {
-      h += '<div class="plan-quick-figs">';
+    // What is drawn: a figure the estimate did not carry (empty, or the
+    // server's "n/a") is simply not drawn, and the caption below describes
+    // ONLY the figures that are.
+    var figs = [];
+    if (qa.ready)
       [
         ["Cost per application", qa.cpa],
         ["Applications", qa.applications],
         ["Est. hires", qa.hires],
       ].forEach(function (f) {
-        if (!f[1]) return;
+        if (f[1] && !/^\s*n\/a\s*$/i.test(String(f[1]))) figs.push(f);
+      });
+    if (figs.length) {
+      h += '<div class="plan-quick-figs">';
+      figs.forEach(function (f) {
         h +=
           '<div class="plan-quick-fig"><div class="plan-quick-fig-label">' +
           escapeHtml(f[0]) +
@@ -979,7 +986,30 @@
           "</div></div>";
       });
       h += "</div>";
-      h += '<p class="plan-quick-caption">Each figure runs from the low end to the high end of the estimate.</p>';
+      // A figure is a range when its text holds two numbers joined by a dash
+      // (en dash: "9-19", "$3,158-$6,667"); ONE number (a EUR plan's CPA, "4,039"
+      // applications) is the model's single estimate -- it has no low/high
+      // bounds for a plan priced outside the US$ benchmark bands. The caption
+      // describes what is printed, so it never calls a point a range.
+      var isRange = function (t) {
+        return /\d\s*[\u2013\u2014-]\s*[^\d\s]{0,3}\s*\d/.test(String(t));
+      };
+      var joinNames = function (a) {
+        return a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+      };
+      var ranged = figs.filter(function (f) { return isRange(f[1]); }).map(function (f) { return f[0]; });
+      var single = figs.filter(function (f) { return !isRange(f[1]); }).map(function (f) { return f[0]; });
+      var caption;
+      if (!single.length) caption = "Each figure runs from the low end to the high end of the estimate.";
+      else if (!ranged.length) caption = "Single model estimate for this market; no range available.";
+      else
+        caption =
+          joinNames(single) + ": single model estimate for this market, no range available. " +
+          joinNames(ranged) + ": low end to the high end of the estimate.";
+      h += '<p class="plan-quick-caption">' + escapeHtml(caption) + "</p>";
+      // the cost-per-application caveat the preview and the estimate bar
+      // carry (e.g. "Industry benchmarks run higher: $35-$58 per application.")
+      if (qa.note) h += '<p class="plan-quick-note">' + escapeHtml(qa.note) + "</p>";
     } else {
       h +=
         '<p class="plan-quick-caption">A cost and volume estimate was not available on screen for these inputs. ' +
@@ -3418,6 +3448,18 @@
           if (note)
             note.textContent =
               "\u201c" + entry + "\u201d is not a job board name. Type the board\u2019s own name, e.g. indeed.com.";
+          return;
+        }
+        // /api/estimate and /api/generate answer 400 for a name over the
+        // server's limit (the whole preview then reads "unavailable"), so a
+        // too-long one -- typed, pasted, or handed over by Nova's URL -- is
+        // left out here, with the reason.
+        const maxChars = novaLimit("excluded_publisher_chars");
+        if (Array.from(entry).length > maxChars) {
+          if (note)
+            note.textContent =
+              "\u201c" + Array.from(entry).slice(0, 24).join("") + "\u2026\u201d is longer than " +
+              maxChars + " characters, so it was not added.";
           return;
         }
         // the same board under another spelling is one exclusion
@@ -7553,6 +7595,18 @@
     };
   }
 
+  // The industry card for a key, found by comparing data-industry (never by
+  // building a selector from the key); null for anything that is not a plain
+  // a-z/underscore key or has no card.
+  function novaIndustryCard(key) {
+    if (typeof key !== "string" || !/^[a-z_]+$/.test(key)) return null;
+    var cards = document.querySelectorAll(".industry-card");
+    for (var i = 0; i < cards.length; i++) {
+      if (cards[i].dataset && cards[i].dataset.industry === key) return cards[i];
+    }
+    return null;
+  }
+
   function _restoreDraftState(s) {
     if (!s) return;
     var setVal = function (id, val) {
@@ -7590,13 +7644,14 @@
 
     // Restore industry selection (fromNaics:true -- don't let the card
     // highlight clear the NAICS selection we're about to restore next).
+    // The value may come from a downloaded file: only a plain key that has a
+    // card is accepted (it used to be pasted into a CSS selector, where a
+    // quote threw after half the form had been replaced).
     if (s.selectedIndustry) {
-      selectedIndustry = s.selectedIndustry;
-      var indCard = document.querySelector(
-        '.industry-card[data-industry="' + s.selectedIndustry + '"]',
-      );
-      if (indCard && typeof selectIndustry === "function") {
-        selectIndustry(indCard, { fromNaics: true });
+      var indCard = novaIndustryCard(s.selectedIndustry);
+      if (indCard) {
+        selectedIndustry = s.selectedIndustry;
+        if (typeof selectIndustry === "function") selectIndustry(indCard, { fromNaics: true });
       }
     }
 
@@ -7829,16 +7884,17 @@
   var NOVA_INPUTS_FILE_MAX_BYTES = 2000000;
 
   function novaDraftStatusText(ts, failed) {
-    if (failed)
-      return "Draft could not be saved in this browser (storage is blocked). Download your inputs to keep a copy.";
-    if (!ts) return "Your inputs autosave in this browser tab while you work.";
+    // ONE short line: the autosave is this tab's. The menu next to it says
+    // what Save draft (this browser) and Download (a file) keep.
+    if (failed) return "Autosave is blocked in this browser. Download your inputs.";
+    if (!ts) return "Autosaves in this tab.";
     var when = "";
     try {
       when = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     } catch (_e) {
       when = "";
     }
-    return "Draft saved in this tab" + (when ? " at " + when : "") + ".";
+    return "Autosaved in this tab" + (when ? " at " + when : "") + ".";
   }
   function novaDraftStatusSync(ts, failed) {
     var el = document.getElementById("draftStatusText");
@@ -7972,8 +8028,47 @@
     });
     if (src.enterprise && typeof src.enterprise === "object" && !Array.isArray(src.enterprise))
       state.enterprise = novaCleanJson(src.enterprise, 0);
+    // An industry is one of the wizard's own card keys (a-z and underscores):
+    // anything else never reaches a DOM lookup. (_restoreDraftState also
+    // requires a card with that key to exist.)
+    var dropped = [];
+    if (state.selectedIndustry && !/^[a-z_]+$/.test(state.selectedIndustry)) {
+      delete state.selectedIndustry;
+      n--;
+      dropped.push("selectedIndustry");
+    }
     if (n === 0) return fail("The file has none of the wizard's inputs in it.");
-    return { ok: true, state: state, fields: n };
+    return { ok: true, state: state, fields: n, dropped: dropped };
+  }
+  // Put the form back as it was before a restore that failed part-way. The
+  // snapshot is _collectDraftState() taken just before; _restoreDraftState only
+  // SETS what it is given, so a selection that the snapshot did not have
+  // (industry, NAICS) is cleared here explicitly. Returns true when the
+  // old inputs are back.
+  function novaRollbackInputs(before) {
+    if (!before) return false;
+    try {
+      _restoreDraftState(before);
+      if (!before.selectedIndustry) {
+        selectedIndustry = null;
+        document.querySelectorAll(".industry-card").forEach(function (c) {
+          c.classList.remove("selected");
+          if (c.setAttribute) c.setAttribute("aria-pressed", "false");
+        });
+      }
+      if (!before.selectedNaicsCode) {
+        selectedNaicsCode = null;
+        selectedNaicsTitle = null;
+        if (typeof _renderNaicsChip === "function") _renderNaicsChip();
+      }
+      if (typeof saveFormState === "function") saveFormState();
+      if (window.NovaPreview && typeof window.NovaPreview.update === "function") window.NovaPreview.update();
+      if (typeof novaRenderStepNeeds === "function") novaRenderStepNeeds();
+      return true;
+    } catch (e) {
+      console.error("novaRollbackInputs failed:", e);
+      return false;
+    }
   }
   function novaRestoreInputsFromText(text, fileName) {
     var parsed = novaSanitizeInputsFile(text);
@@ -7981,23 +8076,79 @@
       showToast(parsed.error, "error");
       return false;
     }
-    _restoreDraftState(parsed.state);
-    if (typeof saveFormState === "function") saveFormState();
-    if (window.NovaPreview && typeof window.NovaPreview.update === "function") window.NovaPreview.update();
-    if (typeof novaRenderStepNeeds === "function") novaRenderStepNeeds();
-    if (typeof goToStep === "function" && currentStep !== 1) goToStep(1);
+    var before = null;
+    try {
+      before = _collectDraftState();
+    } catch (_e) {
+      before = null;
+    }
+    try {
+      _restoreDraftState(parsed.state);
+      if (typeof saveFormState === "function") saveFormState();
+      if (window.NovaPreview && typeof window.NovaPreview.update === "function") window.NovaPreview.update();
+      if (typeof novaRenderStepNeeds === "function") novaRenderStepNeeds();
+      if (typeof goToStep === "function" && currentStep !== 1) goToStep(1);
+    } catch (e) {
+      // never a half-restore without a word: the old inputs go back (or, if
+      // even that fails, the autosave is one reload away) and the user is told
+      console.error("novaRestoreInputsFromText failed:", e);
+      showToast(
+        novaRollbackInputs(before)
+          ? "That file could not be restored. Your current inputs were kept."
+          : "That file could not be restored. Reload this page to return to your last autosave.",
+        "error",
+      );
+      return false;
+    }
     showToast(
-      "Inputs restored" + (fileName ? " from " + fileName : "") + ". Check each step, then generate.",
+      "Inputs restored" +
+        (fileName ? " from " + fileName : "") +
+        ". Check each step, then generate." +
+        (parsed.dropped && parsed.dropped.length
+          ? " The industry in the file was not recognised: choose it again on step 2."
+          : ""),
       "success",
     );
     return true;
   }
   (function wireInputsFile() {
+    var sv = document.getElementById("saveDraftMenuBtn");
     var dl = document.getElementById("downloadInputsBtn");
     var rs = document.getElementById("restoreInputsBtn");
     var fi = document.getElementById("restoreInputsFile");
-    if (dl) dl.addEventListener("click", novaDownloadInputs);
-    if (rs && fi) rs.addEventListener("click", function () { fi.click(); });
+    var menu = document.getElementById("draftMenu");
+    // the menu is a <details>: it closes after a choice, on Escape (focus goes
+    // back to its button) and on a click anywhere else
+    var closeMenu = function (refocus) {
+      if (!menu || !menu.open) return;
+      menu.open = false;
+      var sm = menu.querySelector("summary");
+      if (refocus && sm) sm.focus();
+    };
+    if (menu) {
+      menu.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") closeMenu(true);
+      });
+      document.addEventListener("click", function (e) {
+        if (menu.open && !menu.contains(e.target)) closeMenu(false);
+      });
+    }
+    // the same named draft the Save Draft button on step 5 makes
+    if (sv)
+      sv.addEventListener("click", function () {
+        closeMenu(false);
+        if (typeof window.saveDraft === "function") window.saveDraft();
+      });
+    if (dl)
+      dl.addEventListener("click", function () {
+        closeMenu(false);
+        novaDownloadInputs();
+      });
+    if (rs && fi)
+      rs.addEventListener("click", function () {
+        closeMenu(false);
+        fi.click();
+      });
     if (fi)
       fi.addEventListener("change", function () {
         var f = fi.files && fi.files[0];

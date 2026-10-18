@@ -5587,10 +5587,17 @@
     --np-faint: #aeabcd;
     --np-line: #4a4868;
     /* Boundary of every form control (input, select, textarea, tag box,
-       industry card, upcoming step bar): WCAG 1.4.11 wants 3:1 against what
-       surrounds it; --np-hair (0.10 alpha) measured 1.0-1.1:1, so a field was
-       a dark box on a dark card. #706d96 is 3.5:1 on the panel. */
+       industry card): WCAG 1.4.11 wants 3:1 against what surrounds it;
+       --np-hair (0.10 alpha) measured 1.0-1.1:1, so a field was a dark box on
+       a dark card. #706d96 is 3.5:1 on the panel. (NOT the upcoming step
+       bars: they sit on the aurora, where it measured 2.2:1 at 375px and
+       2.7-2.8:1 at 1440px -- see --np-step-bar.) */
     --np-field-line: #706d96;
+    /* Upcoming step bars (3px lines on the aurora, not on a panel). Measured
+       against the pixels in a ring around each bar (headless Chrome, text
+       hidden; brightest ring pixel #343d63 at 375px, #2e2a58 at 1440px):
+       3.5-5.5:1 across both widths. Brand PURPLE_300 (joveo_brand_2026). */
+    --np-step-bar: #a6a3c1;
     /* Required marker: a light tint of brand MAGENTA, 5.5:1 on the brightest aurora. */
     --np-req: #e0a8d0;
     /* Text sitting directly on the lavender wash behind the preview card
@@ -8311,26 +8318,6 @@
     }
   }
 
-  /* ── Final-gate fix (2026-07-31): NAICS quick-pick card filter ──
-     Placed last on purpose. The Nova Plan Studio cockpit reskin above
-     sets `.studio .industry-card { display: flex !important; }` (and
-     restates it for :hover/.selected/etc in several places throughout
-     this file) -- that rule is protected design and is NOT touched here.
-     filterIndustryCards() (body_app_js.html) used to toggle
-     card.style.display = "none" directly, but a stylesheet !important
-     rule always beats an inline style with no !important of its own, so
-     the card kept computed display:flex and kept painting even though
-     the JS/inline state said "hidden". Filtering now toggles this class
-     instead. The selector list carries BOTH the plain and the
-     .studio-prefixed compound (higher specificity than
-     `.studio .industry-card` on its own) so this wins on specificity
-     even if some future edit moves it earlier in the file; being last
-     in source order is the second, belt-and-suspenders guarantee. */
-  .industry-card.naics-filtered-out,
-  .studio .industry-card.naics-filtered-out {
-    display: none !important;
-  }
-
   /* ════════════════════════════════════════════════════════════════════
      WIZARD UX PASS (2026-10-18) -- usability findings from internal use: the
      dark form was hard to navigate (borders, helper text and steps were
@@ -8446,7 +8433,7 @@
     counter-increment: nstep;
   }
   .studio .step-circle {
-    background: var(--np-field-line) !important;
+    background: var(--np-step-bar) !important;
   }
   .studio .step-indicator:not(.completed) .step-label::before {
     content: counter(nstep);
@@ -8511,25 +8498,21 @@
     text-decoration: underline;
   }
 
-  /* ── Draft status + download / restore inputs ─────────────────────── */
+  /* ── Draft status: one line and a small menu, below the form ───────── */
   .studio .draft-status {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px 14px;
-    margin: -10px 0 16px;
-    padding: 9px 12px;
-    background: var(--np-panel);
-    border: 1px solid var(--np-hair-strong);
-    border-radius: 12px;
+    gap: 6px 12px;
+    margin: 20px 0 8px;
     max-width: 640px;
   }
   .studio .draft-status-text {
-    flex: 1 1 220px;
+    flex: 0 1 auto;
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--np-ink-soft);
   }
   .studio .draft-status-text::before {
@@ -8546,28 +8529,73 @@
   .studio .draft-status[data-state="failed"] .draft-status-text::before {
     background: var(--np-req);
   }
-  .studio .draft-status-actions {
+  .studio .draft-menu[open] {
+    flex: 1 1 100%;
+  }
+  .studio .draft-menu-btn {
     display: inline-flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 7px 10px;
+    border: 1px solid var(--np-field-line);
+    border-radius: 9px;
+    color: var(--np-ink);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+  .studio .draft-menu-btn::-webkit-details-marker {
+    display: none;
+  }
+  .studio .draft-menu-btn::after {
+    content: "\25BE";
+    color: var(--np-muted);
+  }
+  .studio .draft-menu[open] .draft-menu-btn::after {
+    content: "\25B4";
+  }
+  .studio .draft-menu-btn:hover {
+    border-color: var(--np-purple-light);
+  }
+  .studio .draft-menu-panel {
+    display: grid;
+    gap: 6px;
+    max-width: 380px;
+    margin-top: 8px;
+    padding: 10px;
+    background: var(--np-panel);
+    border: 1px solid var(--np-hair-strong);
+    border-radius: 12px;
   }
   .studio .draft-btn {
-    min-height: 36px;
-    padding: 7px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 44px;
+    padding: 8px 12px;
     border: 1px solid var(--np-field-line);
     border-radius: 9px;
     background: transparent;
     color: var(--np-ink);
     font: inherit;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
+    text-align: left;
     cursor: pointer;
   }
   .studio .draft-btn:hover {
     border-color: var(--np-purple-light);
   }
-  .studio .draft-status-note {
-    flex: 1 1 100%;
+  .studio .draft-btn-hint {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--np-muted);
+  }
+  .studio .draft-menu-note {
+    margin: 2px 0 0;
     font-size: 11.5px;
     line-height: 1.45;
     color: var(--np-faint);
@@ -8642,6 +8670,15 @@
     line-height: 1.5;
     color: var(--np-paper-muted);
   }
+  /* the cost-per-application caveat under the figures: a caveat, so it reads
+     at body ink rather than as a caption */
+  .studio .plan-quick-note {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--np-paper-ink);
+  }
   .studio .plan-quick-row {
     display: grid;
     grid-template-columns: 170px 1fr;
@@ -8714,11 +8751,28 @@
       gap: 3px !important;
       flex-wrap: nowrap !important;
     }
-    .studio .draft-btn {
-      flex: 1 1 auto;
-    }
-    .studio .draft-status-actions {
-      flex: 1 1 100%;
-    }
+  }
+
+  /* ── Final-gate fix (2026-07-31): NAICS quick-pick card filter ──
+     Placed last on purpose. The Nova Plan Studio cockpit reskin above
+     sets `.studio .industry-card { display: flex !important; }` (and
+     restates it for :hover/.selected/etc in several places throughout
+     this file) -- that rule is protected design and is NOT touched here.
+     filterIndustryCards() (body_app_js.html) used to toggle
+     card.style.display = "none" directly, but a stylesheet !important
+     rule always beats an inline style with no !important of its own, so
+     the card kept computed display:flex and kept painting even though
+     the JS/inline state said "hidden". Filtering now toggles this class
+     instead. The selector list carries BOTH the plain and the
+     .studio-prefixed compound (higher specificity than
+     `.studio .industry-card` on its own) so this wins on specificity
+     even if some future edit moves it earlier in the file; being last
+     in source order is the second, belt-and-suspenders guarantee.
+     (2026-10-18: moved to the very end of the stylesheet: the Wizard UX pass
+     above adds .studio .naics-search-wrap #naicsSearch rules, and
+     tests/test_naics_industry_select.py pins this as the LAST .naics- rule.) */
+  .industry-card.naics-filtered-out,
+  .studio .industry-card.naics-filtered-out {
+    display: none !important;
   }
 </style>

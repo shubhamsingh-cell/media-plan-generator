@@ -197,47 +197,6 @@
     </div>
   </nav>
 
-  <!-- Draft status. The wizard already autosaves the form to this tab's
-       sessionStorage (saveFormState); this row says so, and adds a download
-       / restore pair for the same inputs as a JSON file (client-side only:
-       nothing is sent anywhere). Account-level saved plans stay gated on
-       server secrets and are NOT claimed here. Painted by body_app_js.html
-       (novaDraftStatusSync). The buttons carry .bare-btn: the global
-       `button:not(.bare-btn)` rule would otherwise strip their border. -->
-  <div
-    class="draft-status"
-    id="draftStatus"
-    role="group"
-    aria-label="Draft and inputs file"
-  >
-    <span
-      class="draft-status-text"
-      id="draftStatusText"
-      role="status"
-      aria-live="polite"
-      >Your inputs autosave in this browser tab while you work.</span
-    >
-    <span class="draft-status-actions">
-      <button type="button" class="draft-btn bare-btn" id="downloadInputsBtn">
-        Download your inputs (JSON)
-      </button>
-      <button type="button" class="draft-btn bare-btn" id="restoreInputsBtn">
-        Restore from file
-      </button>
-      <input
-        type="file"
-        id="restoreInputsFile"
-        accept="application/json,.json"
-        hidden
-        aria-label="Inputs file to restore"
-      />
-    </span>
-    <span class="draft-status-note" id="draftStatusNote"
-      >Saved plans for accounts are not turned on yet, and a closed tab loses
-      the draft. Download your inputs to redo a plan in seconds.</span
-    >
-  </div>
-
   <!-- Preset Prompt Chips -->
   <div class="preset-row" id="presetRow">
     <span class="preset-label">Try an example:</span>
@@ -2052,6 +2011,7 @@
             class="tags-input"
             id="excludedPublisherInput"
             placeholder="e.g. indeed.com, then Enter"
+            maxlength="80"
             autocomplete="off"
           />
         </div>
@@ -3184,6 +3144,60 @@
         Clear Form
       </button>
     </div>
+  </div>
+
+  <!-- Draft status: ONE line and a small menu, BELOW the form (it was a row of
+       five controls and a two-line note above the first heading, which pushed
+       the form 100-210px down the first screen). The wizard autosaves to this
+       TAB's sessionStorage (saveFormState); the line says so. The menu holds
+       the three things to do with the inputs: Save draft (the named drafts of
+       step 5, kept in this browser), Download your inputs (a JSON file) and
+       Restore from a file -- client-side only, nothing is sent anywhere.
+       Account-level saved plans stay gated on server secrets and are NOT
+       claimed. Painted by body_app_js.html (novaDraftStatusSync). The buttons
+       carry .bare-btn: the global `button:not(.bare-btn)` rule would
+       otherwise strip their border. -->
+  <div
+    class="draft-status"
+    id="draftStatus"
+    role="group"
+    aria-label="Draft and inputs file"
+  >
+    <span
+      class="draft-status-text"
+      id="draftStatusText"
+      role="status"
+      aria-live="polite"
+      >Autosaves in this tab.</span
+    >
+    <details class="draft-menu" id="draftMenu">
+      <summary class="draft-menu-btn">Save or restore</summary>
+      <div class="draft-menu-panel">
+        <button type="button" class="draft-btn bare-btn" id="saveDraftMenuBtn">
+          Save draft
+          <span class="draft-btn-hint">A named copy, kept in this browser</span>
+        </button>
+        <button type="button" class="draft-btn bare-btn" id="downloadInputsBtn">
+          Download your inputs
+          <span class="draft-btn-hint">A JSON file you can keep or share</span>
+        </button>
+        <button type="button" class="draft-btn bare-btn" id="restoreInputsBtn">
+          Restore from file
+          <span class="draft-btn-hint">Load an inputs file you downloaded</span>
+        </button>
+        <input
+          type="file"
+          id="restoreInputsFile"
+          accept="application/json,.json"
+          hidden
+          aria-label="Inputs file to restore"
+        />
+        <p class="draft-menu-note">
+          Autosave stays with this tab for up to two hours. Saved plans for
+          accounts are not turned on yet.
+        </p>
+      </div>
+    </details>
   </div>
 </main>
 
