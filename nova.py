@@ -2107,6 +2107,54 @@ def _without_unavailable_platforms(
     return {**block, "platforms": cleaned, "unavailable_platforms": barred}
 
 
+def _kb_result_without_barred_boards(result: Any) -> Any:
+    """A knowledge-base tool answer with every board the availability file bars
+    (OCC Mundial in Mexico, HelloWork in France ...) taken out of its matches,
+    ranked lists and profiles, and the boards taken out named once, plainly, as
+    unavailable.  The dataset itself is never edited; a same-named board in
+    another country (Hello Work, Japan's public employment service) stays."""
+    if not isinstance(result, dict):
+        return result
+    removed: List[Dict[str, Any]] = []
+    out: Dict[str, Any] = {}
+    for key, value in result.items():
+        if key == "matches" and isinstance(value, list):
+            kept: List[Any] = []
+            for match in value:
+                if not isinstance(match, dict):
+                    kept.append(match)
+                    continue
+                ctx = publisher_filter.country_in_path(match.get("path"))
+                cleaned = publisher_filter.without_barred_boards(
+                    match.get("value"), ctx, removed
+                )
+                named = publisher_filter.without_barred_boards(
+                    {"name": match.get("key")}, ctx, removed
+                )
+                if cleaned is publisher_filter.DROPPED or (
+                    match.get("key") is not None and named is publisher_filter.DROPPED
+                ):
+                    continue
+                kept.append({**match, "value": cleaned} if "value" in match else match)
+            out[key] = kept
+            out["match_count"] = len(kept)
+            continue
+        if key == "match_count":
+            continue
+        cleaned = publisher_filter.without_barred_boards(value, None, removed)
+        if cleaned is not publisher_filter.DROPPED:
+            out[key] = cleaned
+    if removed:
+        out["unavailable_boards"] = removed
+        if "matches" in out and not out["matches"]:
+            out.setdefault(
+                "note",
+                "Every match was a board that is not available through Joveo; "
+                "see unavailable_boards.",
+            )
+    return out
+
+
 def _currency_symbol(currency_code: Optional[str]) -> str:
     """Return display symbol for a currency code, defaulting to '$'."""
     if not currency_code:
@@ -8961,6 +9009,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         return result
 
     def _query_kb_deep(self, params: dict) -> dict:
+        """The tool, with boards the availability file bars taken out of
+        everything it returns (see _kb_result_without_barred_boards)."""
+        return _kb_result_without_barred_boards(self._query_kb_deep_raw(params))
+
+    def _query_kb_deep_raw(self, params: dict) -> dict:
         """Deep knowledge base query across 32 specialized datasets.
 
         Provides structured access to KB sections that don't have their own
@@ -9201,6 +9254,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         return matches
 
     def _query_knowledge_base(self, params: dict) -> dict:
+        """The tool, with boards the availability file bars taken out of
+        everything it returns (see _kb_result_without_barred_boards)."""
+        return _kb_result_without_barred_boards(
+            self._query_knowledge_base_raw(params)
+        )
+
+    def _query_knowledge_base_raw(self, params: dict) -> dict:
         """Query recruitment industry knowledge base.
 
         Tries Supabase first for fresher data, falls back to local cache.
@@ -11763,6 +11823,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         }
 
     def _query_platform_deep(self, args: dict) -> dict:
+        """The tool, with boards the availability file bars taken out of
+        everything it returns (see _kb_result_without_barred_boards)."""
+        return _kb_result_without_barred_boards(self._query_platform_deep_raw(args))
+
+    def _query_platform_deep_raw(self, args: dict) -> dict:
         """Handler for query_platform_deep tool."""
         platform = (args.get("platform") or "" or "").lower().strip()
         compare_with = (args.get("compare_with") or "" or "").lower().strip()

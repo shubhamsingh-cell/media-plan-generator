@@ -98,7 +98,7 @@ def _latest_exception_date() -> str:
 
 
 def _footer(repo_date: str, latest: str) -> str:
-    return f"Supply data dated {repo_date}; board availability updated through {latest}"
+    return f"Supply data dated {repo_date}; board status changes recorded to {latest}"
 
 
 def test_footers_say_what_each_date_is():
@@ -106,14 +106,15 @@ def test_footers_say_what_each_date_is():
     repo_date = REPO["last_updated"]
     latest = _latest_exception_date()
     assert info["headline"] == (
-        f"Data as of: supply data dated {repo_date}; board availability updated "
-        f"through {latest} | benchmarks "
+        f"Data as of: supply data dated {repo_date}; board status changes recorded "
+        f"to {latest} | benchmarks "
         f"{plan_trust._row_date(info['families'], plan_trust.BENCHMARKS_LABEL, 'oldest')}"
     )
     assert info["footer_headline"] == _footer(repo_date, latest)
     for text in (info["headline"], info["footer_headline"]):
         assert "supply network" not in text.lower()
         assert "refresh" not in text.lower()
+        assert "update" not in text.lower()  # reads like a full refresh
         assert "exception" not in text.lower()  # internal jargon
 
 
@@ -141,7 +142,7 @@ def test_the_two_dates_stay_separate_whichever_is_newer(tmp_path):
             ],
         )
         assert info["footer_headline"] == _footer(repo_date, board_date)
-        assert f"supply data dated {repo_date}; board availability updated" in (
+        assert f"supply data dated {repo_date}; board status changes recorded" in (
             info["headline"]
         )
 
@@ -157,7 +158,7 @@ def test_a_missing_date_says_so_instead_of_borrowing_the_other(tmp_path):
         ],
     )
     assert info["footer_headline"] == (
-        "Supply data dated 2026-03-31; board availability update date not recorded"
+        "Supply data dated 2026-03-31; board status change date not recorded"
     )
 
 
@@ -166,7 +167,7 @@ def test_board_availability_family_is_not_called_a_refresh():
     fam = next(
         f for f in info["families"] if f["label"] == plan_trust.SUPPLY_NETWORK_LABEL
     )
-    assert fam["as_of"] == f"updated through {_latest_exception_date()}"
+    assert fam["as_of"] == f"recorded to {_latest_exception_date()}"
     repo = next(
         f for f in info["families"] if f["label"] == plan_trust.SUPPLY_REPO_LABEL
     )
@@ -178,7 +179,7 @@ def test_workbook_footer_states_both_dates_in_plain_words():
     wb = _workbook(_plan())
     text = "\n".join(_cells(wb["Executive Summary"]))
     assert f"supply data dated {REPO['last_updated']}" in text
-    assert f"board availability updated through {_latest_exception_date()}" in text
+    assert f"board status changes recorded to {_latest_exception_date()}" in text
     assert "supply network" not in text.lower()
     assert "exception" not in text.lower()
     sources = "\n".join(_cells(wb["Sources & Confidence"]))

@@ -269,10 +269,18 @@ def test_the_date_always_follows_the_status_it_belongs_to():
     row = _repo_row("France Travail France")
     vonq = pf.board_supply_record("Pole Emploi (France Travail)", "France")
     assert pf.status_label(vonq) == f"{row['status']}, as of {REPO['last_updated']}"
+    # global_supply.json calls this board confirmed; the repository says
+    # otherwise -- both are stated, neither is silently preferred
+    assert vonq["notes_confirmed"] is True
     assert pf.supply_status_phrase(vonq) == (
         f"Pole Emploi (France Travail): {row['status']}, as of "
-        f"{REPO['last_updated']} (relationship unverified)"
+        f"{REPO['last_updated']} (relationship unverified; supply notes list "
+        "it as confirmed)"
     )
+    # a VONQ-only board the notes do NOT call confirmed has no such clause
+    plain = pf.board_supply_record("Glassdoor", "India")
+    assert plain["state"] == pf.SUPPLY_NOT_IN_NETWORK and not plain["notes_confirmed"]
+    assert pf.supply_status_phrase(plain).endswith("(relationship unverified)")
     for record in (vonq, pf.board_supply_record("VietnamWorks", "Vietnam")):
         assert "availability as of" not in pf.supply_status_phrase(record)
         assert "availability as of" not in pf.status_label(record)
@@ -427,15 +435,22 @@ def test_ordering_never_adds_or_removes_a_board():
 #   France 102   102 distinct names ("Job Matrix" / "The Job Matrix" and
 #                "KelJob" / "The Network: Keljob (France)" are separate rows)
 #   United Kingdom 240   235 rows spell "United Kingdom" + 5 spell "UK"
+#   Mexico 36    36 rows spell "Mexico"; 9 more in-network rows naming it are
+#                staffing partners (LatamRecruit, Trio, Athyna ...)
 # Update these when the repository is refreshed.  Before the fix the line said
 # 48 / 134 / 281: it added the repository's 33 global in-network rows (Spotify,
 # Amazon Ads, Uber Ads, Taboola, influencer tools ...).
-_HAND_COUNTED_BOARDS = {"Vietnam": 13, "France": 102, "United Kingdom": 240}
+_HAND_COUNTED_BOARDS = {
+    "Vietnam": 13,
+    "France": 102,
+    "Mexico": 36,
+    "United Kingdom": 240,
+}
 
 
 def test_depth_counts_are_hand_checked_literals():
     for country, total in _HAND_COUNTED_BOARDS.items():
-        assert pf.supply_depth(country, [])["total"] == total, country
+        assert pf.supply_depth(country, ["x"])["total"] == total, country
 
 
 def test_depth_counts_no_global_platform_and_no_non_board():
@@ -459,45 +474,102 @@ def test_depth_counts_no_global_platform_and_no_non_board():
     assert len(boards) == _HAND_COUNTED_BOARDS["Vietnam"]
 
 
-def test_shown_counts_only_boards_the_repository_names_for_the_country():
-    # VietnamWorks has a Vietnam row; LinkedIn runs everywhere (a Global row);
-    # TopCV.vn has no row at all
+def test_confirmed_count_follows_the_same_states_as_the_daggers():
+    # Indeed and LinkedIn are global in-network rows: confirmed, no dagger
     shown = ["VietnamWorks", "TopCV.vn", "LinkedIn Vietnam"]
-    assert pf.supply_depth("Vietnam", shown) == {
+    depth = pf.supply_depth("Vietnam", shown)
+    assert depth == {
         "country": "Vietnam",
-        "shown": 1,
+        "boards": 3,
+        "confirmed": 2,
         "total": _HAND_COUNTED_BOARDS["Vietnam"],
     }
-    assert pf.supply_depth("Vietnam", ["VietnamWorks", "CareerViet"])["shown"] == 2
-    # a combined entry counts only if every board it names is counted
-    assert pf.supply_depth("Japan", ["Recruit (Rikunabi / Indeed Japan)"])["shown"] == 0
+    marked, _ = pf.annotate(shown, "Vietnam")
+    assert depth["confirmed"] == sum(
+        1 for m in marked if not m.endswith(pf.RELATIONSHIP_MARK)
+    )
+    # a combined entry is confirmed only if every board it names is
+    japan = pf.supply_depth("Japan", ["Recruit (Rikunabi / Indeed Japan)", "Doda"])
+    assert (japan["boards"], japan["confirmed"]) == (2, 1)
+    # a barred board is never confirmed
+    assert pf.supply_depth("Mexico", ["OCC Mundial"])["confirmed"] == 0
 
 
-def test_depth_line_says_how_boards_are_chosen_and_nothing_untrue():
-    depth = pf.supply_depth("Vietnam", ["VietnamWorks", "TopCV.vn", "LinkedIn Vietnam"])
+def test_the_repository_total_is_left_out_when_it_cannot_be_counted():
+    depth = pf.supply_depth("Atlantis", ["Anything"])
+    assert depth == {"country": "Atlantis", "boards": 1, "confirmed": 0, "total": None}
     line = pf.supply_depth_line([{"depth": depth}])
     assert line == (
-        "Boards shown are chosen by market share, not matched to the role. "
-        "The repository names 13 in-network job boards for Vietnam; 1 is among "
-        "those shown."
+        "Of the 1 board shown, 0 are confirmed in network (global boards "
+        "included). Boards shown are chosen by market share, not matched to the role."
     )
-    assert "role-matched" not in line
-
-
-def test_depth_figure_is_left_out_when_it_cannot_be_derived():
-    assert pf.supply_depth("Atlantis", ["Anything"]) is None
     assert pf.supply_depth("", ["Anything"]) is None
-    only = pf.supply_depth_line([{"depth": None}])
-    assert only == "Boards shown are chosen by market share, not matched to the role."
+    assert pf.supply_depth("Vietnam", []) is None
+
+
+# Hand-checked expected lines: boards shown, how many the daggers leave
+# unmarked, and the repository's job-board count above (see the counts).
+_EXPECTED_LINES = {
+    "Hanoi, Vietnam": (
+        "Of the 3 boards shown, 2 are confirmed in network (global boards "
+        "included). The repository lists 13 in-network job boards for Vietnam in "
+        "total; boards shown are chosen by market share, not matched to the role."
+    ),
+    "Paris, France": (
+        "Of the 3 boards shown, 2 are confirmed in network (global boards "
+        "included). The repository lists 102 in-network job boards for France in "
+        "total; boards shown are chosen by market share, not matched to the role."
+    ),
+    "Monterrey, Mexico": (
+        "Of the 3 boards shown, 3 are confirmed in network (global boards "
+        "included). The repository lists 36 in-network job boards for Mexico in "
+        "total; boards shown are chosen by market share, not matched to the role."
+    ),
+    "Manchester, UK": (
+        "Of the 3 boards shown, 3 are confirmed in network (global boards "
+        "included). The repository lists 240 in-network job boards for United "
+        "Kingdom in total; boards shown are chosen by market share, not matched "
+        "to the role."
+    ),
+}
+
+
+@pytest.mark.parametrize("loc", sorted(_EXPECTED_LINES))
+def test_depth_line_is_true_and_never_reads_as_no_boards_in_network(loc):
+    groups = pf.plan_market_boards({"locations": [loc]})
+    line = pf.supply_depth_line(groups)
+    assert line == _EXPECTED_LINES[loc]
+    # "0 are among those shown" under two in-network boards was the defect
+    assert "among those shown" not in line and "role-matched" not in line
+    boards = groups[0]["boards"]
+    confirmed = sum(1 for b in boards if not b.endswith(pf.RELATIONSHIP_MARK))
+    assert f"Of the {len(boards)} boards shown, {confirmed} are" in line
+
+
+def test_depth_line_for_several_markets_and_when_nothing_is_derivable():
+    only = "Boards shown are chosen by market share, not matched to the role."
+    assert pf.supply_depth_line([{"depth": None}]) == only
     assert pf.supply_depth_line([]) == ""
     two = pf.supply_depth_line(
         [
-            {"depth": {"country": "France", "shown": 2, "total": 9}},
-            {"depth": {"country": "Germany", "shown": 3, "total": 12}},
+            {"depth": {"country": "France", "boards": 3, "confirmed": 2, "total": 9}},
+            {
+                "depth": {
+                    "country": "Germany",
+                    "boards": 3,
+                    "confirmed": 3,
+                    "total": None,
+                }
+            },
         ]
     )
-    assert "France 2 of 9" in two and "Germany 3 of 12" in two
-    assert two.startswith(only) and "role-matched" not in two.replace(only, "")
+    assert (
+        "France 2 of 3; Germany 3 of 3" in two
+        and "France 9" in two
+        and "Germany 12" not in two
+    )
+    assert "Germany 9" not in two and two.endswith(only)
+    assert "role-matched" not in two
 
 
 # ---------------------------------------------------------------------------
@@ -550,14 +622,22 @@ def test_workbook_prints_each_status_with_its_date(vn_surfaces):
     assert not re.search(r"TopCV\.vn[^;.]*as of", status)
 
 
-def test_workbook_depth_line_matches_the_deck_method(vn_surfaces):
+def test_workbook_depth_line_reads_the_same_supply_states_as_the_table(vn_surfaces):
     channels = _cells(vn_surfaces["wb"]["Channels & Strategy"])
     depth_cells = [c for c in channels if "in-network job boards for Vietnam" in c]
     assert len(depth_cells) == 1
-    assert depth_cells[0].startswith(pf.SELECTION_NOTE)
-    assert "role-matched" not in depth_cells[0]
-    assert f"names {_HAND_COUNTED_BOARDS['Vietnam']} in-network job boards" in (
-        depth_cells[0]
+    line = depth_cells[0]
+    assert "role-matched" not in line and "among those shown" not in line
+    assert line.endswith(
+        "boards shown are chosen by market share, not matched to the role."
+    )
+    assert f"lists {_HAND_COUNTED_BOARDS['Vietnam']} in-network job boards" in line
+    # K comes from the daggers the same sheet prints
+    table_row = next(c for c in channels if c.startswith("VietnamWorks, TopCV.vn †"))
+    boards = [b.strip() for b in table_row.split(",")]
+    confirmed = sum(1 for b in boards if not b.endswith(pf.RELATIONSHIP_MARK))
+    assert line.startswith(
+        f"Of the {len(boards)} boards shown, {confirmed} are confirmed"
     )
 
 
@@ -921,3 +1001,158 @@ def test_help_page_explains_the_statuses_and_the_selection_rule():
         "As of".lower(),
     ):
         assert phrase.lower() in text.lower(), phrase
+
+
+# ---------------------------------------------------------------------------
+# the knowledge-base chat tools never present a barred board as a top board
+# (every leak the verifier recorded: query_kb_deep and query_knowledge_base)
+# ---------------------------------------------------------------------------
+
+_KB_BARRED = re.compile(r"OCC Mundial|occ_mundial|Hellowork|HelloWork|RegionsJob")
+
+
+@pytest.fixture(scope="module")
+def kb_nova():
+    import logging
+
+    from nova import Nova
+
+    # loading every dataset logs freshness warnings: silence them for this
+    # module only, and put the process-wide switch back for the tests after it
+    previous = logging.root.manager.disable
+    logging.disable(logging.CRITICAL)
+    try:
+        nova = Nova.__new__(Nova)
+        nova._load_data_sources()
+        yield nova
+    finally:
+        logging.disable(previous)
+
+
+def _without_notice(result: Dict[str, Any]) -> str:
+    """The answer as text, minus the one place a barred board may be NAMED:
+    the plain 'Not available through Joveo' notice."""
+    return json.dumps({k: v for k, v in result.items() if k != "unavailable_boards"})
+
+
+_KB_DEEP_CASES = [
+    ("platform_intelligence", "occ mundial"),
+    ("platform_intelligence", "occ"),
+    ("intl_role_benchmarks", "occ mundial"),
+    ("intl_role_benchmarks", "occ"),
+    ("intl_role_benchmarks", "mexico"),
+    ("intl_role_benchmarks", "hellowork"),
+    ("intl_role_benchmarks", "france"),
+    ("international_benchmarks", "occ mundial"),
+    ("international_benchmarks", "hellowork"),
+    ("international_benchmarks", "mexico"),
+    ("international_benchmarks", "france"),
+    ("international_benchmarks", "median_cpc_usd"),
+]
+
+
+@pytest.mark.parametrize("dataset,term", _KB_DEEP_CASES)
+def test_query_kb_deep_never_returns_a_barred_board(kb_nova, dataset, term):
+    result = kb_nova._query_kb_deep({"dataset": dataset, "search_term": term})
+    assert not _KB_BARRED.findall(_without_notice(result)), (dataset, term)
+    assert result["match_count"] == len(result["matches"])
+    # the leak is real: the unstripped answer carried it, so the notice must
+    # name what was taken out, plainly, with the availability file's date
+    raw = kb_nova._query_kb_deep_raw({"dataset": dataset, "search_term": term})
+    if _KB_BARRED.findall(json.dumps(raw)):
+        names = {u["name"] for u in result["unavailable_boards"]}
+        assert names & {"OCC Mundial", "HelloWork"}, (dataset, term)
+        for u in result["unavailable_boards"]:
+            as_of = _barred(u["name"])["as_of"]
+            assert u["note"] == f"Not available through Joveo, as of {as_of}"
+
+
+def test_the_ranked_mexico_list_loses_its_number_one_board(kb_nova):
+    result = kb_nova._query_kb_deep(
+        {
+            "dataset": "intl_role_benchmarks",
+            "section": "verticals",
+            "search_term": "mexico",
+        }
+    )
+    text = _without_notice(result)
+    assert "OCC Mundial" not in text and "Mexico #1" not in text
+    ranked = kb_nova._intl_country_data("Mexico")["platforms"]
+    assert ranked and ranked[0]["name"] != "OCC Mundial"
+
+
+def test_a_board_with_the_same_name_in_another_country_stays(kb_nova):
+    # Japan's public employment service is also called Hello Work; only the
+    # French board the availability file bars goes -- part-wise in a compound
+    result = kb_nova._query_kb_deep(
+        {"dataset": "intl_role_benchmarks", "search_term": "hello work"}
+    )
+    text = _without_notice(result)
+    assert "Hello Work (gov)" in text
+    assert "Choose Your Boss / Hello Work" not in text and "Choose Your Boss" in text
+
+
+def test_query_knowledge_base_cross_market_list_drops_the_barred_top_board(kb_nova):
+    for params in ({"topic": "all"}, {"topic": "all", "query": "mexico"}):
+        result = kb_nova._query_knowledge_base(params)
+        assert not _KB_BARRED.findall(_without_notice(result)), params
+        assert {u["name"] for u in result["unavailable_boards"]} == {"OCC Mundial"}
+    comparison = kb_nova._query_knowledge_base({"topic": "all"})[
+        "international_benchmarks"
+    ]
+    rows = comparison["cross_market_comparisons"]["cpc_comparison_usd"]["data"]
+    assert [r for r in rows if r.get("country") == "Mexico"] == []
+    assert [r for r in rows if r.get("country") == "France"]  # others untouched
+
+
+def test_platform_deep_does_not_serve_a_barred_board_profile(kb_nova):
+    result = kb_nova._query_platform_deep({"platform": "occ_mundial"})
+    assert not _KB_BARRED.findall(_without_notice(result))
+    assert {u["name"] for u in result["unavailable_boards"]} == {"OCC Mundial"}
+
+
+def test_stripping_never_edits_the_dataset_itself(kb_nova):
+    before = json.dumps(kb_nova._data_cache["international_benchmarks"], sort_keys=True)
+    kb_nova._query_kb_deep(
+        {"dataset": "international_benchmarks", "search_term": "occ"}
+    )
+    kb_nova._query_knowledge_base({"topic": "all"})
+    assert (
+        json.dumps(kb_nova._data_cache["international_benchmarks"], sort_keys=True)
+        == before
+    )
+    assert "OCC Mundial" in before
+
+
+# ---------------------------------------------------------------------------
+# deck slide 5 and the workbook agree on the Global / Regional ticks
+# ---------------------------------------------------------------------------
+
+
+def _deck_names_boards(**ticks: bool) -> bool:
+    plan = _plan("retail_consumer", "Paris, France")
+    plan["channel_categories"] = {**_OTHERS_ON, **ticks}
+    return any("LOCAL BOARDS IN THIS PLAN'S MARKETS" in t for t in _deck_texts(plan))
+
+
+def test_deck_omits_local_boards_exactly_when_the_workbook_does():
+    off = dict(niche_boards=False, global_boards=False, regional_boards=False)
+    assert not _deck_names_boards(**off)
+    assert not _deck_names_boards(
+        niche_boards=True, global_boards=False, regional_boards=False
+    )
+    # one of the two job-board categories is enough, as in the workbook
+    assert _deck_names_boards(
+        niche_boards=False, global_boards=True, regional_boards=False
+    )
+    assert _deck_names_boards(
+        niche_boards=False, global_boards=False, regional_boards=True
+    )
+    assert _deck_names_boards()  # no selection sent: the default mix names them
+    for ticks in (off, dict(global_boards=False, regional_boards=False)):
+        plan = _plan("retail_consumer", "Paris, France")
+        plan["channel_categories"] = {**_OTHERS_ON, **ticks}
+        texts = _deck_texts(plan)
+        assert not [t for t in texts if t.startswith("No board data for")]
+        assert not [t for t in texts if "chosen by market share" in t]
+        assert pf.local_boards_selected(plan) is False

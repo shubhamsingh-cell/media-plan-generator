@@ -1558,7 +1558,12 @@ def supply_status_phrase(record: Dict[str, Any]) -> str:
     if state in (SUPPLY_IN_NETWORK, SUPPLY_UNAVAILABLE) and label:
         return f"{name}: {label}"
     if state == SUPPLY_NOT_IN_NETWORK and label:
-        return f"{name}: {label} (relationship unverified)"
+        said = (
+            "; supply notes list it as confirmed"
+            if (record or {}).get("notes_confirmed")
+            else ""
+        )
+        return f"{name}: {label} (relationship unverified{said})"
     return f"{name}: {unverified_note(record)}"
 
 
@@ -1957,34 +1962,42 @@ def _repo_network_boards(country: Any) -> Dict[str, str]:
 
 
 def supply_depth(country: Any, shown: Sequence[Any]) -> Optional[Dict[str, Any]]:
-    """``{"country", "shown", "total"}``: ``total`` is the number of
-    repository rows that are in-network JOB BOARDS naming ``country`` (by the
-    repository's own category, one per distinct name); ``shown`` is how many of
-    the ``shown`` boards are one of them.  A combined entry counts only when
-    every board it names is one of them.  None when the repository names no
-    in-network job board for the country -- the figure is then left out, never
-    guessed."""
-    boards = _repo_network_boards(country)
-    if not boards:
+    """``{"country", "boards", "confirmed", "total"}`` for a market's shown list.
+
+    * ``boards`` -- how many boards are shown;
+    * ``confirmed`` -- how many of them the supply data confirms as in network,
+      judged by the very record that decides each dagger (a global board such
+      as Indeed counts: it runs everywhere);
+    * ``total`` -- the number of repository rows that are in-network JOB
+      BOARDS naming ``country`` (by the repository's own category, one per
+      distinct name), or None when the repository names none (the clause is
+      then left out, never guessed).
+
+    None when there is no country or no board shown."""
+    want = canonical_country(country)
+    names = [str(n) for n in shown if str(n or "").strip()]
+    if not want or not names:
         return None
-    keys = set(boards.values())
-
-    def counted(name: Any) -> bool:
-        parts = _compound_parts(name) or [name]
-        return all(keys & set(_record_keys(part)) for part in parts)
-
+    named = _repo_network_boards(want)
     return {
-        "country": canonical_country(country),
-        "shown": sum(1 for name in shown if counted(name)),
-        "total": len(boards),
+        "country": want,
+        "boards": len(names),
+        "confirmed": sum(
+            1
+            for name in names
+            if board_supply_record(name, want)["state"] == SUPPLY_IN_NETWORK
+        ),
+        "total": len(named) or None,
     }
 
 
 def supply_depth_line(groups: Sequence[Dict[str, Any]]) -> str:
-    """One plain line under the local boards: how the boards were chosen (by
-    market share, not matched to the role), and -- only where the repository
-    gives an exact count -- how many of its in-network job boards for the
-    market are among them.  '' when there are no markets."""
+    """One plain line under the local boards.  It says how many of the boards
+    shown are confirmed in network (the same states that put a dagger on the
+    rest), how many in-network job boards the repository names for the market
+    in total (only where it can count them exactly), and that the boards are
+    chosen by market share, not matched to the role.  '' when there are no
+    markets."""
     if not groups:
         return ""
     depths = [g["depth"] for g in groups if isinstance(g.get("depth"), dict)]
@@ -1992,16 +2005,31 @@ def supply_depth_line(groups: Sequence[Dict[str, Any]]) -> str:
         return SELECTION_NOTE
     if len(depths) == 1:
         d = depths[0]
-        verb = "is" if d["shown"] == 1 else "are"
-        return (
-            f"{SELECTION_NOTE} The repository names {d['total']} in-network job "
-            f"boards for {d['country']}; {d['shown']} {verb} among those shown."
+        noun = "board" if d["boards"] == 1 else "boards"
+        verb = "is" if d["confirmed"] == 1 else "are"
+        text = (
+            f"Of the {d['boards']} {noun} shown, {d['confirmed']} {verb} "
+            "confirmed in network (global boards included)."
         )
-    parts = "; ".join(f"{d['country']} {d['shown']} of {d['total']}" for d in depths)
-    return (
-        f"{SELECTION_NOTE} In-network job boards the repository names for each "
-        f"market, shown of listed: {parts}."
+        if d["total"]:
+            return (
+                f"{text} The repository lists {d['total']} in-network job boards "
+                f"for {d['country']} in total; boards shown are chosen by market "
+                "share, not matched to the role."
+            )
+        return f"{text} {SELECTION_NOTE}"
+    confirmed = "; ".join(
+        f"{d['country']} {d['confirmed']} of {d['boards']}" for d in depths
     )
+    text = f"Boards shown that are confirmed in network (global boards included): {confirmed}."
+    totals = [d for d in depths if d["total"]]
+    if totals:
+        listed = "; ".join(f"{d['country']} {d['total']}" for d in totals)
+        return (
+            f"{text} In-network job boards the repository lists in total: {listed}. "
+            f"{SELECTION_NOTE}"
+        )
+    return f"{text} {SELECTION_NOTE}"
 
 
 def plan_market_boards(
@@ -2052,6 +2080,175 @@ def plan_market_boards(
     if shown:
         shown[0]["more"] = len(ordered) - len(shown)
     return shown
+
+
+def local_boards_selected(data: Any) -> bool:
+    """False when the user turned off BOTH the Global and the Regional job-board
+    channel categories: such a plan funds no job board, so neither the deck nor
+    the workbook recommends local ones.  The Niche tick plays no part -- local
+    boards are not niche boards.  The one rule for slide 5 and the workbook."""
+    try:
+        import gold_standard
+
+        off = gold_standard.deselected_channel_categories(data)
+    except (ImportError, AttributeError, TypeError):
+        return True
+    return not {"global_boards", "regional_boards"} <= set(off)
+
+
+# ---------------------------------------------------------------------------
+# Knowledge-base text: a barred board never appears as a recommendation
+# ---------------------------------------------------------------------------
+
+DROPPED = object()  # returned in place of a node that IS a barred board
+
+
+def _country_of_key(key: Any) -> str:
+    """The country a dict key / path segment names ('mexico', 'United_Kingdom',
+    'japan', 'uk'), else ''.  Any country counts, not only the ones with a
+    barred board: knowing a list is Japan's is what stops Japan's public
+    'Hello Work' being read as the barred French HelloWork."""
+    text = str(key or "").replace("_", " ").strip().lower()
+    if not text:
+        return ""
+    if text in _COUNTRY_WORD_SET or text in _COUNTRY_ALIASES:
+        return canonical_country(text)
+    return ""
+
+
+def country_in_path(path: Any) -> str:
+    """The first country named by a search path such as
+    'verticals.technology.by_country.mexico.top_platforms[0]', else ''."""
+    for seg in re.split(r"[.\[\]]", str(path or "")):
+        found = _country_of_key(seg)
+        if found:
+            return found
+    return ""
+
+
+def _barred_entry(name: Any, countries: Sequence[str]) -> Optional[Dict[str, Any]]:
+    """The availability entry that bars the single board ``name`` in any of
+    ``countries`` ('' = no country known).  Spellings like 'occ_mundial' are
+    read as names; a name of three letters or fewer ('OCC') is only read as a
+    board where a country is known, since on its own it could be anything."""
+    text = str(name or "").strip()
+    if not text or len(text) > 80:
+        return None
+    for form in (text, text.replace("_", " ")):
+        for country in countries or [""]:
+            if not country and len(normalize(form)) <= 3:
+                continue
+            entry = availability_for(form, country or None)
+            if entry:
+                return entry
+    return None
+
+
+def _barred_in_all(name: Any, countries: Sequence[str]) -> Optional[Dict[str, Any]]:
+    """The bar on ``name`` when it holds in EVERY listed country: a profile of
+    a board that runs in several markets (ZipRecruiter: US, Canada, UK) stays
+    when only one of them is barred."""
+    entries = [_barred_entry(name, [c]) for c in (countries or [""])]
+    return entries[0] if entries and all(entries) else None
+
+
+def _entry_countries(node: Dict[str, Any], ctx: str) -> List[str]:
+    found: List[str] = []
+    raw = node.get("countries", node.get("country"))
+    items = raw if isinstance(raw, (list, tuple)) else str(raw or "").split(",")
+    for item in items:
+        text = str(item or "").strip()
+        if text and text.lower() != "nan":
+            found.append(canonical_country(text))
+    return found or [ctx]
+
+
+def _note_barred(
+    removed: Optional[List[Dict[str, Any]]], entry: Dict[str, Any]
+) -> None:
+    if removed is None:
+        return
+    exited = entry.get("status") == "exited"
+    status = EXITED_STATUS if exited else UNAVAILABLE_STATUS
+    as_of = str(entry.get("as_of") or "")
+    note = f"{status}, as of {as_of}" if as_of else status
+    item = {"name": str(entry.get("name") or ""), "note": note}
+    if item not in removed:
+        removed.append(item)
+
+
+def _strip_barred(node: Any, ctx: str, removed: Optional[List[Dict[str, Any]]]) -> Any:
+    if isinstance(node, dict):
+        label = node.get("name", node.get("platform"))
+        if isinstance(label, str) and label.strip():
+            entry = _barred_in_all(label, _entry_countries(node, ctx))
+            if entry:
+                _note_barred(removed, entry)
+                return DROPPED
+            parts = [
+                p.strip() for p in re.split(r"\s+/\s+|\s*\|\s*", label) if p.strip()
+            ]
+            if len(parts) > 1:
+                kept = []
+                for part in parts:
+                    barred = _barred_in_all(part, _entry_countries(node, ctx))
+                    if barred:
+                        _note_barred(removed, barred)
+                    else:
+                        kept.append(part)
+                if not kept:
+                    return DROPPED
+                if len(kept) < len(parts):
+                    field = "name" if "name" in node else "platform"
+                    node = {**node, field: " / ".join(kept)}
+        out: Dict[Any, Any] = {}
+        changed = False
+        for key, value in node.items():
+            key_ctx = _country_of_key(key) or ctx
+            entry = _barred_entry(key, [key_ctx]) if isinstance(key, str) else None
+            if entry:
+                _note_barred(removed, entry)
+                changed = True
+                continue
+            new_value = _strip_barred(value, key_ctx, removed)
+            if new_value is DROPPED:
+                changed = True
+                continue
+            changed = changed or new_value is not value
+            out[key] = new_value
+        return out if changed else node
+    if isinstance(node, list):
+        kept_items: List[Any] = []
+        changed = False
+        for item in node:
+            new_item = _strip_barred(item, ctx, removed)
+            if new_item is DROPPED:
+                changed = True
+                continue
+            changed = changed or new_item is not item
+            kept_items.append(new_item)
+        return kept_items if changed else node
+    if isinstance(node, str):
+        entry = _barred_entry(node, [ctx])
+        if entry:
+            _note_barred(removed, entry)
+            return DROPPED
+    return node
+
+
+def without_barred_boards(
+    node: Any, country: Any = None, removed: Optional[List[Dict[str, Any]]] = None
+) -> Any:
+    """``node`` (any JSON-like knowledge-base value) with every board the
+    availability file bars -- in the country the data places it in -- taken
+    out: list items, dict entries and profiles keyed by the board's name or id,
+    and a barred part of a combined name.  A same-named board in another
+    country is untouched.  Returns the node itself when nothing changed (never
+    edits its input) and :data:`DROPPED` when ``node`` is itself a barred
+    board.  ``removed`` collects ``{"name", "note"}`` for each board taken out,
+    the note being the plain "Not available through Joveo, as of <date>"."""
+    ctx = canonical_country(country) if country else ""
+    return _strip_barred(node, ctx, removed)
 
 
 def client_config() -> Dict[str, Any]:

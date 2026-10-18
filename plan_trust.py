@@ -32,11 +32,11 @@ DEFAULT_DATA_DIR = os.path.join(_BASE_DIR, "data")
 NOT_RECORDED = "date not recorded"
 
 # The supply data (the repository, the full listing) carries ONE date: its own
-# ``last_updated``.  Every other supply date is an individual board's
-# availability edit on top of it (an owner confirmation, a sales-barred
-# board): the newest of those is how far board availability has been updated,
-# and is never described as a refresh of the listing.
-SUPPLY_NETWORK_LABEL = "Board availability updates"
+# ``last_updated``.  Every other supply date is an individual board's status
+# change recorded on top of it (an owner confirmation, a sales-barred board):
+# the newest of those is how far such changes are recorded, and is never
+# described as an update or refresh of the listing.
+SUPPLY_NETWORK_LABEL = "Board status changes"
 SUPPLY_REPO_LABEL = "Supply data (full listing)"
 BENCHMARKS_LABEL = "Joveo benchmarks (CPC / CPA)"
 
@@ -241,7 +241,7 @@ def _family_row(
     else:
         lo, hi = min(dated), max(dated)
         if mode == "latest":
-            text = f"updated through {hi}"
+            text = f"recorded to {hi}"
         else:
             text = lo if lo == hi else f"{lo} to {hi}"
         if undated:
@@ -323,26 +323,26 @@ def _row_date(rows: Sequence[Dict[str, Any]], label: str, which: str) -> str:
 
 
 def _supply_dates(rows: Sequence[Dict[str, Any]]) -> str:
-    """'Supply data dated 2026-03-31; board availability updated through
+    """'Supply data dated 2026-03-31; board status changes recorded to
     2026-10-17': the listing's own date, and separately how far individual
-    board availability has been updated.  A missing date says so."""
+    board status changes are recorded.  A missing date says so."""
     repo = _row_date(rows, SUPPLY_REPO_LABEL, "oldest")
     latest = _row_date(rows, SUPPLY_NETWORK_LABEL, "latest")
     listing = "date not recorded" if repo == NOT_RECORDED else f"dated {repo}"
-    updates = (
-        "update date not recorded"
+    recorded = (
+        "change date not recorded"
         if latest == NOT_RECORDED
-        else f"updated through {latest}"
+        else f"changes recorded to {latest}"
     )
-    return f"Supply data {listing}; board availability {updates}"
+    return f"Supply data {listing}; board status {recorded}"
 
 
 def headline(rows: Sequence[Dict[str, Any]]) -> str:
     """One line for the Executive Summary and the checklist, in plain words:
-    the supply data's own date, how far individual board availability has been
-    updated since, and the benchmarks (oldest file, so it never overstates).
-    The board-availability date is never presented as a refresh of the full
-    supply listing."""
+    the supply data's own date, how far individual board status changes are
+    recorded, and the benchmarks (oldest file, so it never overstates).  The
+    board-status date is never presented as a refresh of the full supply
+    listing."""
     supply = _supply_dates(rows)
     return (
         f"Data as of: {supply[0].lower() + supply[1:]}"

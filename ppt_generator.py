@@ -11945,11 +11945,18 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     # Named local boards for the plan's non-US markets (client exclusions,
     # availability and renames already applied): a band under the cards, so the
     # deck names real publishers, not just channel categories.
-    _local_boards = _pubfilter.plan_market_boards(data)
-    _board_gaps = _pubfilter.plan_market_board_gaps(data)
+    # (a plan that turned off both the Global and the Regional job-board
+    # categories funds no job board: no local ones are named, as in the workbook)
+    _boards_on = _pubfilter.local_boards_selected(data)
+    _local_boards = _pubfilter.plan_market_boards(data) if _boards_on else []
+    _board_gaps = _pubfilter.plan_market_board_gaps(data) if _boards_on else []
     # One plain sentence on how deep the repository's in-network list runs
     # for these markets ('' when it cannot be counted exactly).
     _depth_line = _pubfilter.supply_depth_line(_local_boards)
+    # 8pt in the 12.2in band: a many-market line can wrap, so measure it
+    _depth_extra_in = (
+        0.1 + 0.15 * _measure_lines(_depth_line, 12.0, 8.0) if _depth_line else 0.0
+    )
     _band_h_in = 0.0
     _band_more = 0
     if _local_boards or _board_gaps:
@@ -11960,7 +11967,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
         if any(g["unverified"] for g in _local_boards):
             _band_h_in += 0.25
         if _depth_line:
-            _band_h_in += 0.25
+            _band_h_in += _depth_extra_in
         _avail_bottom_in -= _band_h_in
     _avail_h_in = _avail_bottom_in - _avail_top_in
     # Never exceed the old fixed 4.6in max, and always leave a little slack
@@ -12211,13 +12218,13 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
                 Inches(0.55),
                 Inches(_line_top_in + 0.02),
                 Inches(12.2),
-                Inches(0.24),
+                Inches(_depth_extra_in - 0.01),
                 text=_depth_line,
                 font_size=8,
                 color=MUTED_TEXT,
             )
             _set_body_font(_dtf)
-            _line_top_in += 0.25
+            _line_top_in += _depth_extra_in
         if any(g["unverified"] for g in _local_boards):
             _nx, _ntf = _add_textbox(
                 slide,
@@ -13707,8 +13714,8 @@ def _apply_trust_pack(prs: Presentation, data: Dict[str, Any]) -> None:
             today = datetime.date.today().strftime("%B %d, %Y")
             _stamp_data_asof_footer(slides[1], info["footer_headline"], today)
             lines = [
-                "DATA AS OF (per source file; a newer board-availability date does "
-                "not mean the full supply listing was refreshed)"
+                "DATA AS OF (per source file; a newer board-status date does not "
+                "mean the full supply listing was refreshed)"
             ]
             lines += [f"{f['label']}: {f['as_of']}" for f in info["families"]]
             lines += [info["live_line"], stamp]

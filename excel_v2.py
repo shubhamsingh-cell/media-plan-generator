@@ -2798,12 +2798,9 @@ def _niche_boards_selected(data: dict) -> bool:
 
 def _local_boards_selected(data: dict) -> bool:
     """False when the user turned off BOTH the Global and the Regional job-board
-    channel categories: such a plan funds no job board, so the workbook does not
-    recommend local ones.  The Niche tick plays no part -- local boards are not
-    niche boards (it used to hide the table for an industry that has a niche
-    list, and the table never existed for the four that have none)."""
-    off = gs_lib.deselected_channel_categories(data)
-    return not {"global_boards", "regional_boards"} <= set(off)
+    channel categories (see publisher_filter.local_boards_selected, the rule
+    deck slide 5 shares).  The Niche tick plays no part."""
+    return publisher_filter.local_boards_selected(data)
 
 
 def _non_us_signals(data: dict) -> List[str]:
@@ -15644,7 +15641,7 @@ def _append_asof_to_sources(ws, info: dict) -> None:
         row,
         "Dates are read from each data file's own metadata. A source with no "
         f"recorded date reads '{plan_trust.NOT_RECORDED}' - it is never estimated. "
-        "The supply data is the full listing; board availability updates are "
+        "The supply data is the full listing; board status changes are "
         "individual boards confirmed or barred after it, so a newer board "
         "date does not mean the full listing was refreshed.",
     )
