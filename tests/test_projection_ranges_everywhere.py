@@ -117,11 +117,10 @@ def test_nova_formatter_prints_ranges_and_the_basis():
     )
     out = nova._format_budget_response(data, 60000)
     assert "Estimated Hires: 5" + DASH + "11" in out
-    # RN engine CPA was $13.96 (below the KB band, so it was the range's low
-    # end); the healthcare apply-rate re-level (Appcast 2026 healthcare apply
-    # rate 3.22%, CPA-realism C1) puts it at ~$35.5, inside the KB band
-    # $35-$58, so the range now IS the band.
-    assert "Cost per Application: $35" + DASH + "$58" in out
+    # RN engine CPA was $13.96; the healthcare apply-rate re-level (Appcast 2026
+    # healthcare apply rate 3.22%, CPA-realism C1) re-levels applications and
+    # CPA only, to $34.97 -- still the optimistic end, just under the KB band.
+    assert "Cost per Application: $34.97" + DASH + "$58" in out
     assert "no client hire history" in out
     assert "Projected Hires:" not in out  # the lone point is gone
     assert "presentation_note" in data

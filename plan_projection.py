@@ -38,7 +38,7 @@ from __future__ import annotations
 import logging
 import re
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,15 @@ _SUBKEY_GENERIC = frozenset(
         "ai", "ml", "management", "median", "range", "trend", "yoy", "notes",
     }
 )
+
+# Words in a KB cpa sub-key that name a MARKET CONDITION rather than a role
+# ("specialized_nursing_competitive_markets" = specialized nursing in
+# competitive markets). Stripped as generic they left just "nursing", so any
+# title containing it (Certified Nursing Assistant, Nursing Supervisor,
+# Director of Nursing) got that $200-$400 band. A sub-key carrying one applies
+# only when the brief supplies the same market qualifier (``market_qualifiers``
+# of :func:`kb_cpa_range`); a role title alone never selects it.
+_SUBKEY_MARKET_QUALIFIERS = frozenset({"competitive", "market", "markets"})
 
 _FALLBACK_INDUSTRY = "general_entry_level"
 
@@ -264,11 +273,15 @@ def kb_cpa_range(
     industry_key: str,
     role_titles: Optional[List[str]] = None,
     knowledge_base: Optional[Dict[str, Any]] = None,
+    market_qualifiers: Optional[Iterable[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     """The KB's cost-per-application range for this industry / role, or None.
 
     A sub-role row (``cpa.warehouse_hourly``) wins over the industry row
-    (``cpa.range``) when the brief's role titles contain its words. Returns
+    (``cpa.range``) when the brief's role titles contain its words. A sub-role
+    row that also names a market condition (``..._competitive_markets``)
+    applies only when ``market_qualifiers`` carries that condition (e.g.
+    ``{"competitive"}``): the role title alone never selects it. Returns
     ``{"low", "high", "text", "scope", "key", "source"}``.
     """
     kb_key, row = _kb_industry_row(industry_key, knowledge_base)
@@ -280,12 +293,17 @@ def kb_cpa_range(
         for title in (role_titles or [])
         for w in re.findall(r"[A-Za-z]+", str(title or ""))
     }
+    brief_qualifiers = {
+        str(q).strip().lower() for q in (market_qualifiers or ()) if str(q).strip()
+    }
     for sub_key, text in cpa.items():
         if sub_key in ("range", "median") or not isinstance(text, str):
             continue
-        words = [
-            w for w in sub_key.lower().split("_") if w and w not in _SUBKEY_GENERIC
-        ]
+        sub_words = [w for w in sub_key.lower().split("_") if w]
+        qualifiers = {w for w in sub_words if w in _SUBKEY_MARKET_QUALIFIERS}
+        if qualifiers and not (qualifiers & brief_qualifiers):
+            continue  # a market-conditioned band needs the brief to name the market
+        words = [w for w in sub_words if w not in _SUBKEY_GENERIC]
         if not words or not all(_stem(w) in role_words for w in words):
             continue
         rng = _parse_dollar_range(text)

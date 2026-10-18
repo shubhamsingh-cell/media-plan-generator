@@ -29,34 +29,15 @@ def _project(role, loc, budget=60_000, industry=""):
     )
 
 
-# Healthcare used to be the fixture for "the engine sits below the KB band"
-# (RN engine CPA ~$14 vs KB $35-$58). The healthcare apply-rate re-level
-# (Appcast 2026 healthcare apply rate 3.22%; CPA-realism C1, 2026-10-18) lifts
-# the RN engine CPA to ~$35, inside the band, so the below-the-band guards run
-# on truck driving (engine ~$6.5 vs the logistics KB industry band $12-$35) and
-# the healthcare case is pinned separately below.
-def test_below_band_cpa_range_high_reaches_the_industry_benchmark():
-    p = _project("Truck Driver", "Dallas, TX", industry="logistics_supply_chain")
+def test_rn_cpa_range_high_reaches_the_healthcare_benchmark():
+    p = _project("Registered Nurse", "Columbus, OH")
     assert p["cpa"]["high"] >= 35
     # the engine figure is untouched: CPA low stays what the engine computed
     assert p["cpa"]["low"] == pytest.approx(p["engine"]["cost_per_application"], abs=0.01)
     note = " ".join(p["notes"])
     assert "Industry benchmarks run higher" in note
-    assert "logistics_supply_chain.cpa.range" in note  # cites file + key
+    assert "healthcare_medical.cpa.range" in note  # cites file + key
     assert "recruitment_benchmarks_deep.json" in note
-
-
-def test_rn_engine_cpa_sits_inside_the_healthcare_kb_band_after_the_relevel():
-    p = _project("Registered Nurse", "Columbus, OH")
-    eng = p["engine"]["cost_per_application"]
-    assert 35 <= eng <= 58, eng  # was ~$14 (8% generic job-board apply rate)
-    assert (p["cpa"]["low"], p["cpa"]["high"]) == (35.0, 58.0)
-    note = " ".join(p["notes"])
-    assert "sits inside it" in note and "Industry benchmarks run higher" not in note
-    assert "healthcare_medical.cpa.range" in note  # still cites file + key
-    # the hull property: applications low/high are budget over the CPA high/low
-    assert p["applications"]["low"] == pytest.approx(60_000 / 58, abs=1)
-    assert p["applications"]["high"] == pytest.approx(60_000 / 35, abs=1)
 
 
 def test_warehouse_uses_the_sub_role_row_not_the_industry_row():
@@ -66,18 +47,14 @@ def test_warehouse_uses_the_sub_role_row_not_the_industry_row():
 
 
 def test_applications_range_is_budget_over_the_cpa_range():
-    p = _project("Truck Driver", "Dallas, TX", industry="logistics_supply_chain")
+    p = _project("Registered Nurse", "Columbus, OH")
     assert p["applications"]["low"] == pytest.approx(60_000 / p["cpa"]["high"], abs=1)
     assert p["applications"]["high"] == p["engine"]["applications"]
 
 
 def test_engine_cpa_is_never_clamped_up():
-    p = _project("Truck Driver", "Dallas, TX", industry="logistics_supply_chain")
-    assert p["cpa"]["low"] < 12  # engine figure stays below the KB benchmark's low
-    # healthcare: the re-levelled engine figure is reported as computed, not floored to the KB
-    rn = _project("Registered Nurse", "Columbus, OH")
-    eng = rn["engine"]
-    assert eng["cost_per_application"] == pytest.approx(60_000 / eng["applications"], abs=0.01)
+    p = _project("Registered Nurse", "Columbus, OH")
+    assert p["cpa"]["low"] < 35  # engine figure stays below the KB benchmark
 
 
 def test_sub_role_match_needs_every_content_word():
@@ -110,3 +87,57 @@ def test_workbook_fallback_channel_cpa_reads_the_kb():
     assert excel_v2._fallback_channel_cpa({"role": "Registered Nurse"}, alloc) == 35.0
     alloc = {"metadata": {"industry": "logistics_supply_chain"}}
     assert excel_v2._fallback_channel_cpa({"role": "Warehouse Associate"}, alloc) == 12.0
+
+
+# ---- the "specialized nursing in competitive markets" sub-band ($200-$400) --
+# KB healthcare_medical.cpa.specialized_nursing_competitive_markets used to be
+# selected by the single word "nursing" (its other words are stripped as
+# generic), so a hospital brief with a CNA printed "cost per application $x-$400".
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Certified Nursing Assistant",
+        "Nursing Assistant",
+        "Nursing Supervisor",
+        "Director of Nursing",
+        "Registered Nurse",
+        "Licensed Practical Nurse",
+        "ICU Nurse",
+    ],
+)
+def test_generic_nursing_titles_get_the_industry_band_not_200_to_400(title):
+    kb = plan_projection.kb_cpa_range("healthcare_medical", [title])
+    assert kb["scope"] == "industry", (title, kb)
+    assert kb["key"] == "healthcare_medical.cpa.range"
+    assert (kb["low"], kb["high"]) == (35.0, 58.0)
+
+
+def test_competitive_market_sub_band_still_maps_when_the_brief_names_the_market():
+    kb = plan_projection.kb_cpa_range(
+        "healthcare_medical", ["Certified Nursing Assistant"], market_qualifiers={"competitive"}
+    )
+    assert kb["scope"] == "sub_role"
+    assert kb["key"] == "healthcare_medical.cpa.specialized_nursing_competitive_markets"
+    assert (kb["low"], kb["high"]) == (200.0, 400.0)
+    # a qualifier for some other market does not select it, nor does a role mismatch
+    other = plan_projection.kb_cpa_range(
+        "healthcare_medical", ["Certified Nursing Assistant"], market_qualifiers={"rural"}
+    )
+    assert other["scope"] == "industry"
+    no_role = plan_projection.kb_cpa_range(
+        "healthcare_medical", ["Pharmacist"], market_qualifiers={"competitive"}
+    )
+    assert no_role["scope"] == "industry"
+
+
+def test_hospital_brief_with_a_cna_has_a_sane_cpa_range_top():
+    p = plan_projection.project_plan(
+        {
+            "budget": 250_000,
+            "roles": ["Registered Nurse", "Certified Nursing Assistant", "Clinical Pharmacist", "ICU Nurse"],
+            "locations": ["Houston, TX", "Dallas, TX"],
+            "industry": "healthcare_medical",
+        }
+    )
+    assert p["cpa"]["high"] == 58.0, p["cpa"]  # the KB industry band's top, not $400
+    assert "specialized_nursing" not in " ".join(p["notes"])

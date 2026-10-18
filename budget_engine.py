@@ -962,23 +962,24 @@ def _get_trend_engine_cpc(
 # Appcast-derived).
 #
 # HEALTHCARE (restored 2026-10-18, C1 of the CPA-realism decision memo,
-# ledger/2026-10-18/cpa_realism/DECISION_cpa_realism.md): the 2026-10-01
-# hold (commit 10dbae1) called this rate "unverified" and set it against a
-# "$9.73 RN median"; neither reason stands. Appcast 2026 Recruitment
-# Marketing Benchmark Report, apply rate by occupational group, healthcare
-# 3.22% (lowest of 15 groups; tech 7.14%) -- quoted by jobscore.com/articles/
-# apply-rate (2026-03-12) and recruitingheadlines.com (2026-02-17), tech
-# 7.14% and the 5.19% overall rate confirmed on appcast.io/the-rising-cost-
-# of-recruiting (2026-02-20); the full report is form-gated. The KB carries
-# it as 3.2 (rounded). The $9.73 was the Welding row of
-# joveo_cpa_benchmarks_2026.json; its Registered Nurses row is $82.57 gross
-# / $38.17 net (Feb-26). Scope is the whole healthcare_medical industry key
-# (every role in a healthcare plan), US plans only. Moves the plan's CPA
-# (~2.5x) and applications (~-60%); hires are unchanged wherever the
-# cost-per-hire floor governs them (the 26 sweep briefs, and the 560 hub
-# scenarios in all 12 start months), but a small plan whose funnel falls
-# below the floor-priced count follows the funnel (RN under ~$28K; pinned in
-# tests/test_projection_review_round2.py).
+# ledger/2026-10-18/cpa_realism/DECISION_cpa_realism.md). SOURCE, stated
+# plainly: the 3.22% healthcare apply rate (Appcast 2026 Recruitment Marketing
+# Benchmark Report, lowest of 15 occupational groups; tech 7.14%) rests on TWO
+# SECONDARY quotes of that report -- jobscore.com/articles/apply-rate
+# (2026-03-12) and recruitingheadlines.com (2026-02-17). The primary report is
+# form-gated, and Appcast's public wording for healthcare is qualitative only
+# ("continued to struggle", appcast.io/the-rising-cost-of-recruiting,
+# 2026-02-20, which does print tech 7.14% and the 5.19% overall rate). The KB
+# carries it as 3.2 (rounded). The 2026-10-01 hold (commit 10dbae1) called the
+# rate "unverified" and set it against a "$9.73 RN median"; that figure is the
+# Welding row of joveo_cpa_benchmarks_2026.json (its Registered Nurses row is
+# $82.57 gross / $38.17 net, Feb-26). Scope: the whole healthcare_medical
+# industry key (every role in a healthcare plan), US plans only.
+#
+# Healthcare changes APPLICATIONS and CPA only (_APPLY_RELEVEL_APPLICATIONS_ONLY):
+# the allocation pipeline runs on the generic table rates and the re-level is
+# applied afterwards, so hires, the hires range, the cost per hire and the
+# channel dollars equal the un-re-levelled plan at every budget.
 _JOB_BOARD_APPLY_RATE_KB_KEY: Dict[str, Tuple[str, str]] = {
     "healthcare_medical": ("healthcare", "both"),
     "blue_collar_trades": ("manufacturing", "blue_collar"),
@@ -999,6 +1000,74 @@ def _industry_job_board_apply_rate(industry: str) -> Tuple[Optional[float], str]
         return get_industry_apply_rate(kb_key), ref_collar
     except ImportError:
         return None, ""
+
+
+# Industries whose apply-rate re-level changes APPLICATIONS and CPA only
+# (CPA-realism C1, 2026-10-18). The owner-level contract is that hires are
+# the media budget over the assumed all-in industry cost per hire, shown as a
+# range, so these plans run their whole allocation pipeline (efficiency
+# reweight, vendor gate, ROI rebalancer, hire split, cost-per-hire floor) on
+# the generic table apply rates and re-level each channel's applications and
+# CPA once that pipeline is done (``_relevel_applications_only``). Hires, the
+# hires range, the cost per hire and the channel dollars therefore equal the
+# un-re-levelled plan at EVERY budget; before this, a small plan's funnel
+# fell under the cost-per-hire floor and its hires followed the funnel down.
+# Other re-levelled industries (blue_collar_trades) keep the original
+# behaviour of re-levelling inside compute_channel_dollar_amounts.
+_APPLY_RELEVEL_APPLICATIONS_ONLY = frozenset({"healthcare_medical"})
+
+
+def _industry_apply_scale_for(
+    industry: str, intl_cpc_basis: Optional[Dict[str, Any]]
+) -> Optional[float]:
+    """The factor that moves the generic job-board apply rate onto the KB's
+    industry rate (``None`` when the industry has no KB rate or the plan is
+    not a US plan: the KB rates are US figures).
+
+    The KB figure is the industry's job-board rate at its OWN typical collar
+    mix (healthcare: mixed; manufacturing: blue collar), so the scale is
+    taken against the table rate at that reference collar. The plan's own
+    collar multiplier still applies on top: an RN plan's boards land on the
+    KB figure, a blue-collar hourly healthcare plan keeps its blue-collar
+    uplift instead of being priced like nurses."""
+    if intl_cpc_basis:
+        return None
+    kb_apply, kb_ref_collar = _industry_job_board_apply_rate(industry)
+    if kb_apply is None:
+        return None
+    jb_table = BASE_BENCHMARKS["apply_rate"]["job_board"]
+    if kb_ref_collar and kb_ref_collar != "both":
+        jb_table *= _get_collar_apply_rate_adjustment("job_board", kb_ref_collar)
+    return kb_apply / jb_table if jb_table > 0 else None
+
+
+def _relevel_applications_only(
+    channel_allocs: Dict[str, Dict],
+    industry: str,
+    intl_cpc_basis: Optional[Dict[str, Any]],
+) -> bool:
+    """Re-level every priced channel's apply rate, applications and CPA onto
+    the KB industry rate AFTER the allocation pipeline has run on the generic
+    rates (see ``_APPLY_RELEVEL_APPLICATIONS_ONLY``). Clicks, dollars, hires
+    and cost per hire are not touched. Returns whether anything was re-levelled."""
+    scale = _industry_apply_scale_for(industry, intl_cpc_basis)
+    if scale is None:
+        return False
+    for ch in channel_allocs.values():
+        if not isinstance(ch, dict):
+            continue
+        cpc = ch.get("cpc") or 0
+        rate = ch.get("apply_rate")
+        if not (cpc > 0 and rate):
+            continue  # flat-cost channels never priced applications off a rate
+        new_rate = round(rate * scale, 4)
+        apps = max(0, int((ch.get("projected_clicks") or 0) * new_rate))
+        dollars = ch.get("dollar_amount") or 0
+        ch["apply_rate"] = new_rate
+        ch["apply_rate_source"] = "kb_industry"
+        ch["projected_applications"] = apps
+        ch["cpa"] = round(_safe_divide(dollars, max(apps, 1), dollars), 2)
+    return True
 
 
 def _get_collar_apply_rate_adjustment(category: str, collar_type: str) -> float:
@@ -3309,9 +3378,16 @@ def compute_channel_dollar_amounts(
     location: str = "",
     month: int = 0,
     intl_cpc_basis: Optional[Dict[str, Any]] = None,
+    industry_relevel: bool = True,
 ) -> Dict[str, Dict]:
     """
     Convert channel percentages to dollar amounts with projected outcomes.
+
+    ``industry_relevel=False`` skips the industry apply-rate re-level
+    (``_JOB_BOARD_APPLY_RATE_KB_KEY``) so the funnel runs on the generic
+    table rates; ``calculate_budget_allocation`` passes it for the
+    applications-only industries (``_APPLY_RELEVEL_APPLICATIONS_ONLY``) and
+    re-levels applications and CPA afterwards.
 
     For each channel:
         1. Dollar amount = total_role_budget * (pct / 100)
@@ -3401,24 +3477,11 @@ def compute_channel_dollar_amounts(
     # at 7.8% in the same healthcare plan and shifted the efficiency
     # reweight on nothing but which constant had been refreshed. US plans
     # only: the KB rates are US (Appcast) figures.
-    _industry_apply_scale: Optional[float] = None
-    if not intl_cpc_basis:
-        _kb_apply, _kb_ref_collar = _industry_job_board_apply_rate(industry)
-        if _kb_apply is not None:
-            # The KB figure is the industry's job-board rate at its OWN
-            # typical collar mix (healthcare: mixed; manufacturing: blue
-            # collar), so the scale is taken against the table rate at that
-            # reference collar. The plan's own collar multiplier still
-            # applies on top: an RN plan's boards land on 3.2%, a
-            # blue-collar hourly healthcare plan keeps its blue-collar
-            # uplift instead of being priced like nurses.
-            _jb_table = BASE_BENCHMARKS["apply_rate"]["job_board"]
-            if _kb_ref_collar and _kb_ref_collar != "both":
-                _jb_table *= _get_collar_apply_rate_adjustment(
-                    "job_board", _kb_ref_collar
-                )
-            if _jb_table > 0:
-                _industry_apply_scale = _kb_apply / _jb_table
+    _industry_apply_scale: Optional[float] = (
+        _industry_apply_scale_for(industry, intl_cpc_basis)
+        if industry_relevel
+        else None
+    )
 
     allocations: Dict[str, Dict] = {}
     for ch_name, raw_pct in channel_percentages.items():
@@ -5517,6 +5580,13 @@ def calculate_budget_allocation(
         elif isinstance(loc0, str):
             primary_location = loc0
 
+    # Applications-only re-level (see _APPLY_RELEVEL_APPLICATIONS_ONLY): the
+    # pipeline below runs on the generic apply rates; applications and CPA
+    # are re-levelled once it is done.
+    _apps_only_relevel = (
+        _industry_cph_key(industry) or ""
+    ) in _APPLY_RELEVEL_APPLICATIONS_ONLY
+
     # Step 3a (S91): FIRST-PASS per-channel CPA/CPH/ROI estimate using the
     # static industry-profile percentages. Used ONLY to drive the
     # efficiency reweighting + vendor gate below; not returned to the caller.
@@ -5530,6 +5600,7 @@ def calculate_budget_allocation(
         location=primary_location,
         month=campaign_start_month,
         intl_cpc_basis=_intl_cpc_basis,
+        industry_relevel=not _apps_only_relevel,
     )
 
     # Step 3b (S91): Efficiency reweighting -- blend the static profile
@@ -5559,6 +5630,7 @@ def calculate_budget_allocation(
         location=primary_location,
         month=campaign_start_month,
         intl_cpc_basis=_intl_cpc_basis,
+        industry_relevel=not _apps_only_relevel,
     )
 
     # Step 3.5: Auto-rebalance low-ROI channels (S91: roi_floor 2 -> 4,
@@ -5784,6 +5856,13 @@ def calculate_budget_allocation(
                 for f in _quality_flags
             ):
                 _quality_flags.append({"channel": _name, "flag": _qf})
+
+    if _apps_only_relevel and _relevel_applications_only(
+        channel_allocs, industry, _intl_cpc_basis
+    ):
+        total_apps = sum(
+            ch.get("projected_applications") or 0 for ch in channel_allocs.values()
+        )
 
     total_projected = {
         "clicks": total_clicks,

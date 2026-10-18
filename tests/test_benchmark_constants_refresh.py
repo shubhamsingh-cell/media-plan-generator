@@ -94,13 +94,15 @@ class TestApplyRates:
 
     def test_healthcare_job_boards_use_kb_rate(self):
         # Restored 2026-10-18 (CPA-realism C1). The 2026-10-01 hold called the
-        # healthcare rate unverified; Appcast 2026 puts healthcare apply at
-        # 3.22% (lowest occupational group; tech 7.14%), quoted by
-        # jobscore.com/articles/apply-rate and recruitingheadlines.com and
-        # corroborated on appcast.io/the-rising-cost-of-recruiting. The KB
-        # carries it as 3.2. The held-against "$9.73 RN median" was the
-        # Welding row of joveo_cpa_benchmarks_2026.json (RN: $82.57 gross).
-        # The KB healthcare rate describes healthcare's mixed collar ("both").
+        # healthcare rate unverified. The 3.22% (Appcast 2026, lowest of 15
+        # occupational groups; tech 7.14%) rests on two SECONDARY quotes,
+        # jobscore.com/articles/apply-rate and recruitingheadlines.com: the
+        # primary report is gated and Appcast's public healthcare wording is
+        # qualitative (appcast.io/the-rising-cost-of-recruiting prints tech
+        # 7.14% and the 5.19% overall rate). The KB carries it as 3.2. The
+        # held-against "$9.73 RN median" was the Welding row of
+        # joveo_cpa_benchmarks_2026.json (RN: $82.57 gross). The KB healthcare
+        # rate describes healthcare's mixed collar ("both").
         gb = self._gb("healthcare_medical", "Registered Nurse", "Dallas", "TX", "both")
         assert gb["apply_rate"] == 0.032 and gb["apply_rate_source"] == "kb_industry"
 
@@ -122,6 +124,55 @@ class TestApplyRates:
         )
         prog = res["channel_allocations"]["programmatic_dsp"]
         assert prog["apply_rate"] == pytest.approx(0.06 * 0.032 / 0.08, abs=1e-4)
+
+    @pytest.mark.parametrize("role", ["Registered Nurse", "Certified Nursing Assistant"])
+    @pytest.mark.parametrize("budget", [2_500, 9_000, 15_000, 28_000, 60_000, 250_000])
+    def test_healthcare_relevel_moves_applications_and_cpa_only(
+        self, monkeypatch, role, budget
+    ):
+        """The re-level is about APPLICATIONS and CPA. Hires, the hires range,
+        cost per hire, the floor flag and the channel dollars must be exactly
+        what the generic table rates give, at EVERY budget (the owner-level
+        contract: hires = media budget / the assumed all-in industry cost per
+        hire). When the funnel ran on the re-levelled rate a small plan's
+        funnel fell under the floor-priced count and its hires went to 0."""
+
+        def run():
+            return be.calculate_budget_allocation(
+                total_budget=float(budget),
+                roles=[{"title": role, "count": 1, "tier": "Professional"}],
+                locations=[{"city": "Columbus", "state": "OH", "country": "United States"}],
+                industry="healthcare_medical",
+                channel_percentages={
+                    "global_boards": 30,
+                    "niche_boards": 25,
+                    "programmatic_dsp": 25,
+                    "regional_boards": 12,
+                    "social_media": 8,
+                },
+                knowledge_base=None,
+                collar_type="both",
+            )
+
+        relevelled = run()
+        monkeypatch.delitem(be._JOB_BOARD_APPLY_RATE_KB_KEY, "healthcare_medical")
+        generic = run()
+        r, g = relevelled["total_projected"], generic["total_projected"]
+        for key in ("hires", "hires_low", "hires_high", "cost_per_hire", "clicks"):
+            assert r[key] == g[key], (budget, role, key, r[key], g[key])
+        assert (
+            relevelled["metadata"]["cph_floor_applied"]
+            == generic["metadata"]["cph_floor_applied"]
+        )
+        rc, gc = relevelled["channel_allocations"], generic["channel_allocations"]
+        assert set(rc) == set(gc)
+        for name in gc:
+            for key in ("dollar_amount", "percentage", "projected_clicks", "projected_hires"):
+                assert rc[name][key] == gc[name][key], (budget, role, name, key)
+        # ... and applications / CPA are the part that moved
+        assert r["applications"] < g["applications"]
+        assert r["cost_per_application"] > g["cost_per_application"]
+        assert {c["apply_rate_source"] for c in rc.values()} == {"kb_industry"}
 
     def test_healthcare_relevel_is_us_only(self):
         # the KB rates are US (Appcast) figures: a non-US healthcare plan keeps

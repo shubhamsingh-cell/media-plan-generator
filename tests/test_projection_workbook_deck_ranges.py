@@ -72,11 +72,7 @@ def test_workbook_summary_prints_applications_cpa_and_cph_ranges(rn):
     assert DASH in cpa
     assert "Cost per hire: " in line and "not media-only" in line
     assert "no client hire history" in line
-    # RN engine CPA is ~$35.5 after the healthcare apply-rate re-level (C1,
-    # Appcast 2026 healthcare apply rate 3.22%), i.e. inside the KB band: the
-    # line prints the band, not the "run higher / optimistic end" wording.
-    assert "Industry benchmark range $35" + DASH + "$58 per application" in line
-    assert "Industry benchmarks run higher" not in line
+    assert "Industry benchmarks run higher" in line  # RN: engine CPA < KB $35
 
 
 def test_workbook_still_prints_the_hires_range_first(rn):

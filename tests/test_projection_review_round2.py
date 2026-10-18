@@ -161,40 +161,11 @@ def test_f6_cph_range_is_the_basis_and_hires_are_budget_over_it(budget):
 
 
 def test_f6_fifteen_thousand_rn_reads_the_basis_not_7500_to_15000():
-    """$15K RN in Columbus, after the healthcare apply-rate re-level (Appcast
-    2026 healthcare apply rate 3.22%; CPA-realism C1, 2026-10-18).
-
-    BEFORE: applications 1,106, engine hires 2 -> hires 1-2 and CPH
-    $5,250-$10,500 (the stated basis, not the engine's $7,500).
-    AFTER: applications 314 (-72%), and the funnel's own hires truncate to 0
-    (the floor clamp only ever lowers hires, it cannot lift them), so the hires
-    range keeps its basis top (2 = int(15000 / 5250)) but its bottom is the
-    funnel's 0, and the CPH high is the engine's whole-budget $15,000.
-
-    This pins that side effect on purpose rather than hiding it: RN plans under
-    ~$28K lose their funnel hires (measured on 4 hub cities, $9K-$28K); the 26
-    sweep briefs and the 560-scenario hub grid (>= $30K) are unchanged. See
-    ledger/2026-10-18/cpa_c1/ for the probe. A follow-up that keeps hires on the
-    CPH basis at small budgets should restore (1, 2) and (5250.0, 10500.0).
-    """
     p = plan_projection.project_plan(
         {"budget": 15000, "roles": ["Registered Nurse"], "locations": ["Columbus, OH"], "industry": "healthcare_medical"}
     )
-    assert p["engine"]["applications"] < 400  # was 1,106 at the generic 8% rate
-    assert (p["cph"]["low"], p["cph"]["high"]) == (5250.0, 15000.0)
-    assert (p["hires"]["low"], p["hires"]["high"]) == (0, 2)
-
-
-def test_f6_basis_is_intact_at_hub_grid_budgets_after_the_relevel() -> None:
-    """At the hub's budgets (>= $30K) the re-level leaves hires and the CPH
-    range exactly on their stated basis: the funnel still lands on or above the
-    floor-priced count, so only CPA and applications moved."""
-    for budget in (30_000, 33_000, 60_000, 250_000):
-        p = plan_projection.project_plan(
-            {"budget": budget, "roles": ["Registered Nurse"], "locations": ["Columbus, OH"], "industry": "healthcare_medical"}
-        )
-        assert (p["cph"]["low"], p["cph"]["high"]) == (5250.0, 10500.0), budget
-        assert p["hires"]["high"] == int(budget / 5250.0), budget
+    assert (p["cph"]["low"], p["cph"]["high"]) == (5250.0, 10500.0)
+    assert (p["hires"]["low"], p["hires"]["high"]) == (1, 2)
 
 
 # ---- F7 (superseded 2026-10-17): no local CPH -> hires / CPH not projected --
