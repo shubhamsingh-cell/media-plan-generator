@@ -34,6 +34,7 @@ import country_registry  # countries the datasets cover that COUNTRY_DATA has no
 import proof_claims  # public proof numbers: one source of truth, each with its artifact
 import publisher_filter  # client exclusions + availability: one matcher for every board list
 import nova_plan_figures as _plan_figs  # ONE source of plan applications / hires / CPA / CPH
+from nova_cache import normalize_number_tokens as _normalize_number_tokens
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 # S50 (May 2026): 11 free recruitment data APIs as Nova chatbot tools.
@@ -606,7 +607,9 @@ CLAUDE_MODEL_COMPLEX = os.environ.get("CLAUDE_MODEL_COMPLEX") or (
 # Response cache settings
 # S21: Bump version on routing/quality changes to invalidate stale cached responses.
 # Cached responses from broken routing (zero tools) must not be served.
-_CACHE_VERSION = "v3"  # S21: invalidate all pre-fix cached responses
+# v5: v4 keys dropped the decimal point and the currency sign ($1.5k and $15k
+# briefs shared an entry); v4 itself retired entries without the plan-figure guard
+_CACHE_VERSION = "v5"
 RESPONSE_CACHE_TTL = 7 * 86400  # 7 days
 RESPONSE_CACHE_FILE = DATA_DIR / "nova_response_cache.json"
 MAX_RESPONSE_CACHE_SIZE = 80  # S50: was 200 -- reduced to prevent OOM kills
@@ -3763,6 +3766,8 @@ def _normalize_cache_key(question: str) -> str:
     text = text.replace("that's", "that is").replace("doesn't", "does not")
     text = text.replace("don't", "do not").replace("can't", "cannot")
     text = text.replace("won't", "will not").replace("isn't", "is not")
+    # Amounts keep their decimal point and currency ("$1.5k" is not "$15k")
+    text = _normalize_number_tokens(text)
     # Strip punctuation
     text = re.sub(r"[^\w\s]", "", text)
     # Tokenize and remove stop words
@@ -4752,12 +4757,19 @@ def _new_turn_state(
     except Exception:
         logger.warning("Exclusion parsing failed (non-fatal)", exc_info=True)
         excluded = []
+    try:
+        user_turns = _plan_figs.user_turn_texts(user_message, conversation_history)
+    except Exception:
+        user_turns = [user_message or ""]
     return {
         "conversation_id": session_id or "",
         "tools": {},  # filled by _record_turn_tool_result
         "tools_used": [],
         "stateless": bool(stateless),
         "excluded_publishers": excluded,
+        # every user message of the conversation: a figure the user typed in ANY
+        # turn is theirs, never the plan-figure guard's to rewrite
+        "user_turns": user_turns,
     }
 
 
@@ -16644,7 +16656,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             logger.info("NOVA MODE: Learned answer match -- returning cached answer")
             _nova_metrics.record_learned_answer()
             _nova_metrics.record_latency((time.time() - _t0) * 1000)
-            return _filter_competitor_names(learned)
+            # a curated answer still reaches users through the plan-figure
+            # check: no tool ran, so it can only mark
+            return _filter_competitor_names(
+                self._guard_cache_hit(learned, user_message)
+            )
 
         # --- Intelligent query cache (Supabase-backed, fastest for repeat queries) ---
         history = conversation_history or []
@@ -16654,7 +16670,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 logger.info("NOVA MODE: Intelligent cache hit -- instant response")
                 _nova_metrics.record_cache_hit()
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
-                return _filter_competitor_names(intelligent_cached)
+                return _filter_competitor_names(
+                    self._guard_cache_hit(intelligent_cached, user_message)
+                )
 
         # --- Response cache fallback (standalone questions only) ---
         cache_key = _normalize_cache_key(user_message)
@@ -16664,7 +16682,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 logger.info("NOVA MODE: Legacy cache hit -- returning cached response")
                 _nova_metrics.record_cache_hit()
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
-                return _filter_competitor_names(cached)
+                return _filter_competitor_names(
+                    self._guard_cache_hit(cached, user_message)
+                )
 
         # --- Greeting early-exit (0 tokens, 100% confidence) ---
         # Catch greetings, pleasantries, and "how are you" BEFORE any LLM call.
@@ -17111,6 +17131,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 logger.info("NOVA MODE: Quick answer path -- 0 LLM tokens")
                 _nova_metrics.record_rule_based()
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                _quick = self._guard_fast_path(_quick, user_message)
                 if cache_key:
                     _set_response_cache(cache_key, _quick)
                 _intelligent_cache_set(user_message, _quick, history)
@@ -17136,6 +17157,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if _benchmark_fast:
             _nova_metrics.record_chat("fast_path_benchmark_lookup")
             _nova_metrics.record_latency((time.time() - _t0) * 1000)
+            _benchmark_fast = self._guard_fast_path(_benchmark_fast, user_message)
             if cache_key:
                 _set_response_cache(cache_key, _benchmark_fast)
             _intelligent_cache_set(user_message, _benchmark_fast, history)
@@ -17152,6 +17174,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if _supply_listing:
             _nova_metrics.record_chat("fast_path_supply_listing")
             _nova_metrics.record_latency((time.time() - _t0) * 1000)
+            _supply_listing = self._guard_fast_path(_supply_listing, user_message)
             if cache_key:
                 _set_response_cache(cache_key, _supply_listing)
             _intelligent_cache_set(user_message, _supply_listing, history)
@@ -19730,33 +19753,83 @@ When two or more tools return conflicting data for the same metric (e.g., differ
     ) -> str:
         """Hold the reply's hires / applications / CPA / cost-per-hire figures to
         the planning engine (``nova_plan_figures.enforce``); updates ``result``
-        in place and returns the (possibly rewritten) text."""
-        from nova_handoff import is_plan_shaped, parse_budget
+        in place and returns the text (untraced figures marked, never rewritten).
+
+        Runs once per reply: the ``plan_guarded`` key it sets tells every later pass
+        (and a cache hit) that the figures were already checked against THIS
+        turn's tool results, which a later pass no longer has."""
+        if result.get(_PLAN_GUARDED_KEY):
+            return response_text
+        from nova_handoff import _CHANNEL_TABLE_RE, is_plan_shaped, parse_budget
 
         query_type = result.get("query_type") or _classify_query_type(user_message)
-        plan_shaped = is_plan_shaped(query_type, response_text)
         stated = parse_budget(user_message) or 0
-        plan_context = plan_shaped or stated >= 1000
+        plan_context = is_plan_shaped(query_type, response_text) or stated >= 1000
+        # the engine's block is for a reply that IS a plan (a channel table, or a
+        # long media-plan answer), not for a one-line answer inside a plan chat
+        plan_shaped = bool(_CHANNEL_TABLE_RE.search(response_text)) or (
+            query_type == "media_plan" and len(response_text) >= 600
+        )
+        user_turns = (_get_turn_tool_capture() or {}).get("user_turns") or []
         text, stats = _plan_figs.enforce(
             response_text,
             tool_results_raw,
             user_message,
             plan_context=plan_context,
             plan_shaped=plan_shaped,
+            user_turns=user_turns,
         )
+        if _plan_figs.DAGGER in text and _T3_UNVERIFIED_FOOTER not in text:
+            text = text.rstrip() + "\n\n" + _T3_UNVERIFIED_FOOTER
+        result[_PLAN_GUARDED_KEY] = True
         if text == response_text:
             return response_text
-        if stats.get("marked") and _T3_UNVERIFIED_FOOTER not in text:
-            text = text.rstrip() + "\n\n" + _T3_UNVERIFIED_FOOTER
         result["response"] = text
-        result["plan_figure_guard"] = stats
-        logger.info(
-            "Plan-figure guard: %d rewritten, %d marked, block appended=%d",
-            stats.get("rewritten", 0),
-            stats.get("marked", 0),
-            stats.get("appended", 0),
-        )
+        if stats.get("marked") or stats.get("appended"):
+            result["plan_figure_guard"] = stats
+            logger.info(
+                "Plan-figure guard: %d marked, block appended=%d",
+                stats.get("marked", 0),
+                stats.get("appended", 0),
+            )
         return text
+
+    def _guard_fast_path(self, result: Any, user_message: str) -> Any:
+        """A rule-based fast path (quick answer, benchmark lookup, supply listing)
+        builds its text without the model, but its figures reach users and its
+        result is cached: hold it to the same plan-figure check BEFORE it is
+        stored, so ``plan_guarded`` is set and a cache hit is not re-judged
+        without the turn's tool results."""
+        try:
+            if (
+                isinstance(result, dict)
+                and isinstance(result.get("response"), str)
+                and not result.get(_PLAN_GUARDED_KEY)
+                and _t3_flag("NOVA_PLAN_FIGURE_GUARD_ENABLED")
+            ):
+                tools = list(
+                    ((_get_turn_tool_capture() or {}).get("tools") or {}).values()
+                )
+                self._enforce_plan_figures(result, result["response"], tools, user_message)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Fast-path plan-figure guard failed (non-fatal): %s", exc)
+        return result
+
+    def _guard_cache_hit(self, cached: Any, user_message: str) -> Any:
+        """A cache hit is checked too: an entry written before the guard existed
+        (no marker) carries the model's raw plan figures. With no tool results to
+        rewrite from, only marking is possible -- which is the honest outcome."""
+        try:
+            if (
+                isinstance(cached, dict)
+                and isinstance(cached.get("response"), str)
+                and not cached.get(_PLAN_GUARDED_KEY)
+                and _t3_flag("NOVA_PLAN_FIGURE_GUARD_ENABLED")
+            ):
+                self._enforce_plan_figures(cached, cached["response"], [], user_message)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Cache-hit plan-figure guard failed (non-fatal): %s", exc)
+        return cached
 
     def _apply_t3_postprocessing(
         self, result: Optional[dict], user_message: str
@@ -19786,9 +19859,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             )
 
         # Plan figures: a hires / applications / CPA / cost-per-hire number the
-        # model typed must be the planning engine's (rewritten to its range when
-        # it is not; marked in a table). Runs BEFORE the generic verifier, which
-        # then sees the engine's own numbers.
+        # model typed must trace to this turn's tools or the user (a dagger when
+        # it does not; nothing is rewritten). Runs BEFORE the generic verifier.
         if _t3_flag("NOVA_PLAN_FIGURE_GUARD_ENABLED"):
             try:
                 response_text = self._enforce_plan_figures(
@@ -24269,6 +24341,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
                 tools_used.append("query_budget_projection")
                 sources.add("Joveo Budget Allocation Engine")
+                # this route calls the tool directly: record it so the plan-figure
+                # guard knows the engine's own figures are traced
+                _record_turn_tool_result(
+                    "query_budget_projection", json.dumps(budget_data, default=str)
+                )
                 if _solve_budget and (budget_data.get("goal_plan") or {}).get("status") == "not_projected":
                     sections.append(
                         _format_goal_plan(budget_data["goal_plan"])
@@ -27341,6 +27418,11 @@ def _t3_number_matches(claim: float, tool_numbers: List[float]) -> bool:
 
 # Marker used to keep _verify_response_numbers idempotent across chained calls.
 _T3_NUMVER_MARKER = "<!-- t3-numver -->"
+# Set on a reply once the plan-figure guard has run over it, so a later pass (and a
+# cache hit) knows its figures were checked against THIS turn's tool results. A
+# structured key, not text: every cache layer stores the whole dict, and nothing is
+# added to what the reader sees.
+_PLAN_GUARDED_KEY = "plan_guarded"
 # Inline marker that gets spliced after an unverified number. Plain markdown
 # emphasis so it renders in muted text on the chat UI without HTML-escaping
 # concerns.
@@ -28814,6 +28896,9 @@ def handle_chat_request(
                                 if _qe_text:
                                     _qe_snippets.append(_qe_text)
                             if _qe_snippets:
+                                # knowledge-base text the system retrieved, not
+                                # the model's: it is not held to the plan-figure
+                                # guard (its ranges are the KB's own, sourced)
                                 _enriched_text += (
                                     "\n\n### Additional Data\n\n"
                                     + "\n\n".join(f"- {s}" for s in _qe_snippets)

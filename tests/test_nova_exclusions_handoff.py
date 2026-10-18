@@ -88,6 +88,9 @@ def _turn(excluded=None):
             ["Indeed", "ZipRecruiter"],
         ),
         ("skip Monster (ref 42) and Dice, thanks", ["Monster", "Dice"]),
+        ("no INDEED, no ziprecruiter please", ["INDEED", "ziprecruiter"]),
+        ("no minimum budget, no problem", []),
+        ("there are no jobs boards that fit", []),
         # spelling variants of one board are ONE exclusion
         ("excluding Indeed, indeed.com and www.indeed.com", ["Indeed"]),
         # not exclusions

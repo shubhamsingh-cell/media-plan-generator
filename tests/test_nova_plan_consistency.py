@@ -385,30 +385,31 @@ def _post(
     )["response"]
 
 
-def test_the_reported_figures_are_rewritten_to_the_engines_ranges(
-    engine, healthcare_turn
-):
+def test_the_reported_figures_are_marked_never_rewritten(engine, healthcare_turn):
+    """Prose is mark-only: the reported figures keep their words and gain a
+    dagger; the engine's range is never written into the model's sentence."""
     text = (
         "For $60,000 over three months Nova projects 900 applications, 14 hires and "
         "a CPA of $66.67, a cost per hire of $4,286."
     )
     out = _post(engine, text, healthcare_turn)
-    t = healthcare_turn["projection"]["text"]
-    assert t["applications"] in out and t["hires"] in out
-    assert t["cpa"] in out and t["cph"] in out
-    for gone in ("900 applications", "14 hires", "$66.67", "$4,286"):
-        assert gone not in out
-    assert "corrected to Nova's planning engine" in out
+    for marked in ("900† applications", "14† hires", "$66.67†", "$4,286†"):
+        assert marked in out
+    body = out.split("\n\n")[0].replace("<!-- t3-numver -->", "")
+    assert body.replace("†", "") == text
+    assert "corrected to Nova's planning engine" not in out
+    assert out.count(nova._T3_UNVERIFIED_FOOTER) == 1
 
 
-def test_a_single_absolute_that_is_only_the_best_case_end_becomes_the_range(
+def test_a_single_end_of_the_engine_range_is_left_and_gets_the_basis_line(
     engine, healthcare_turn
 ):
+    """11 is the engine's best-case end: it traces, so it is not marked, and the
+    basis line says which end is the best case."""
+    assert healthcare_turn["projection"]["hires"]["high"] == 11
     out = _post(engine, "You can expect 11 hires from this plan.", healthcare_turn)
-    assert healthcare_turn["projection"]["text"]["hires"] in out
-    assert "11 hires" not in out.replace(
-        healthcare_turn["projection"]["text"]["hires"], ""
-    )
+    assert out.startswith("You can expect 11 hires from this plan.")
+    assert "†" not in out and "best case" in out
 
 
 def test_a_correct_range_is_left_alone_and_gets_the_basis_line(engine, healthcare_turn):
@@ -447,16 +448,23 @@ def test_numbers_the_user_typed_are_not_treated_as_model_inventions(
 def test_a_number_in_the_users_wording_does_not_excuse_an_unrelated_claim(
     engine, healthcare_turn
 ):
-    """'3-month' must not make '3 hires' look like an echo of the user."""
+    """'3-month' must not make '3 hires' look like an echo of the user: it is
+    marked as untraced (no plan subject, so it is not rewritten)."""
     out = _post(
         engine,
         "That gives you 3 hires.",
         healthcare_turn,
         message="make a $60k, 3-month media plan for nurses in Chicago",
     )
-    assert (
-        "3 hires" not in out and healthcare_turn["projection"]["text"]["hires"] in out
+    assert "3\u2020 hires" in out
+    # ... and the same figure with the plan as the subject is only marked too
+    out = _post(
+        engine,
+        "This plan delivers 3 hires.",
+        healthcare_turn,
+        message="make a $60k, 3-month media plan for nurses in Chicago",
     )
+    assert out.startswith("This plan delivers 3\u2020 hires.")
 
 
 def test_a_table_cell_that_matches_no_engine_figure_is_marked(engine, healthcare_turn):
@@ -657,14 +665,16 @@ def generic_turn(engine):
 
 def test_a_plan_claim_does_not_borrow_a_channels_integer(engine, generic_turn):
     """The reported 14 hires equals ONE channel's modelled hires for this brief:
-    that must not excuse it as the plan's."""
+    that must not excuse it as the plan's: it is marked, plan subject or not."""
     per_channel = {
         c["projected_hires"] for c in generic_turn["channel_allocations"].values()
     }
     assert 14 in per_channel, "premise: a channel really models 14 hires"
-    out = _post(engine, "That works out to 14 hires.", generic_turn)
-    assert "14 hires" not in out
-    assert generic_turn["projection"]["text"]["hires"] in out
+    hires = generic_turn["projection"]["text"]["hires"]
+    out = _post(engine, "Expect 14 hires from this plan.", generic_turn)
+    assert "14† hires" in out and hires not in out.split("\n\n")[0]
+    marked = _post(engine, "That works out to 14 hires.", generic_turn)
+    assert "14† hires" in marked and "17–35 hires" not in marked.split("\n\n")[0]
 
 
 def test_another_tools_channel_count_does_not_excuse_a_plan_total(engine, generic_turn):
@@ -683,8 +693,7 @@ def test_another_tools_channel_count_does_not_excuse_a_plan_total(engine, generi
             "make a $60k, 3-month media plan",
         )["response"]
 
-    t = generic_turn["projection"]["text"]["applications"]
-    assert t in post("The plan brings 1,200 applications in total.")
+    assert "1,200† applications" in post("The plan brings 1,200 applications in total.")
     assert "Meta alone would bring 1,200 applications" in post(
         "Meta alone would bring 1,200 applications."
     )
@@ -789,8 +798,8 @@ E2E_MESSAGE = (
 )
 WRONG_ANSWER = (
     "### Media Plan: Customer Service -- Chicago\n**Budget: $60,000**\n\n"
-    "Start with Indeed and ZipRecruiter for volume. Expect 900 applications, "
-    "14 hires and a CPA of $66.67 (cost per hire $4,286).\n\n"
+    "Start with Indeed and ZipRecruiter for volume. This plan delivers 900 "
+    "applications, 14 hires, a CPA of $66.67 and a cost per hire of $4,286.\n\n"
     "| Channel | Budget | % | Est. CPA | Projected Hires | Why |\n"
     "|---|---|---|---|---|---|\n"
     "| Indeed Sponsored Jobs | $12,000 | 20% | $29 | 3 | -- |\n"
@@ -866,7 +875,7 @@ def isolated_chat(monkeypatch, tmp_path):
     return llm_router
 
 
-def test_end_to_end_reported_figures_are_corrected_and_the_cache_replays_the_corrected_answer(
+def test_end_to_end_reported_figures_are_marked_and_the_cache_replays_the_guarded_answer(
     engine, isolated_chat, monkeypatch
 ):
     import uuid
@@ -886,13 +895,15 @@ def test_end_to_end_reported_figures_are_corrected_and_the_cache_replays_the_cor
         "text"
     ]
 
-    # the plan figures are the generator's, not the model's
+    # the generator's figures are in the reply (its block), the model's own
+    # are marked, never rewritten in its prose
     for kind in ("applications", "hires", "cpa", "cph"):
         assert est[kind] in text, kind
-    for gone in ("900 applications", "14 hires", "$66.67", "$4,286"):
-        assert gone not in text
-    assert "corrected to Nova's planning engine" in text
+    for marked in ("900† applications", "14† hires", "$66.67†", "$4,286†"):
+        assert marked in text, marked
+    assert "corrected to Nova's planning engine" not in text
     assert "no client hire history" in text
+    assert text.count(nova._T3_UNVERIFIED_FOOTER) == 1
     # the excluded boards are gone from the reply (said once, as the disclosure)
     body = text.split("*Excluded at client request")[0]
     assert "Indeed" not in body and "ZipRecruiter" not in body
@@ -900,9 +911,37 @@ def test_end_to_end_reported_figures_are_corrected_and_the_cache_replays_the_cor
     # every tool ran in a pooled worker thread and still saw the exclusions
     assert seen and all(ex == ["Indeed", "ZipRecruiter"] for _, ex in seen), seen
 
-    # a second asker is served the CORRECTED answer, not the model's raw text
+    # a second asker is served the GUARDED answer, not the model's raw text
     calls.clear()
     again = engine.chat(message, [], None)
     assert not calls, "the second request must be served from the cache"
-    assert est["hires"] in again["response"] and "14 hires" not in again["response"]
+    assert est["hires"] in again["response"] and "14† hires" in again["response"]
     assert "Indeed" not in again["response"].split("*Excluded at client request")[0]
+
+
+def test_end_to_end_a_figure_typed_in_an_earlier_turn_is_not_the_guards_to_rewrite(
+    engine, isolated_chat, monkeypatch
+):
+    """Through Nova.chat with a conversation history: the user asked for 14
+    hires in turn one, so the model's "14 hires" is theirs and stays, while the
+    invented applications / CPA / cost per hire of the same sentence are marked."""
+    import uuid
+
+    llm_router = isolated_chat
+    calls, seen = [], []
+    spy, fake = _scripted_llm(calls, seen, engine)
+    monkeypatch.setattr(engine, "execute_tool", spy)
+    monkeypatch.setattr(llm_router, "call_llm", fake)
+    history = [
+        {"role": "user", "content": "We have 14 customer service openings to fill."},
+        {"role": "assistant", "content": "Understood. What budget and length?"},
+    ]
+    message = E2E_MESSAGE.format(tag=uuid.uuid4().hex[:8])
+    text = engine.chat(message, history, None)["response"]
+    est = _estimate("", "Customer Service Representative", "Chicago, IL")["projection"][
+        "text"
+    ]
+    assert "14 hires" in text and "14†" not in text  # the user's number, untouched
+    for marked in ("900† applications", "$66.67†", "$4,286†"):
+        assert marked in text, marked
+    assert est["applications"] in text and est["cpa"] in text

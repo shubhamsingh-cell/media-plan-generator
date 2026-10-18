@@ -84,7 +84,9 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 # S21: Bump version on routing/quality changes to invalidate stale cached responses
-_CACHE_PREFIX = "nova_chat:v3:"
+# v5: v4 keys dropped the decimal point and the currency sign, so a $1.5k brief
+# and a $15k brief shared one entry
+_CACHE_PREFIX = "nova_chat:v5:"
 _DEFAULT_TTL_HOURS = 24
 _REALTIME_TTL_HOURS = 1
 _MAX_MEMORY_CACHE = 500
@@ -270,6 +272,19 @@ def _stat_inc(key: str, amount: int = 1) -> None:
 # ---------------------------------------------------------------------------
 
 
+_CURRENCY_TOKENS = {"$": "usd", "€": "eur", "£": "gbp", "₹": "inr", "¥": "jpy"}
+_CURRENCY_SIGN_RE = re.compile(r"(US\$|[$€£₹¥])\s?(?=\d)")
+_DECIMAL_POINT_RE = re.compile(r"(?<=\d)\.(?=\d)")
+
+
+def normalize_number_tokens(text: str) -> str:
+    """Keep what tells two amounts apart through punctuation stripping: the
+    decimal point ("1.5k" becomes "1_5k", so it is not "15k") and the currency
+    sign ("€15k" becomes "eur15k", so it is not "$15k" = "usd15k")."""
+    text = _CURRENCY_SIGN_RE.sub(lambda m: _CURRENCY_TOKENS[m.group(1)[-1]], text)
+    return _DECIMAL_POINT_RE.sub("_", text)
+
+
 def _normalize_query(query: str) -> str:
     """Normalize query for cache key generation.
 
@@ -311,6 +326,9 @@ def _normalize_query(query: str) -> str:
     }
     for contraction, expansion in contractions.items():
         text = text.replace(contraction, expansion)
+
+    # Amounts keep their decimal point and currency before punctuation goes
+    text = normalize_number_tokens(text)
 
     # Strip punctuation (keep alphanumeric and spaces)
     text = re.sub(r"[^\w\s]", "", text)

@@ -347,6 +347,7 @@ _EXCLUDE_LEAD_RE = re.compile(
     r"boards?\s+(?:like\s+)?|sites?\s+(?:like\s+)?|platforms?\s+(?:like\s+)?|like\s+|such\s+as\s+)+",
     re.IGNORECASE,
 )
+_NO_BOARD_RE = re.compile(r"\bno\s+(?=[A-Za-z0-9])", re.IGNORECASE)
 _DOMAIN_RE = re.compile(r"^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}$", re.IGNORECASE)
 
 
@@ -378,6 +379,16 @@ def _exclusions_in(text: str) -> List[str]:
             piece = _EXCLUDE_LEAD_RE.sub("", raw.strip(" \t\"'()[]")).strip(" \t\"'()[]")
             piece = re.sub(r"\s+(?:etc\.?|too|also|please)$", "", piece, flags=re.IGNORECASE)
             if piece and _looks_like_board(piece, raw.strip()):
+                found.append(piece)
+    # "no INDEED, no ziprecruiter": a bare "no" is too common ("no minimum
+    # budget") to trust, so here only a board the repo knows (or a domain) counts
+    for no in _NO_BOARD_RE.finditer(text or ""):
+        tail = (text or "")[no.end() : no.end() + 160]
+        end = _EXCLUDE_END_RE.search(tail)
+        clause = re.sub(r"\([^)]*\)?", " ", tail[: end.start()] if end else tail)
+        for raw in _EXCLUDE_SPLIT_RE.split(clause):
+            piece = re.sub(r"^no\s+", "", raw.strip(" \t\"'()[]"), flags=re.IGNORECASE)
+            if piece and (_DOMAIN_RE.match(piece) or publisher_filter.is_known_board(piece)):
                 found.append(piece)
     return publisher_filter.sanitize_excluded(found)
 
