@@ -8554,11 +8554,15 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 "High - Specialized for " + industry_label,
             ]
             row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
-    elif (
-        _niche_selected
-        and INDUSTRY_NICHE_CHANNELS.get(industry)
-        and not _is_us_plan(data)
-    ):
+    elif not _is_us_plan(data):
+        # Local job boards for each non-US market -- the SAME list deck slide 5
+        # names, for EVERY industry (a plan whose industry has no niche-board
+        # list used to get no table here while the deck still named the boards).
+        # The "Niche Channels" heading and its US-niche note appear only for an
+        # industry that really has a niche list (and only while the user keeps
+        # Niche Boards ticked); otherwise the section is just "Local Job
+        # Boards" -- no niche claim is made for an industry with none.
+        #
         # INCIDENT FIX: this note used to claim "Local specialty board data
         # was not available for this campaign" -- false. The same workbook's
         # Intl Benchmarks sheet lists top local job boards for every one of
@@ -8566,7 +8570,9 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         # same dataset get_location_info draws "intl_platforms" from).
         # Surface the real per-market boards here instead of asserting an
         # absence the workbook itself contradicts.
-        row = _write_section_header(ws, row, f"Niche Channels: {industry_label}")
+        _has_niche_list = (
+            bool(INDUSTRY_NICHE_CHANNELS.get(industry)) and _niche_selected
+        )
 
         _local_board_rows: List[tuple] = []
         if research_mod is not None:
@@ -8593,49 +8599,86 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                         )
                 # Client exclusions, unavailable / folded boards and sourced
                 # renames are applied BEFORE the top-4 cut, so an excluded
-                # board is replaced by the next one, not left as a gap.
-                _plat_names = publisher_filter.clean_names(
-                    _plat_names, data, _loc_country
-                )
-                # A board of a group Joveo has confirmed as in its network
-                # (joveo_network_groups.json) is among the four shown.
-                _plat_names = publisher_filter.with_network_board(
-                    _plat_names, _loc_country, data, 4
+                # board is replaced by the next one, not left as a gap; a
+                # board of a group Joveo has confirmed as in its network
+                # (joveo_network_groups.json) is among the four shown, and
+                # boards with a confirmed in-network record are listed ahead
+                # of their peers -- the one picker deck slide 5 uses.
+                _plat_names = publisher_filter.local_boards_for(
+                    _loc_country, data, names=_plat_names, limit=4
                 )
                 if _plat_names:
                     _local_board_rows.append((_loc, _loc_country or _loc, _plat_names))
 
         if _local_board_rows:
+            row = _write_section_header(
+                ws,
+                row,
+                (
+                    f"Niche Channels: {industry_label}"
+                    if _has_niche_list
+                    else "Local Job Boards"
+                ),
+            )
+            _detail_ref = (
+                "CPC/CPA detail"
+                if _plan_industry_cph(data.get("_budget_allocation") or {}).get(
+                    "claim_suppressed"
+                )
+                else "CPC/CPA/CPH detail"
+            )
             row = _write_kv_row(
                 ws,
                 row,
                 "Note",
-                "US-domiciled niche boards for this industry are not shown because "
-                "this plan targets a non-US market. Local job boards for each "
-                "market are listed below (see the Intl Benchmarks sheet for full "
-                + (
-                    "CPC/CPA detail)."
-                    if _plan_industry_cph(data.get("_budget_allocation") or {}).get(
-                        "claim_suppressed"
-                    )
-                    else "CPC/CPA/CPH detail)."
-                ),
+                (
+                    "US-domiciled niche boards for this industry are not shown "
+                    "because this plan targets a non-US market. "
+                    if _has_niche_list
+                    else ""
+                )
+                + "Local job boards for each market are listed below (see the "
+                f"Intl Benchmarks sheet for full {_detail_ref}).",
             )
             headers = ["Location", "Country", "Local Job Boards"]
             row = _write_table_header(ws, row, headers)
             _any_unverified = False
+            _market_boards: Dict[str, List[str]] = {}
             for idx, (_loc, _country, _plat_names) in enumerate(_local_board_rows):
                 _marked, _flag = publisher_filter.annotate(_plat_names, _country)
                 _any_unverified = _any_unverified or _flag
+                _market_boards.setdefault(str(_country), list(_plat_names))
                 values = [_loc, _country, ", ".join(_marked)]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
-            if _any_unverified:
+            # Supply status per board, with the date the supply data itself
+            # carries (never a date the workbook makes up).
+            for _country, _names in _market_boards.items():
                 row = _write_kv_row(
-                    ws, row, "Note", publisher_filter.RELATIONSHIP_NOTE
+                    ws,
+                    row,
+                    f"Supply status: {_country}",
+                    "; ".join(
+                        publisher_filter.supply_status_phrase(
+                            publisher_filter.board_supply_record(_n, _country)
+                        )
+                        for _n in _names
+                    )
+                    + ".",
                 )
-        else:
+            _depth_line = publisher_filter.supply_depth_line(
+                [
+                    {"depth": publisher_filter.supply_depth(_c, _n)}
+                    for _c, _n in _market_boards.items()
+                ]
+            )
+            if _depth_line:
+                row = _write_kv_row(ws, row, "Note", _depth_line)
+            if _any_unverified:
+                row = _write_kv_row(ws, row, "Note", publisher_filter.RELATIONSHIP_NOTE)
+        elif _has_niche_list:
             # Genuine last resort (no research module available at all) --
             # never claim the data doesn't exist, just point at where it is.
+            row = _write_section_header(ws, row, f"Niche Channels: {industry_label}")
             _signals = _non_us_signals(data)
             _signal_txt = f" (targets {', '.join(_signals[:3])})" if _signals else ""
             row = _write_kv_row(

@@ -2033,6 +2033,37 @@ _CURRENCY_SYMBOLS: Dict[str, str] = {
 }
 
 
+def _supply_verdicts(names: List[str], country: str) -> Dict[str, Any]:
+    """The supply verdict deck slide 5 and the workbook print for these local
+    boards, as tool output: ``supply_status`` (state, the repository / group
+    status word, and the date the data carries -- '' when there is no record)
+    plus the shared "relationship unverified" note when any board is not
+    confirmed in network.  {} when nothing can be said.  Annotation only:
+    nothing is hidden or re-ranked."""
+    rows: List[Dict[str, Any]] = []
+    try:
+        for board in names:
+            record = publisher_filter.board_supply_record(board, country)
+            rows.append(
+                {
+                    "name": board,
+                    "state": record["state"],
+                    "status": record["status"],
+                    "as_of": record["as_of"],
+                    "availability": publisher_filter.availability_label(record),
+                }
+            )
+    except (TypeError, ValueError, KeyError, AttributeError):
+        logger.error("board supply verdicts failed", exc_info=True)
+        return {}
+    if not rows:
+        return {}
+    out: Dict[str, Any] = {"supply_status": rows}
+    if any(r["state"] != publisher_filter.SUPPLY_IN_NETWORK for r in rows):
+        out["supply_note"] = publisher_filter.RELATIONSHIP_NOTE
+    return out
+
+
 def _currency_symbol(currency_code: Optional[str]) -> str:
     """Return display symbol for a currency code, defaulting to '$'."""
     if not currency_code:
@@ -10780,9 +10811,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 intl_platforms,
                 key=lambda p: p.get("rank") if p.get("rank") is not None else 99,
             )
-            return {
+            _intl_country = intl_block.get("name") or country_arg
+            _top_names = [p.get("name") for p in ranked[:5] if p.get("name")]
+            _intl_result: Dict[str, Any] = {
                 "source": "international_benchmarks_2026 (38 countries)",
-                "country": intl_block.get("name") or country_arg,
+                "country": _intl_country,
                 "currency": intl_block.get("currency")
                 or _get_currency_for_country(country_arg),
                 "currency_symbol": intl_block.get("currency_symbol")
@@ -10790,9 +10823,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "usd_rate": intl_block.get("usd_rate"),
                 "role_type": role_type,
                 "platforms_ranked": ranked,
-                "top_platforms": [p.get("name") for p in ranked[:5] if p.get("name")],
+                "top_platforms": _top_names,
                 "region": intl_block.get("region") or "",
             }
+            # the same supply verdict the deck and workbook print
+            _intl_result.update(_supply_verdicts(_top_names, _intl_country))
+            return _intl_result
 
         kb = self._data_cache.get("knowledge_base", {})
         benchmarks = kb.get("benchmarks", {})
@@ -11100,6 +11136,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         result["recommended_strategy"][
                             "platforms_source"
                         ] = f"international_benchmarks_2026 ({_intl_block.get('name') or country_arg})"
+                        result.update(
+                            _supply_verdicts(
+                                _intl_platform_names,
+                                _intl_block.get("name") or country_arg,
+                            )
+                        )
                 result["data_confidence"] = classification.get("confidence", 0.5)
                 result["data_freshness"] = "curated"
             except Exception as e:
@@ -11129,6 +11171,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if _intl_platform_names and _intl_block is not None:
                 result["collar_comparison_platforms_source"] = (
                     f"international_benchmarks_2026 ({_intl_block.get('name') or country_arg})"
+                )
+                result.update(
+                    _supply_verdicts(
+                        _intl_platform_names, _intl_block.get("name") or country_arg
+                    )
                 )
             result["data_confidence"] = 0.85
             result["data_freshness"] = "curated"
@@ -11729,6 +11776,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "market_size": intl_block.get("market_size") or {},
                 "region": intl_block.get("region") or "",
             }
+            intl_result.update(
+                _supply_verdicts(
+                    [p.get("name") for p in top_platforms if p.get("name")],
+                    intl_result["country"],
+                )
+            )
             # Filter platforms to requested metric where possible.
             if metric != "all":
                 _metric_key_map = {

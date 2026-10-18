@@ -278,6 +278,7 @@ def _components(name: Any) -> List[str]:
 _lock = threading.Lock()
 _availability_cache: Optional[Dict[str, Any]] = None
 _repo_index_cache: Optional[Dict[str, List[Tuple[frozenset, str]]]] = None
+_repo_date_cache: str = ""
 _network_cache: Optional[List[Dict[str, Any]]] = None
 
 
@@ -370,8 +371,12 @@ def _load_availability() -> Dict[str, Any]:
                     ),
                 }
             )
+        members_of: Dict[str, List[str]] = {}
+        for member_key, group_key in group_of.items():
+            members_of.setdefault(group_key, []).append(member_key)
         _availability_cache = {
             "group_of": group_of,
+            "members_of": members_of,
             "entries": entries,
             "scopes": scopes,
             "renames": renames,
@@ -1218,7 +1223,7 @@ def plan_has_us_market(data: Any) -> bool:
 
 
 def _repo_index() -> Dict[str, List[Tuple[frozenset, str]]]:
-    global _repo_index_cache
+    global _repo_index_cache, _repo_date_cache
     with _lock:
         if _repo_index_cache is not None:
             return _repo_index_cache
@@ -1226,6 +1231,7 @@ def _repo_index() -> Dict[str, List[Tuple[frozenset, str]]]:
         try:
             with open(_REPOSITORY_PATH, encoding="utf-8") as fh:
                 repo = json.load(fh)
+            _repo_date_cache = str(repo.get("last_updated") or "")[:10]
             for region in (repo.get("by_region") or {}).values():
                 for pub in region.get("publishers") or []:
                     key = normalize(pub.get("name"))
@@ -1247,26 +1253,154 @@ def _repo_index() -> Dict[str, List[Tuple[frozenset, str]]]:
         return index
 
 
-def relationship_unverified(name: Any, country: Any = None) -> bool:
-    """True when the Joveo supply repository lists this board for the
-    country but NOT as 'In Joveo Network'.  A board the repository does not
-    list at all is unknown, not unverified -> False (never invent a label).
-    A member of a board group Joveo has confirmed as in its network
-    (data/joveo_network_groups.json) is never unverified."""
-    if network_member(name, country):
-        return False
+# Supply-record states for one board in one country.
+SUPPLY_IN_NETWORK = "in_network"
+SUPPLY_NOT_IN_NETWORK = "not_in_network"
+SUPPLY_NO_RECORD = "no_record"
+_IN_NETWORK_STATUS = "In Joveo Network"
+
+# Inside a parenthesis, "A / B" names two boards ("Recruit (Rikunabi / Indeed
+# Japan)"); a single parenthetical ("(France Travail)") is only a note.
+_PAREN_INNER_RE = re.compile(r"\(([^)]*)\)")
+
+
+def repository_date() -> str:
+    """The supply repository's own ``last_updated`` date ('' when unreadable).
+    This is when the full listing was last refreshed -- NOT when any single
+    board's status was last confirmed."""
+    _repo_index()
+    return _repo_date_cache
+
+
+def _record_keys(name: Any) -> List[str]:
+    """Every repository key that identifies ``name``: its own keys, the boards
+    a parenthesis names ("Recruit (Rikunabi / Indeed Japan)"), and every
+    spelling in the alias group of each (a rename resolves to ONE record)."""
+    group_of = _load_availability()["group_of"]
+    members_of = _load_availability()["members_of"]
+    keys: List[str] = list(_keys_for(name))
+    for inner in _PAREN_INNER_RE.findall(_fold(name)):
+        pieces = [p.strip() for p in _SPLIT_RE.split(inner) if p and p.strip()]
+        if len(pieces) < 2:
+            continue
+        for piece in pieces:
+            key = _component_key(piece)
+            key = group_of.get(key, key)
+            if key and key not in keys:
+                keys.append(key)
+    expanded: List[str] = []
+    for key in keys:
+        for candidate in [key] + members_of.get(key, []):
+            if candidate not in expanded:
+                expanded.append(candidate)
+    return expanded
+
+
+def board_supply_record(name: Any, country: Any = None) -> Dict[str, Any]:
+    """What Joveo's own supply data says about ``name`` in ``country``.
+
+    ``state`` is one of:
+
+    * ``in_network`` -- a member of a board group Joveo has confirmed
+      (data/joveo_network_groups.json), or the supply repository lists the
+      board for the country (or as a global board) as "In Joveo Network";
+    * ``not_in_network`` -- the repository lists it for the country, but not
+      as "In Joveo Network" (``status`` carries the repository's own word,
+      e.g. "VONQ Only");
+    * ``no_record`` -- nothing in the supply data covers this board in this
+      country.  That is *unknown*, not "not available": the board may well
+      be buyable, nobody has recorded it.
+
+    ``as_of`` is a date the data itself carries -- the group's ``as_of`` for a
+    confirmed group, the repository's ``last_updated`` for a repository row --
+    and is '' when there is no record.  Nothing here is estimated.  Names that
+    are renames of each other (France Travail / Pole Emploi) resolve to the
+    same record through the alias groups in data/publisher_availability.json.
+    """
+    text = str(name or "").strip()
     want = canonical_country(country)
+    record: Dict[str, Any] = {
+        "name": text,
+        "country": want,
+        "state": SUPPLY_NO_RECORD,
+        "status": "",
+        "as_of": "",
+        "source": "",
+    }
+    if not text:
+        return record
+    hit = network_member(text, want)
+    if hit:
+        record.update(
+            state=SUPPLY_IN_NETWORK,
+            status=str(hit["status"] or _IN_NETWORK_STATUS),
+            as_of=str(hit["as_of"] or ""),
+            source=str(hit["status_source"] or "network group"),
+        )
+        return record
     index = _repo_index()
-    found = False
-    for key in _keys_for(name):
+    statuses: List[str] = []
+    for key in _record_keys(text):
         for countries, status in index.get(key, ()):
-            applies = not want or "Global" in countries or want in countries
-            if not applies:
-                continue
-            found = True
-            if status == "In Joveo Network":
-                return False
-    return found
+            if not want or "Global" in countries or want in countries:
+                statuses.append(status)
+    if statuses:
+        if _IN_NETWORK_STATUS in statuses:
+            state, status = SUPPLY_IN_NETWORK, _IN_NETWORK_STATUS
+        else:
+            state = SUPPLY_NOT_IN_NETWORK
+            status = " / ".join(sorted({s for s in statuses if s}))
+        record.update(
+            state=state,
+            status=status,
+            as_of=repository_date(),
+            source="supply repository",
+        )
+    return record
+
+
+def availability_label(record: Dict[str, Any]) -> str:
+    """'availability as of 2026-10-17' when the record carries a date the data
+    itself holds, else ''.  A board with no record has no date to show."""
+    as_of = str((record or {}).get("as_of") or "")
+    if not as_of or (record or {}).get("state") == SUPPLY_NO_RECORD:
+        return ""
+    return f"availability as of {as_of}"
+
+
+def supply_status_phrase(record: Dict[str, Any]) -> str:
+    """One plain clause for a board's supply record, e.g. 'Totaljobs: in
+    network, availability as of 2026-10-17' or 'TopCV.vn: no supply record'.
+    The date is the one the data carries, never an invented one."""
+    name = str((record or {}).get("name") or "")
+    state = (record or {}).get("state")
+    dated = availability_label(record)
+    tail = f", {dated}" if dated else ""
+    if state == SUPPLY_IN_NETWORK:
+        return f"{name}: in network{tail}"
+    if state == SUPPLY_NOT_IN_NETWORK:
+        status = str((record or {}).get("status") or "").strip()
+        listed = (
+            f"listed as {status}, not in network"
+            if status
+            else "listed, not in network"
+        )
+        return f"{name}: {listed}{tail}"
+    return f"{name}: no supply record"
+
+
+def relationship_unverified(name: Any, country: Any = None) -> bool:
+    """True unless the supply data CONFIRMS the board in ``country``: the
+    repository lists it as 'In Joveo Network', or it is a member of a board
+    group Joveo has confirmed (data/joveo_network_groups.json).
+
+    That covers both a board the repository lists for the country but not as
+    in-network, and a board nothing in the supply data covers at all (an
+    unrecorded relationship is unverified, not assumed).  Never invents a
+    label the other way: an in-network record always wins."""
+    if not str(name or "").strip():
+        return False
+    return board_supply_record(name, country)["state"] != SUPPLY_IN_NETWORK
 
 
 # ---------------------------------------------------------------------------
@@ -1506,15 +1640,153 @@ def annotate(names: Sequence[Any], country: Any = None) -> Tuple[List[str], bool
     return out, marked
 
 
+# Boards whose benchmark market share is this close (percentage points) are
+# peers: among peers, one with a confirmed in-network record is listed first.
+EQUAL_RANK_SHARE_BAND = 5.0
+
+
+def _dataset_shares(country: Any) -> Dict[str, float]:
+    """Benchmark market share (%) by matcher key for the dataset's boards in
+    ``country`` ({} when the dataset has none)."""
+    want = canonical_country(country)
+    for name, entry in _dataset_countries().items():
+        if canonical_country(name) != want:
+            continue
+        shares: Dict[str, float] = {}
+        for plat in entry.get("platforms") or []:
+            if not isinstance(plat, dict) or not plat.get("name"):
+                continue
+            share = plat.get("market_share_pct")
+            if isinstance(share, bool) or not isinstance(share, (int, float)):
+                continue
+            shares.setdefault(normalize(plat["name"]), float(share))
+        return shares
+    return {}
+
+
+def supply_ordered(names: Sequence[Any], country: Any = None) -> List[str]:
+    """``names`` with confirmed in-network boards ahead of their peers.
+
+    Order stays the benchmark's market-share rank.  Only boards that are
+    peers (benchmark share within :data:`EQUAL_RANK_SHARE_BAND` points of the
+    first board of their run) are re-ordered among themselves, a board with a
+    confirmed in-network record first.  Nothing is added or removed, so a
+    market-leading board without a record stays exactly where the market puts
+    it -- it is marked (by :func:`annotate`), never hidden."""
+    listed = [str(n) for n in names]
+    want = canonical_country(country)
+    if not want or len(listed) < 2:
+        return listed
+    shares = _dataset_shares(want)
+    runs: List[Dict[str, Any]] = []
+    for idx, name in enumerate(listed):
+        share = shares.get(normalize(name))
+        run = runs[-1] if runs else None
+        if (
+            run is not None
+            and share is not None
+            and run["anchor"] is not None
+            and abs(run["anchor"] - share) <= EQUAL_RANK_SHARE_BAND
+        ):
+            run["items"].append((idx, name))
+        else:
+            runs.append({"anchor": share, "items": [(idx, name)]})
+    ordered: List[str] = []
+    for run in runs:
+        ranked = sorted(
+            run["items"],
+            key=lambda item: (
+                (
+                    0
+                    if board_supply_record(item[1], want)["state"] == SUPPLY_IN_NETWORK
+                    else 1
+                ),
+                item[0],
+            ),
+        )
+        ordered.extend(name for _, name in ranked)
+    return ordered
+
+
+def local_boards_for(
+    country: Any,
+    data: Any = None,
+    names: Optional[Sequence[Any]] = None,
+    limit: int = 3,
+) -> List[str]:
+    """The local boards a plan names for ``country``: the benchmark dataset's
+    boards (or ``names`` when the caller already holds that list) after client
+    exclusions, availability, folded boards and renames, cut to ``limit`` with
+    an in-network group board among them, in supply-aware order.  The ONE
+    picker behind deck slide 5 and the workbook's Local Job Boards table."""
+    want = canonical_country(country)
+    source = list(names) if names is not None else dataset_platform_names(want)
+    cleaned = clean_names(source, data, want)
+    return supply_ordered(with_network_board(cleaned, want, data, limit), want)
+
+
+def _repo_network_keys(country: Any) -> frozenset:
+    """Matcher keys of the repository's boards that are 'In Joveo Network' for
+    ``country``: rows that list it by name, and global rows (Indeed, LinkedIn)
+    that run everywhere."""
+    want = canonical_country(country)
+    if not want:
+        return frozenset()
+    return frozenset(
+        key
+        for key, rows in _repo_index().items()
+        if any(
+            status == _IN_NETWORK_STATUS
+            and (want in countries or "Global" in countries)
+            for countries, status in rows
+        )
+    )
+
+
+def supply_depth(country: Any, shown: Sequence[Any]) -> Optional[Dict[str, Any]]:
+    """``{"country", "shown", "total"}``: how many of the repository's
+    in-network boards for ``country`` the plan shows, counted straight from
+    the repository (a board is counted once, by name).  None when the
+    repository has no row naming the country, or no in-network board for it --
+    the line is then skipped, never guessed (a country the repository does not
+    list would otherwise be "counted" from its global rows alone)."""
+    want = canonical_country(country)
+    keys = _repo_network_keys(want)
+    if not keys or not any(
+        want in countries for rows in _repo_index().values() for countries, _ in rows
+    ):
+        return None
+    count = sum(1 for name in shown if keys & set(_record_keys(name)))
+    return {"country": want, "shown": count, "total": len(keys)}
+
+
+def supply_depth_line(groups: Sequence[Dict[str, Any]]) -> str:
+    """One plain sentence under the local boards, from the ``depth`` of each
+    market band ('' when no market has one)."""
+    depths = [g["depth"] for g in groups if isinstance(g.get("depth"), dict)]
+    if not depths:
+        return ""
+    if len(depths) == 1:
+        d = depths[0]
+        return (
+            f"{d['shown']} of {d['total']} in-network boards for {d['country']} "
+            "shown; the rest are not role-matched."
+        )
+    parts = "; ".join(f"{d['country']} {d['shown']} of {d['total']}" for d in depths)
+    return f"In-network boards shown: {parts}. The rest are not role-matched."
+
+
 def plan_market_boards(
     data: Any, max_markets: int = 3, max_boards: int = 3
 ) -> List[Dict[str, Any]]:
     """The plan's top local boards per non-US market, after client
     exclusions, availability, folded boards and renames:
-    ``[{"country", "locations", "boards" (daggered when relationship is
-    unverified), "unverified", "more"}]``.  ``more`` counts further markets
-    beyond ``max_markets`` (the caller says "+N more markets").  Empty for a
-    US-only plan or when the dataset has no boards for a market."""
+    ``[{"country", "locations", "boards" (daggered unless the supply data
+    confirms the board), "unverified", "records" (one supply record per
+    board, with the date the data carries), "depth", "more"}]``.  ``more``
+    counts further markets beyond ``max_markets`` (the caller says "+N more
+    markets").  Empty for a US-only plan or when the dataset has no boards
+    for a market."""
     if not isinstance(data, dict):
         return []
     raw_locations = data.get("locations") or []
@@ -1529,18 +1801,20 @@ def plan_market_boards(
         if not country or country == "United States":
             continue
         country = canonical_country(country)
-        names = with_network_board(
-            clean_names(dataset_platform_names(country), data, country),
-            country,
-            data,
-            max_boards,
-        )
+        names = local_boards_for(country, data, limit=max_boards)
         if not names:
             continue
         marked, flag = annotate(names, country)
         group = groups.setdefault(
             country,
-            {"country": country, "locations": [], "boards": marked, "unverified": flag},
+            {
+                "country": country,
+                "locations": [],
+                "boards": marked,
+                "unverified": flag,
+                "records": [board_supply_record(n, country) for n in names],
+                "depth": supply_depth(country, names),
+            },
         )
         group["locations"].append(text)
     ordered = list(groups.values())
@@ -1597,7 +1871,9 @@ def plan_market_board_gaps(data: Any) -> List[str]:
 def reset_caches() -> None:
     """Test hook: drop the lazily-loaded data."""
     global _availability_cache, _repo_index_cache, _known_cache, _network_cache
+    global _repo_date_cache
     with _lock:
+        _repo_date_cache = ""
         _network_cache = None
         _known_cache = None
         _availability_cache = None

@@ -174,16 +174,22 @@ def test_renames_and_folded_boards_are_sourced():
     assert any("exited Vietnam" in t for t in raw["_todo"])
 
 
-def test_relationship_label_never_invented():
+def test_relationship_label_follows_the_supply_record():
     # Listed in the supply repository but not In Joveo Network -> unverified
     assert pf.relationship_unverified("Glassdoor", "India")
-    # In network -> clean; absent from the repository -> unknown, no label
+    # In network -> clean
     assert not pf.relationship_unverified("VietnamWorks", "Vietnam")
-    assert not pf.relationship_unverified("TotallyMadeUpBoard", "France")
-    marked, any_marked = pf.annotate(["Glassdoor", "VietnamWorks"], "India")
-    assert (
-        marked == [f"Glassdoor {pf.RELATIONSHIP_MARK}", "VietnamWorks"] and any_marked
+    # Nothing in the supply data covers the board for the country -> an
+    # unrecorded relationship is unverified, never assumed (audit #1)
+    assert pf.relationship_unverified("TotallyMadeUpBoard", "France")
+    marked, any_marked = pf.annotate(["Glassdoor", "Naukri.com"], "India")
+    assert marked == [f"Glassdoor {pf.RELATIONSHIP_MARK}", "Naukri.com"] and any_marked
+    # a Vietnamese board has no record for India: marked there, clean at home
+    assert pf.annotate(["VietnamWorks"], "India") == (
+        [f"VietnamWorks {pf.RELATIONSHIP_MARK}"],
+        True,
     )
+    assert pf.annotate(["VietnamWorks"], "Vietnam") == (["VietnamWorks"], False)
     assert "confirm before quoting" in pf.RELATIONSHIP_NOTE
 
 

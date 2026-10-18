@@ -11947,6 +11947,9 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     # deck names real publishers, not just channel categories.
     _local_boards = _pubfilter.plan_market_boards(data)
     _board_gaps = _pubfilter.plan_market_board_gaps(data)
+    # One plain sentence on how deep the repository's in-network list runs
+    # for these markets ('' when it cannot be counted exactly).
+    _depth_line = _pubfilter.supply_depth_line(_local_boards)
     _band_h_in = 0.0
     _band_more = 0
     if _local_boards or _board_gaps:
@@ -11955,6 +11958,8 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             len(_local_boards) + (1 if _band_more else 0) + (1 if _board_gaps else 0)
         )
         if any(g["unverified"] for g in _local_boards):
+            _band_h_in += 0.25
+        if _depth_line:
             _band_h_in += 0.25
         _avail_bottom_in -= _band_h_in
     _avail_h_in = _avail_bottom_in - _avail_top_in
@@ -12200,6 +12205,19 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             )
             _set_body_font(_gtf)
             _line_top_in += 0.27
+        if _depth_line:
+            _dx, _dtf = _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(_line_top_in + 0.02),
+                Inches(12.2),
+                Inches(0.24),
+                text=_depth_line,
+                font_size=8,
+                color=MUTED_TEXT,
+            )
+            _set_body_font(_dtf)
+            _line_top_in += 0.25
         if any(g["unverified"] for g in _local_boards):
             _nx, _ntf = _add_textbox(
                 slide,

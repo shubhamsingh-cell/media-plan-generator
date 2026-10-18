@@ -65,6 +65,32 @@
       ],
       "note": "Online Career Center Mexico; occ.com.mx",
       "source": "https://www.occ.com.mx/"
+    },
+    {
+      "names": [
+        "Pole Emploi",
+        "France Travail"
+      ],
+      "note": "Pôle emploi is now France Travail (rebranded in 2024, per the benchmark dataset's note); pole-emploi.fr redirects to francetravail.fr. One board, one supply record: the repository row is \"France Travail France\".",
+      "source": "https://www.francetravail.fr/"
+    },
+    {
+      "names": [
+        "Mynavi",
+        "Mynavi Corporation"
+      ],
+      "note": "Same Japanese board: the repository row \"Mynavi Corporation\" (Japan) is the board the benchmark dataset and data/global_supply.json call \"Mynavi\".",
+      "source": "data/joveo_global_supply_repository.json (row \"Mynavi Corporation\", Japan); data/global_supply.json (Japan, \"Mynavi\")"
+    },
+    {
+      "names": [
+        "Bundesagentur fuer Arbeit",
+        "Bundesagentur für Arbeit",
+        "Arbeitsagentur",
+        "arbeitsagentur.de"
+      ],
+      "note": "The Federal Employment Agency's job board is arbeitsagentur.de; the repository row \"Arbeitsagentur Germany\" is the board the benchmark dataset names \"Bundesagentur fuer Arbeit (Jobboerse)\".",
+      "source": "https://www.arbeitsagentur.de/"
     }
   ],
   "market_scope": [
