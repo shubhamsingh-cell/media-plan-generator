@@ -833,7 +833,6 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
     "retail_associate": {
         "aliases": [
             "store associate",
-            "sales associate",
             "cashier",
             "retail manager",
             "merchandiser",
@@ -888,6 +887,17 @@ for _rkey, _rmeta in CANONICAL_ROLES.items():
         _ROLE_ALIAS_MAP[_ralias.lower()] = _rkey
 
 
+# Titles that name a role only as the WHOLE string. normalize_role matches
+# aliases as substrings, so as a normal alias "sales associate" would also pull
+# "Inside Sales Associate", "Technical Sales Associate" and "Sales Associate -
+# B2B SaaS" onto Retail Salespersons (41-2031, blue collar, volume strategy).
+# Qualified titles stay unmatched here and are classified on their own words.
+_EXACT_ONLY_ROLE_ALIASES: Dict[str, str] = {
+    "sales associate": "retail_associate",
+    "retail sales associate": "retail_associate",
+}
+
+
 def normalize_role(raw: str | None) -> str:
     """Return the canonical role key for *raw*.
 
@@ -913,6 +923,11 @@ def normalize_role(raw: str | None) -> str:
         return ""
 
     cleaned = raw.strip().lower()
+
+    # 0: exact-only aliases (never substring-matched, see above)
+    exact_only = _EXACT_ONLY_ROLE_ALIASES.get(" ".join(cleaned.split()))
+    if exact_only:
+        return exact_only
 
     # 1 + 2: direct lookup
     if cleaned in _ROLE_ALIAS_MAP:

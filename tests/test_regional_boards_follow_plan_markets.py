@@ -169,8 +169,14 @@ def test_ticked_custom_countries_outrank_a_bare_city_guess(plan, kept):
         # countries decide (verifier round 2 -- the brief's headline case)
         ({"locations": ["Sao Paulo"], "custom_countries": ["BR"]}, set()),
         ({"locations": ["Mumbai"], "custom_countries": ["IN"]}, {"apac_regional"}),
-        # ... and with nothing ticked they keep every board
-        ({"locations": ["Sao Paulo"]}, _REGIONAL),
+        # ... and with nothing ticked they keep every board -- for a name a US
+        # town also carries ("Berlin": Berlin NH/WI/CT), which stays a guess
+        ({"locations": ["Berlin"]}, _REGIONAL),
+        # a bare name only a foreign city can be is its country's market, not a
+        # guess (plan_geo reads it as non-US): Sao Paulo is the Americas, which
+        # have no regional board, so both are dropped; Mumbai is APAC
+        ({"locations": ["Sao Paulo"]}, set()),
+        ({"locations": ["Mumbai"]}, {"apac_regional"}),
         # a comma string from an API caller is one entry per country
         (
             {"locations": ["Austin, TX"], "custom_countries": "DE,US"},

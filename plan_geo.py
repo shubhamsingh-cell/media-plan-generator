@@ -288,6 +288,22 @@ def _bare_foreign_city(loc_str: str) -> bool:
     return not _has_us_namesake(loc_str)
 
 
+def bare_foreign_city_country(loc: Any) -> str | None:
+    """COUNTRY_DATA country of ``loc`` when plan_geo reads it as ONE bare
+    foreign-only city ("Dortmund" -> "Germany", "Mumbai" -> "India"), else None.
+
+    The same test :func:`location_is_us` applies, for callers that need the
+    market behind the verdict (app._market_region places the city in its
+    region). A name with a US namesake ("Berlin", "Munich") is None.
+    """
+    loc_str = _extract_str(loc)
+    if not loc_str or _resolve_candidate(loc_str) is not None:
+        return None
+    if not _bare_foreign_city(loc_str):
+        return None
+    return country_registry.world_city_country(loc_str)
+
+
 def _resolve_candidate(loc_str: str) -> bool | None:
     """Resolve a single location string to True (US), False (non-US), or
     None (unresolvable -- caller must NOT treat this as a hard False)."""

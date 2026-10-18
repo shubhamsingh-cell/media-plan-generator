@@ -5105,6 +5105,16 @@ _BARE_CITY_MATCHES: frozenset = frozenset(
 _GUESS = "guess"
 
 
+def _bare_foreign_city_currency(text: str) -> "str | None":
+    """Currency of the country behind a BARE foreign-only city plan_geo reads
+    as non-US ("Dortmund" -> EUR, "Mumbai" -> INR), else None. A name with a US
+    namesake ("Berlin", "Munich", "Toronto") is None: still a guess."""
+    if plan_geo is None or plan_currency is None:
+        return None
+    country = plan_geo.bare_foreign_city_country(text)
+    return plan_currency.currency_for_country(country) if country else None
+
+
 def _market_region(entry: Any) -> "str | None":
     """Market region ("apac" / "emea" / "americas") of ONE plan location (a
     string or dict; ticked custom countries go through _country_code_region).
@@ -5134,6 +5144,13 @@ def _market_region(entry: Any) -> "str | None":
         )
         if code:
             return _CURRENCY_MARKET_REGION.get(code)
+        # A bare name only a foreign city can be ("Dortmund", "Mumbai"):
+        # plan_geo reads it as non-US, so the market is that country's, not a
+        # guess -- else the wizard keeps "US Only" for a plan the bundle then
+        # flags non_us_text_on_us_plan.
+        city_code = _bare_foreign_city_currency(text)
+        if city_code:
+            return _CURRENCY_MARKET_REGION.get(city_code)
         if plan_location is not None:
             res = plan_location.resolve_location(text)
             if res.kind == "remote":
@@ -5181,7 +5198,7 @@ def _location_market_hint(entry: Any) -> str:
             plan_currency.currency_for_country(text)
             if plan_currency is not None
             else None
-        )
+        ) or _bare_foreign_city_currency(text)
     except Exception:  # noqa: BLE001 - best-effort; unknown stays "unknown"
         return "unknown"
     # A currency-resolved Americas market is the US only when that currency is

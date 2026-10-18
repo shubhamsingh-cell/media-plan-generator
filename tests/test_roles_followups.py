@@ -427,3 +427,166 @@ def test_d4_research_still_reads_the_moved_city_table_the_same_way() -> None:
         assert research._detect_country(city) == country, city
     # US forms of a world-city name are still the US
     assert research._detect_country("Berlin, NH") in (None, "United States")
+
+
+# ---------------------------------------------------------- F2 (review) ---
+
+
+@pytest.mark.parametrize(
+    "role,industry",
+    [
+        ("Inside Sales Associate", ""),
+        ("Technical Sales Associate", "tech_engineering"),
+        ("Financial Sales Associate", "finance_banking"),
+        ("Sales Associate - B2B SaaS", ""),
+    ],
+)
+def test_f2_a_qualified_sales_associate_is_not_a_retail_salesperson(
+    role: str, industry: str
+) -> None:
+    # normalize_role matches aliases as substrings: "sales associate" as a plain
+    # alias made these Retail Salespersons (41-2031, blue collar, volume).
+    assert standardizer.normalize_role(role) != "retail_associate"
+    assert standardizer.get_soc_code(role) != "41-2031"
+    got = collar_intelligence.classify_collar(role, industry)
+    assert got["collar_type"] == "white_collar", (role, got)
+    assert got["channel_strategy"] == "targeted", (role, got)
+
+
+@pytest.mark.parametrize(
+    "role", ["Sales Associate", "Retail Sales Associate", "  sales   ASSOCIATE "]
+)
+def test_f2_the_bare_sales_associate_titles_are_still_retail(role: str) -> None:
+    assert standardizer.get_soc_code(role) == "41-2031"
+    assert collar_intelligence.classify_collar(role)["collar_type"] == "blue_collar"
+
+
+def test_f2_sales_manager_is_unchanged() -> None:
+    assert standardizer.get_soc_code("Sales Manager") == "11-2022"
+    assert (
+        collar_intelligence.classify_collar("Sales Manager")["collar_type"]
+        == "white_collar"
+    )
+
+
+# ---------------------------------------------------------- F1 (review) ---
+
+
+@pytest.fixture(scope="module")
+def app_mod():
+    import app
+
+    return app
+
+
+@pytest.mark.parametrize(
+    "city,region",
+    [
+        ("Dortmund", "emea"),
+        ("Düsseldorf", "emea"),
+        ("Mumbai", "apac"),
+        ("Tokyo", "apac"),
+        ("Buenos Aires", "americas"),
+        (" dortmund ", "emea"),
+        ({"city": "Dortmund"}, "emea"),
+    ],
+)
+def test_f1_a_bare_foreign_only_city_is_placed_in_its_region(
+    app_mod, city: object, region: str
+) -> None:
+    assert app_mod._market_region(city) == region
+    assert app_mod._location_market_hint(city) == region
+
+
+@pytest.mark.parametrize(
+    "name", ["Berlin", "Munich", "Toronto", "Hamburg", "Springfield", "Denver"]
+)
+def test_f1_a_name_with_a_us_namesake_stays_unknown(app_mod, name: str) -> None:
+    assert app_mod._market_region(name) == app_mod._GUESS
+    assert app_mod._location_market_hint(name) == "unknown"
+
+
+def test_f1_the_explicit_forms_are_unchanged(app_mod) -> None:
+    assert app_mod._location_market_hint("Berlin, Germany") == "emea"
+    assert app_mod._location_market_hint("Berlin, NH") == "us"
+    assert app_mod._location_market_hint("Denver, CO") == "us"
+    assert app_mod._location_market_hint("Remote") == "none"
+
+
+def test_f1_every_city_plan_geo_flips_has_a_market_region(app_mod) -> None:
+    """The two classifiers must agree: every bare city plan_geo reads as abroad
+    is placed in a region by the wizard's hint, never left as "unknown"."""
+    flips = [
+        c
+        for c in country_registry.WORLD_CITY_COUNTRY
+        if plan_geo._resolve_candidate(c) is None
+        and plan_geo.location_is_us(c) is False
+    ]
+    assert len(flips) >= 20
+    for city in flips:
+        assert app_mod._location_market_hint(city) in (
+            "emea",
+            "apac",
+            "americas",
+        ), city
+        assert plan_geo.bare_foreign_city_country(city), city
+    # and no name with a US namesake is placed on a guess
+    for city in ("Berlin", "Munich", "Toronto", "Hamburg", "Sydney", "Paris"):
+        assert plan_geo.bare_foreign_city_country(city) is None, city
+
+
+def _wizard_region(hints: List[str]) -> str:
+    """templates/partials/index/body_app_js.html novaRegionFromMarkets: a single
+    emea/apac market sets that region; an unplaceable one leaves the selector on
+    its "US Only" default."""
+    placed = sorted({h for h in hints if h != "none"})
+    if not placed or "unknown" in placed:
+        return "us_only"
+    if placed == ["us"]:
+        return "us_only"
+    if len(placed) == 1 and placed[0] in ("emea", "apac"):
+        return placed[0]
+    return "global"
+
+
+from tests.live_server import live_port, post_json  # noqa: E402,F401
+from tests.test_intl_boards_end_to_end import _BASE, _read  # noqa: E402,F401
+
+
+@pytest.mark.parametrize("city", ["Mumbai", "Dortmund"])
+def test_f1_a_bare_foreign_city_brief_with_the_derived_region_has_clean_qa(
+    live_port, app_mod, city: str  # noqa: F811
+) -> None:
+    import bundle_qa
+
+    region = _wizard_region([app_mod._location_market_hint(city)])
+    assert region in ("apac", "emea")
+
+    captured: dict = {}
+    real_gate = bundle_qa.gate_bundle
+
+    def spy(pptx, xlsx, data, *a, **k):
+        out = real_gate(pptx, xlsx, data, *a, **k)
+        captured["gate"] = out
+        captured["data"] = data
+        return out
+
+    bundle_qa.gate_bundle = spy
+    try:
+        payload = dict(
+            _BASE,
+            client_name=f"Roles Followups Fixture {city}",
+            locations=[city],
+            competitors=["DHL"],
+            target_region=region,
+        )
+        status, raw = post_json(live_port, "/api/generate", payload, timeout=300.0)
+    finally:
+        bundle_qa.gate_bundle = real_gate
+    assert status == 200 and isinstance(raw, bytes), status
+    gate = captured.get("gate")
+    assert gate is not None, "bundle_qa gate did not run"
+    assert captured["data"].get("target_region") == region
+    findings = [(f.get("severity"), f.get("code")) for f in gate.get("findings") or []]
+    assert ("critical", "non_us_text_on_us_plan") not in findings, findings
+    assert not [f for f in findings if f[0] == "critical"], findings
