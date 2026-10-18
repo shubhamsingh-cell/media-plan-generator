@@ -304,6 +304,10 @@ def test_non_us_plan_prints_the_footnote_and_passes_the_us_marker_gate(uk_plan):
         uk_plan["pptx_bytes"], uk_plan["xlsx_bytes"], uk_plan["data"]
     )
     assert [f for f in findings if f.get("code") == "us_data_on_non_us_plan"] == []
+    # the omitted-US-figure row speaks of Nova's estimate, not "the knowledge base"
+    block = " | ".join(f"{lbl} {val}" for lbl, val in _block_rows(uk_plan["xlsx_bytes"]))
+    assert "Nova's industry estimate for CPA/CPC is a US figure" in block, block
+    assert "knowledge base" not in block, block
 
 
 # ------------------------------------------------------------------- 2. deck
@@ -371,6 +375,15 @@ def test_static_table_deck_prints_the_footnote_and_no_invented_source():
     assert "Industry benchmarks 20" not in slide_text, slide_text
     assert "Ad Platform Intelligence" not in slide_text, slide_text
     assert _SECTION_FOOTNOTE in slide_text, slide_text
+    # the confidence caption under the table says the same thing in four words
+    assert "Nova estimate (unaudited)" in slide_text, slide_text
+    assert "Curated" not in slide_text, slide_text
+
+
+def test_static_confidence_captions_say_nova_estimate():
+    for confidence in ("curated", ppt_generator.PLATFORM_BENCHMARK_CONFIDENCE, "knowledge_base"):
+        assert ppt_generator._confidence_color(confidence)[1] == "Nova estimate (unaudited)", confidence
+    assert ppt_generator._confidence_color("live_api")[1] == "Live Data"
 
 
 def test_competitive_landscape_no_longer_names_a_curated_knowledge_base():
@@ -585,4 +598,49 @@ def test_workbook_cph_readers_never_take_the_media_only_figure():
         {"ind_bench": _MEDIA_ONLY_ROW, "client_name": "X", "budget_num": 0}
     )
     assert "Industry Cost/Hire" not in facts, facts
+
+
+def _plan_with(info: Dict[str, Any]) -> Dict[str, Any]:
+    return {"_budget_allocation": {"metadata": {"industry_cph": info}}}
+
+
+@pytest.mark.parametrize("kind", sorted(_KIND_INFOS))
+def test_basis_wording_has_no_internal_vocabulary_in_any_reader(kind):
+    """The checklist (which the deck's slide-1 notes and the workbook's
+    "Review before sending" print) and the wizard label read the SAME plain
+    words for every kind: one clause, no stacked brackets, no jargon."""
+    info = _KIND_INFOS[kind]
+    basis = plan_projection.cph_basis(info)
+    assert basis["kind"] == kind
+    first = plan_trust.review_items(_plan_with(info))[0]
+    if kind == "nova_table":
+        # unchanged on purpose: the help page quotes this sentence verbatim
+        # (tests/test_help_media_plans.py equality test)
+        assert "Nova's assumed industry cost-per-hire table (an all-in figure" in first, first
+    else:
+        assert basis["phrase"] in first, (basis, first)
+    for text in (first, basis["label"], basis["phrase"]):
+        for jargon in ("knowledge base", "floor: half", "Nova working estimate from", "cross-industry default"):
+            assert jargon not in text, (jargon, text)
+        assert "))" not in text and ")(" not in text and ") (" not in text, text
+    if kind in ("kb_row", "cross_industry_default"):
+        assert first.startswith(
+            "Projected hires and costs are estimates: media budget divided by an assumed "
+        ), first
+        assert basis["label"].endswith("(" + basis["note"] + ")"), basis
+        assert basis["phrase"] == "an " + basis["label"]
+
+
+def test_kb_row_names_its_scope_only_when_the_row_does():
+    named = plan_projection.cph_basis(
+        {"basis": "us_benchmark", "industry_matched": False,
+         "display_row": {"text": "$3,000-$5,000 (food manufacturing)", "mid": 4000.0}}
+    )
+    assert named["label"] == (
+        "assumed industry cost per hire of $3,000\u2013$5,000 (Nova estimate, food-manufacturing row)"
+    )
+    # a row whose bracket is a note (digits, a semicolon) names nothing
+    note_only = plan_projection.cph_basis(_KIND_INFOS["kb_row"])
+    assert note_only["label"] == "assumed industry cost per hire of $5,000\u2013$8,000 (Nova estimate)"
+    assert "general roles" not in note_only["label"]
 

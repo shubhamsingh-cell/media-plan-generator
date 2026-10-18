@@ -3414,7 +3414,10 @@ def _cph_anchor_clause(cph_info: Dict[str, Any]) -> str:
         figure = _range(info.get("low"), info.get("high"), info)
         noun = "industry"
     of = f" of {figure}" if figure else ""
-    return f"based on an assumed {noun} cost per hire{of} (Nova estimate)"
+    # the same parenthetical the wizard / checklist print ("Nova estimate,
+    # food-manufacturing row" when the knowledge-base row names its scope)
+    note = basis["note"] or "Nova estimate"
+    return f"based on an assumed {noun} cost per hire{of} ({note})"
 
 
 def _roi_methodology_note(budget_alloc: Any) -> str:
@@ -7262,8 +7265,8 @@ def _build_sheet_executive_summary(
                         ws,
                         row,
                         "Industry CPA / CPC",
-                        "No local benchmark for this market (the knowledge base's "
-                        "industry CPA/CPC are US figures and are not shown).",
+                        "No local benchmark for this market (Nova's industry "
+                        "estimate for CPA/CPC is a US figure and is not shown).",
                     )
 
             # ONE honesty note under the table, the SAME string the deck's

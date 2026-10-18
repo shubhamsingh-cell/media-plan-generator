@@ -611,9 +611,28 @@ def ranges_from_engine_result(
         basis_src = "the US cost-per-hire benchmark (US benchmark \u2014 no local data)"
     else:
         basis_src = _basis["phrase"]
-    assumptions: Dict[str, Any] = {
-        "client_hire_history": False,
-        "hires_basis": (
+    # The two Nova-estimate kinds name their figure in a clause that already
+    # carries its one parenthetical, so their sentences are built around it
+    # (no stacked brackets, no "from a ... from ...").
+    _plain_kind = (not us_tag) and _basis["kind"] in ("kb_row", "cross_industry_default")
+    if _plain_kind:
+        _hires_basis = (
+            f"Estimated, not forecast: budget divided by {basis_src}"
+            + (
+                f"; low end at the industry average {_money(avg, symbol)}, high end "
+                f"at the plan-efficiency floor {_money(floor, symbol)} "
+                f"({_floor_basis(icph, _basis, avg, floor)})"
+                if basis_ok
+                else ""
+            )
+            + "; no client hire history was provided."
+        )
+        _cph_basis_text = (
+            "Cost per hire here is budget / estimated hires, compared against the "
+            f"industry's TOTAL cost per hire: {_basis['phrase']}; not a media-only figure."
+        )
+    else:
+        _hires_basis = (
             f"Estimated, not forecast: budget divided by the industry cost per hire from {basis_src}"
             + (
                 f" (low end at the industry average {_money(avg, symbol)}, high end at "
@@ -623,9 +642,8 @@ def ranges_from_engine_result(
                 else ""
             )
             + "; no client hire history was provided."
-        ),
-        "cph_concept": "total",
-        "cph_basis": (
+        )
+        _cph_basis_text = (
             "Cost per hire here is budget / estimated hires, compared against the "
             "industry's TOTAL cost per hire ("
             + (
@@ -638,11 +656,17 @@ def ranges_from_engine_result(
                 )
             )
             + "), not a media-only figure."
-        ),
+        )
+    assumptions: Dict[str, Any] = {
+        "client_hire_history": False,
+        "hires_basis": _hires_basis,
+        "cph_concept": "total",
+        "cph_basis": _cph_basis_text,
         "cph_basis_kind": _basis["kind"],
         "cph_basis_word": _basis["word"],
         "cph_basis_sources": _basis["sources"],
         "cph_basis_label": _basis["label"],
+        "cph_basis_note": _basis["note"],
         "industry_cph_avg": avg if basis_ok else None,
         "industry_cph_floor": floor if basis_ok else None,
         "us_benchmark_translated": translated,
@@ -658,7 +682,7 @@ def ranges_from_engine_result(
     media = conv.get("media_only_cph")
     if media:
         assumptions["cph_basis"] += (
-            f" The knowledge base's media-only benchmark is {media['text']} "
+            f" Nova's media-only reference figure is {media['text']} "
             f"(US$; source: {media['source']})."
         )
     aph = conv.get("applicants_per_hire")
@@ -889,6 +913,46 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
 NOVA_TABLE_BASIS_LABEL = "assumed all-in industry cost per hire (Nova table, unsourced)"
 
 
+_ROW_FIGURE_RE = re.compile(r"\$\s*([\d,]+(?:\.\d+)?)\s*([kKmM])?")
+# a short, digit-free parenthetical on a KB row ("(food manufacturing)") names
+# what the row covers; anything else ("(general roles; technical roles
+# $10,000-$20,000)") is a note, not a name
+_ROW_NAME_RE = re.compile(r"\(([A-Za-z][A-Za-z &/-]{2,38})\)")
+
+
+def _kb_row_figure(row: Dict[str, Any]) -> str:
+    """"$3,000\u2013$5,000" for a knowledge-base cost-per-hire row (its parsed
+    low / high when present, else the first two US$ figures in its text);
+    "" when it carries none."""
+    nums: List[float] = []
+    for key in ("low", "high"):
+        v = row.get(key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+            nums.append(float(v))
+    if not nums:
+        for amt, suffix in _ROW_FIGURE_RE.findall(str(row.get("text") or "")):
+            try:
+                v = float(amt.replace(",", ""))
+            except ValueError:
+                continue
+            v *= {"k": 1_000.0, "m": 1_000_000.0}.get(suffix.lower(), 1.0)
+            if v > 0:
+                nums.append(v)
+            if len(nums) == 2:
+                break
+    if not nums:
+        return ""
+    lo, hi = min(nums[:2]), max(nums[:2])
+    return _money(lo) if lo == hi else f"{_money(lo)}\u2013{_money(hi)}"
+
+
+def _kb_row_name(row: Dict[str, Any]) -> str:
+    """"food-manufacturing" for a row text ending "(food manufacturing)";
+    "" when the row names nothing short and plain."""
+    m = _ROW_NAME_RE.search(str(row.get("text") or ""))
+    return re.sub(r"\s*[&/]\s*|\s+", "-", m.group(1).strip()).strip("-").lower() if m else ""
+
+
 def cph_basis(icph: Any) -> Dict[str, Any]:
     """What the hires figures divide the budget by, named from the resolver's
     own ``industry_cph`` dict (budget_engine.resolve_industry_cph):
@@ -901,32 +965,48 @@ def cph_basis(icph: Any) -> Dict[str, Any]:
       table (no external source).
 
     ``label`` names the basis; ``phrase`` is the same with its article, for use
-    mid-sentence. The wizard, the workbook / deck checklist and the assumptions
-    block all read this one function, so they can never disagree."""
+    mid-sentence; ``note`` is the short parenthetical a UI can put after its
+    own figure ("Nova estimate, food-manufacturing row"; "" for the other
+    kinds). The two Nova-estimate kinds read the same way in plain words -- one
+    clause, one parenthetical, no internal vocabulary: "an assumed industry
+    cost per hire of $3,000\u2013$5,000 (Nova estimate, food-manufacturing
+    row)" / "an assumed cross-industry cost per hire (Nova estimate)". The
+    wizard, the workbook / deck checklist and the assumptions block all read
+    this one function, so they can never disagree."""
     icph = icph if isinstance(icph, dict) else {}
     if str(icph.get("basis") or "") == "local_kb":
         names = [str(n) for n in (icph.get("source_names") or []) if str(n).strip()]
         word = "median" if icph.get("value_label") == "median" else "midpoint"
         src = f" ({', '.join(names)})" if names else ""
         label = f"cited local cost-per-hire range {word}{src}"
-        return {"kind": "local_kb", "word": word, "sources": names, "label": label, "phrase": "the " + label}
+        return {
+            "kind": "local_kb", "word": word, "sources": names, "label": label,
+            "phrase": "the " + label, "note": "",
+        }
     if icph.get("industry_matched") is False:
         row = icph.get("display_row") if isinstance(icph.get("display_row"), dict) else {}
         text = str(row.get("text") or "").strip()
         if text:
+            figure = _kb_row_figure(row)
+            name = _kb_row_name(row)
+            note = "Nova estimate" + (f", {name} row" if name else "")
             label = (
-                f"Nova working estimate from the knowledge base's '{text}' row "
-                "(floor: half the cross-industry default)"
+                "assumed industry cost per hire"
+                + (f" of {figure}" if figure else "")
+                + f" ({note})"
             )
-            return {"kind": "kb_row", "word": "midpoint", "sources": [], "label": label, "phrase": "a " + label}
-        label = "cross-industry default (Nova working estimate)"
+            return {
+                "kind": "kb_row", "word": "midpoint", "sources": [], "label": label,
+                "phrase": "an " + label, "note": note,
+            }
+        label = "assumed cross-industry cost per hire (Nova estimate)"
         return {
             "kind": "cross_industry_default", "word": "midpoint", "sources": [],
-            "label": label, "phrase": "the " + label,
+            "label": label, "phrase": "an " + label, "note": "Nova estimate",
         }
     return {
         "kind": "nova_table", "word": "midpoint", "sources": [], "label": NOVA_TABLE_BASIS_LABEL,
-        "phrase": "Nova's cost-per-hire table",
+        "phrase": "Nova's cost-per-hire table", "note": "",
     }
 
 
@@ -940,7 +1020,7 @@ def _floor_basis(icph: Any, basis: Dict[str, Any], avg: Any, floor: Any) -> str:
     if icph.get("floor_rule") == "cited_low_end":
         return "the cited range's low end"
     if basis["kind"] == "kb_row":
-        return "half the cross-industry default"
+        return "half the assumed cross-industry cost per hire"
     return "the engine's cost-per-hire floor"
 
 

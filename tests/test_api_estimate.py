@@ -303,12 +303,26 @@ def test_hire_basis_for_an_industry_with_no_table_row_names_the_kb_row() -> None
         )
         hb = est["hire_basis"]
         assert hb["basis"] == "kb_row", industry
-        assert "food manufacturing" in hb["label"] and "knowledge base" in hb["label"]
+        # 2026-10-18: was "...food manufacturing... knowledge base's ... row (floor:
+        # half the cross-industry default)"; now one plain clause
+        assert hb["label"] == (
+            "assumed industry cost per hire of $3,000\u2013$5,000 (Nova estimate, food-manufacturing row)"
+        ), hb["label"]
+        assert hb["note"] == "Nova estimate, food-manufacturing row"
+        assert "knowledge base" not in hb["label"] and "floor" not in hb["label"]
         assert "Nova table" not in hb["label"] and "unsourced" not in hb["label"]
         assert (hb["midpoint_cph"], hb["floor_cph"]) == (4000.0, 3000.0)
         sentence = est["projection"]["assumptions"]["hires_basis"]
         assert "Nova's cost-per-hire table" not in sentence
-        assert "$3,000 = half the cross-industry default" in sentence
+        # was "(low end at the industry average $4,000, high end at the
+        # plan-efficiency floor $3,000 = half the cross-industry default)" after
+        # "from a Nova working estimate from the knowledge base's ... row (floor: ...)"
+        assert sentence == (
+            "Estimated, not forecast: budget divided by an assumed industry cost per hire of "
+            "$3,000\u2013$5,000 (Nova estimate, food-manufacturing row); low end at the industry "
+            "average $4,000, high end at the plan-efficiency floor $3,000 (half the assumed "
+            "cross-industry cost per hire); no client hire history was provided."
+        ), sentence
         assert "= half that average" not in sentence  # half of $4,000 is $2,000
     nonprofit = app._compute_plan_estimate(
         {"budget": "$120,000", "roles": ["Case Worker"], "industry": "Nonprofit", "locations": ["Dallas, TX"]}
@@ -318,7 +332,9 @@ def test_hire_basis_for_an_industry_with_no_table_row_names_the_kb_row() -> None
     # no row of any kind: the cross-industry default, said as such
     bare = plan_projection.cph_basis({"basis": "us_benchmark", "industry_matched": False})
     assert bare["kind"] == "cross_industry_default"
-    assert bare["label"] == "cross-industry default (Nova working estimate)"
+    # was "cross-industry default (Nova working estimate)"
+    assert bare["label"] == "assumed cross-industry cost per hire (Nova estimate)"
+    assert bare["phrase"] == "an assumed cross-industry cost per hire (Nova estimate)"
     assert plan_projection.cph_basis({"basis": "us_benchmark", "industry_matched": True})["kind"] == "nova_table"
 
 

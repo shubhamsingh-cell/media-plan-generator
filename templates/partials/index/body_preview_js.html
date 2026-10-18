@@ -139,8 +139,8 @@
       // table says so. Never "Nova table" over a figure that has a source.
       var base = hb.basis === "local_kb"
         ? k(hb.midpoint_cph) + ", the " + (hb.label || "cited local cost-per-hire range")
-        : (hb.basis === "kb_row" || hb.basis === "cross_industry_default") && hb.label
-          ? k(hb.midpoint_cph) + ", " + hb.label
+        : (hb.basis === "kb_row" || hb.basis === "cross_industry_default") && (hb.note || hb.label)
+          ? "an assumed " + k(hb.midpoint_cph) + " cost per hire (" + (hb.note || hb.label) + ")"
           : "an assumed " + k(hb.midpoint_cph) + " all-in cost per hire (Nova table)";
       var pr = est.projection && est.projection.hires;
       var ranged = !!(pr && pr.low != null && pr.high != null && pr.low !== pr.high);
@@ -578,8 +578,8 @@
           if (hbK) {
             var hbWho = hbIns.basis === "local_kb"
               ? "the cited local " + hbK + " each (" + escapeHtml((hbIns.sources || []).join(", ") || "local source") + ")"
-              : (hbIns.basis === "kb_row" || hbIns.basis === "cross_industry_default") && hbIns.label
-                ? escapeHtml(hbK) + " each (" + escapeHtml(hbIns.label) + ")"
+              : (hbIns.basis === "kb_row" || hbIns.basis === "cross_industry_default") && (hbIns.note || hbIns.label)
+                ? escapeHtml(hbK) + " each (" + escapeHtml(hbIns.note || hbIns.label) + ")"
                 : "the assumed <b>" + escapeHtml(hbK) + "</b> each (all-in, Nova table)";
             ins.push({ tone: "info", text: "Budget covers your " + goalText(m) + " if hires cost " + hbWho + " — est. " + escapeHtml(shown) + " hires." });
           } else {

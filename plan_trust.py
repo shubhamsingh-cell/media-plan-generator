@@ -431,17 +431,23 @@ def review_items(
         meta0 = alloc0.get("metadata") if isinstance(alloc0, dict) else None
         icph0 = meta0.get("industry_cph") if isinstance(meta0, dict) else None
         basis0 = plan_projection.cph_basis(icph0)
-        if basis0["kind"] != "nova_table":
-            what = f"{basis0['phrase']}; media budget divided by that figure"
+        if basis0["kind"] in ("kb_row", "cross_industry_default"):
+            # one plain clause that already carries its parenthetical:
+            # "an assumed industry cost per hire of $3,000-$5,000 (Nova
+            # estimate, food-manufacturing row)"
+            lead = f"Projected hires and costs are estimates: media budget divided by {basis0['phrase']}"
         else:
-            what = (
-                "Nova's assumed industry cost-per-hire table (an all-in figure, "
-                "not a published benchmark); media budget divided by that figure"
-            )
+            if basis0["kind"] != "nova_table":
+                what = f"{basis0['phrase']}; media budget divided by that figure"
+            else:
+                what = (
+                    "Nova's assumed industry cost-per-hire table (an all-in figure, "
+                    "not a published benchmark); media budget divided by that figure"
+                )
+            lead = f"Projected hires and costs are estimates from {what}"
         items.append(
-            f"Projected hires and costs are estimates from {what} \u2014 no "
-            "client hire history was provided. Treat them as indicative, not "
-            "as commitments."
+            f"{lead} \u2014 no client hire history was provided. Treat them as "
+            "indicative, not as commitments."
         )
 
     if unverified_boards > 0:

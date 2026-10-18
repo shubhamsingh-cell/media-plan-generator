@@ -3871,19 +3871,20 @@ def _confidence_color(confidence: str) -> Tuple[RGBColor, str]:
     """Return (color, label) for a confidence level string.
 
     Green bold for live/high confidence, blue for curated, amber for fallback.
-    ``platform_benchmark`` (the hardcoded ad-platform benchmark table) is a
-    curated reference, never live: it takes the curated colour with its own
-    caption.
+    ``platform_benchmark`` (the hardcoded ad-platform benchmark table) and the
+    static curated table are Nova's own typed constants, never live and never a
+    published benchmark: they take the curated colour with the caption "Nova
+    estimate (unaudited)" -- the same words the source line beside them uses.
     """
     conf_lower = str(confidence).lower()
     if conf_lower == PLATFORM_BENCHMARK_CONFIDENCE:
-        return (MEDIUM_BLUE, "Curated benchmark")
+        return (MEDIUM_BLUE, "Nova estimate (unaudited)")
     if conf_lower in ("live_api", "high", "synthesized"):
         return (GREEN, "Live Data")
     elif conf_lower in ("trend_engine", "cached_api"):
         return (BLUE, "Trend Engine")
     elif conf_lower in ("curated", "knowledge_base", "medium"):
-        return (MEDIUM_BLUE, "Curated")
+        return (MEDIUM_BLUE, "Nova estimate (unaudited)")
     else:
         return (AMBER_TEXT, "Estimated")
 

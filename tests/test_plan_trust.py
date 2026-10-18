@@ -618,9 +618,25 @@ def test_checklist_names_the_kb_row_or_default_when_the_industry_has_no_table_ro
     plan = _plan()
     plan["_budget_allocation"] = {"metadata": {"industry_cph": row}}
     first = plan_trust.review_items(plan)[0]
-    assert "knowledge base's '$3,000-$5,000 (food manufacturing)' row" in first
+    # 2026-10-18: one plain clause with one parenthetical (was "a Nova working
+    # estimate from the knowledge base's '$3,000-$5,000 (food manufacturing)'
+    # row (floor: half the cross-industry default)")
+    assert first == (
+        "Projected hires and costs are estimates: media budget divided by an "
+        "assumed industry cost per hire of $3,000\u2013$5,000 (Nova estimate, "
+        "food-manufacturing row) \u2014 no client hire history was provided. "
+        "Treat them as indicative, not as commitments."
+    ), first
     assert "Nova's assumed industry cost-per-hire table" not in first
     plan["_budget_allocation"] = {"metadata": {"industry_cph": {"basis": "us_benchmark", "industry_matched": False}}}
-    assert "cross-industry default (Nova working estimate)" in plan_trust.review_items(plan)[0]
+    default = plan_trust.review_items(plan)[0]
+    assert (
+        "media budget divided by an assumed cross-industry cost per hire (Nova estimate) \u2014 no client hire history"
+        in default
+    ), default
+    for text in (first, default):
+        for jargon in ("knowledge base", "floor: half", "Nova working estimate from", "cross-industry default"):
+            assert jargon not in text, (jargon, text)
+        assert text.count("(") == 1, text
     plan["_budget_allocation"] = {"metadata": {"industry_cph": {"basis": "us_benchmark", "industry_matched": True}}}
     assert "Nova's assumed industry cost-per-hire table" in plan_trust.review_items(plan)[0]

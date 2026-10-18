@@ -6469,6 +6469,9 @@ def _compute_plan_estimate(brief: dict) -> dict:
             "sources": list(_proj_a.get("cph_basis_sources") or []),
             "word": _proj_a.get("cph_basis_word") or "midpoint",
             "label": _proj_a.get("cph_basis_label") or "",
+            # the short parenthetical the wizard puts after its own figure
+            # ("Nova estimate, food-manufacturing row"; "" for the other kinds)
+            "note": _proj_a.get("cph_basis_note") or "",
         }
         if isinstance(_hb_mid, (int, float))
         and _hb_mid > 0

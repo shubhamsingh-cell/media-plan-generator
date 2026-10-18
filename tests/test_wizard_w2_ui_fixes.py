@@ -2422,9 +2422,11 @@ def test_a_cited_local_basis_is_named_and_never_called_the_nova_table():
 
 @needs_node
 def test_a_kb_row_basis_is_named_in_the_wizard_without_the_nova_table_claim():
-    label = ("Nova working estimate from the knowledge base's '$3,000-$5,000 (food manufacturing)' row "
-             "(floor: half the cross-industry default)")
-    hb = {"midpoint_cph": 4000.0, "floor_cph": 3000.0, "basis": "kb_row", "sources": [], "label": label}
+    # 2026-10-18: was label "Nova working estimate from the knowledge base's
+    # '$3,000-$5,000 (food manufacturing)' row (floor: half the cross-industry default)"
+    label = "assumed industry cost per hire of $3,000\u2013$5,000 (Nova estimate, food-manufacturing row)"
+    hb = {"midpoint_cph": 4000.0, "floor_cph": 3000.0, "basis": "kb_row", "sources": [], "label": label,
+          "note": "Nova estimate, food-manufacturing row"}
     proj = {"hires": {"low": 30, "mid": 40, "high": 40}}
     text = run_node(
         "\n".join(
@@ -2436,10 +2438,28 @@ def test_a_kb_row_basis_is_named_in_the_wizard_without_the_nova_table_claim():
             ]
         )
     )
-    assert "food manufacturing" in text and "$4K" in text
+    assert text == (
+        "low end at an assumed $4K cost per hire (Nova estimate, food-manufacturing row), high end at $3K"
+    ), text
+    assert "knowledge base" not in text and "floor" not in text
     assert "Nova table" not in text and "all-in" not in text
     ins = _insights("", 10, 30.0, hire_basis=hb, projection=proj)[0]
-    assert "food manufacturing" in ins and "Nova table" not in ins and "all-in" not in ins
+    assert "$4K each (Nova estimate, food-manufacturing row)" in ins, ins
+    assert "knowledge base" not in ins and "Nova table" not in ins and "all-in" not in ins
+    # the cross-industry default reads the same way, with no row name
+    default = dict(hb, basis="cross_industry_default", label="assumed cross-industry cost per hire (Nova estimate)",
+                   note="Nova estimate", midpoint_cph=6000.0, floor_cph=3000.0)
+    dtext = run_node(
+        "\n".join(
+            [
+                "function sym() { return '$'; }",
+                "function trim(x, d) { return Number(x.toFixed(d)).toString(); }",
+                js_block(PREVIEW, "function hireBasisText("),
+                f"process.stdout.write(JSON.stringify(hireBasisText({json.dumps({'hire_basis': default, 'projection': proj})})));",
+            ]
+        )
+    )
+    assert dtext == "low end at an assumed $6K cost per hire (Nova estimate), high end at $3K", dtext
 
 
 @needs_node
