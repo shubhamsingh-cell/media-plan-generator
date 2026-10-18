@@ -334,8 +334,15 @@ console.log(JSON.stringify({openedRead: openedRead, closedRead: closedRead, raw:
 def test_widget_never_reopens_over_a_form_page_or_below_1280px():
     """Chat open on the hub, then navigate to /media-plan at 1080px: the restored
     panel covered Client name, Website and Use case -- the original complaint, back
-    on the generator page. Restore is allowed only on the hub and /nova, only at
-    >= 1280px, only mid-conversation."""
+    on the generator page. Restore is allowed only where RESTORE_PAGES lists the
+    page, only at >= 1280px, only mid-conversation.
+
+    "/nova" is in RESTORE_PAGES but that entry is dead and harmless: nova.html is
+    in app.py's _NOVA_WIDGET_SKIP_PAGES and loads no nova-chat.js, so the widget
+    never exists there to restore (see the next test). It is left in the list
+    because it fails closed. "/hub" is deliberately NOT listed: whichever alias
+    serves the hub page, restore fails closed there -- a product choice that is
+    easy to add later by listing the path. So the only reachable restore is "/"."""
     src = _widget_src()
     out = run_node(
         _lift_between(src, "var RESTORE_PAGES", "function shouldRestoreOpen(")
@@ -344,19 +351,29 @@ def test_widget_never_reopens_over_a_form_page_or_below_1280px():
 var rows = [
   // [wasOpen, width, messages, path]
   [true, 1440, 3, "/"], [true, 1280, 3, "/"], [true, 1279, 3, "/"],
-  [true, 1440, 3, "/nova"], [true, 1440, 3, "/nova/"],
   [true, 1440, 3, "/media-plan"], [true, 1080, 3, "/media-plan"], [true, 768, 3, "/media-plan"],
   [true, 1440, 3, "/media-plan/"], [true, 1440, 3, "/quick-plan"], [true, 1440, 3, "/quick-brief"],
   [true, 1440, 3, "/pricing"], [true, 1440, 3, "/help/media-plans"], [true, 375, 3, "/"],
   [true, 1440, 0, "/"], [false, 1440, 3, "/"], [true, 1440, 3, ""], [true, 1440, 3, undefined],
+  [true, 1440, 3, "/hub"],
 ];
 console.log(JSON.stringify(rows.map(function (r) { return shouldRestoreOpen(r[0], r[1], r[2], r[3]); })));
 """
     )
-    allowed = [True, True, False, True, True] + [False] * 13
-    assert out == allowed, out
+    # Only the hub at "/" restores, and only at >= 1280px (rows 0 and 1).
+    assert out == [True, True] + [False] * (len(out) - 2), out
     # the restore call site passes the live path and message count, not a constant
     assert "window.location.pathname," in src
+
+
+def test_widget_is_never_loaded_on_nova_so_restore_there_is_unreachable():
+    """The /nova page has its own composer: app.py skips the auto-injected widget for
+    nova.html and the template loads no nova-chat.js, so "/nova" can never be a
+    restore target in practice."""
+    app_src = (ROOT / "app.py").read_text(encoding="utf-8")
+    skip = re.search(r"_NOVA_WIDGET_SKIP_PAGES = \{(.*?)\}", app_src, re.S).group(1)
+    assert "nova.html" in re.findall(r'"([^"]+)"', skip)
+    assert "nova-chat.js" not in _html()
 
 
 _TOGGLE_STUB = r"""
@@ -682,6 +699,11 @@ def test_widget_error_red_is_the_brand_text_safe_token():
 
 
 def test_hub_budget_slider_stays_clear_of_the_phone_launcher_column():
+    """Source-text check only, so it is cascade-blind: it proves the rule is present and
+    scoped to the <=480px breakpoint, not that it wins in the browser. The real proof is
+    the rendered hit-test (slider track vs launcher bounding boxes at 375 and 360) in
+    ledger/2026-10-18/nova_ux_verify2/ (hub_slider_*), and ledger/2026-10-18/nova_ux/
+    (before/after_hub_*_slider.png)."""
     css = (ROOT / "static" / "css" / "hub.css").read_text(encoding="utf-8")
     base = css.index(".pe-range {")
     rule = re.search(
