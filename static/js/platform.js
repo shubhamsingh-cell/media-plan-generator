@@ -1515,7 +1515,6 @@ const NovaDrawer = (() => {
     const id = "drawer-" + _secureRandomId();
     try {
       localStorage.setItem(CONV_KEY, id);
-      localStorage.removeItem(CONV_TOKEN_KEY);
     } catch (e) {
       /* storage unavailable -- the id still lives in _convId */
     }
@@ -1535,19 +1534,53 @@ const NovaDrawer = (() => {
   }
 
   /* The server binds a turn to a conversation only with that conversation's
-     session token, and may answer with a different conversation id: keep both. */
+     session token, and may answer with a different conversation id: keep both.
+     Tokens are stored per conversation id, so two tabs on different
+     conversations never overwrite each other's token. */
+  function _tokenKey(id) {
+    return CONV_TOKEN_KEY + ":" + id;
+  }
+
   function _conversationToken() {
+    const id = _conversationId();
     try {
-      return localStorage.getItem(CONV_TOKEN_KEY) || "";
+      const token = localStorage.getItem(_tokenKey(id));
+      if (token) return token;
+      /* One-time move of the shared slot an older build wrote: it belongs to
+         the conversation id stored beside it. Nothing writes it now. */
+      const legacy = localStorage.getItem(CONV_TOKEN_KEY);
+      if (legacy) {
+        localStorage.removeItem(CONV_TOKEN_KEY);
+        const owner = localStorage.getItem(CONV_KEY);
+        if (owner && !localStorage.getItem(_tokenKey(owner))) {
+          localStorage.setItem(_tokenKey(owner), legacy);
+        }
+        if (owner === id) return legacy;
+      }
     } catch (e) {
-      return "";
+      /* storage unavailable */
+    }
+    return "";
+  }
+
+  function _forgetConversationToken(id) {
+    try {
+      localStorage.removeItem(_tokenKey(id));
+    } catch (e) {
+      /* storage unavailable */
     }
   }
 
-  function _adoptServerConversation(data) {
-    if (!data) return;
+  function _adoptServerConversation(data, sentId) {
+    if (!data || _convId !== sentId) return;
     const cid = data.conversation_id;
-    if (typeof cid === "string" && /^drawer-[0-9a-f-]{32,36}$/.test(cid)) {
+    if (
+      typeof cid === "string" &&
+      cid !== sentId &&
+      /^drawer-[0-9a-f-]{32,36}$/.test(cid)
+    ) {
+      /* Moved to a new conversation: the old id's token did not match it. */
+      _forgetConversationToken(sentId);
       _convId = cid;
       try {
         localStorage.setItem(CONV_KEY, cid);
@@ -1555,9 +1588,14 @@ const NovaDrawer = (() => {
         /* storage unavailable -- the id still lives in _convId */
       }
     }
-    if (typeof data.session_token === "string" && data.session_token) {
+    const owner = typeof cid === "string" && cid ? cid : sentId;
+    if (
+      typeof data.session_token === "string" &&
+      data.session_token &&
+      owner === _convId
+    ) {
       try {
-        localStorage.setItem(CONV_TOKEN_KEY, data.session_token);
+        localStorage.setItem(_tokenKey(owner), data.session_token);
       } catch (e) {
         /* storage unavailable */
       }
@@ -1924,7 +1962,7 @@ const NovaDrawer = (() => {
           /* Remove typing indicator */
           if (typingEl.parentNode) typingEl.remove();
           if (generation !== _generation) return; /* New chat started */
-          _adoptServerConversation(data);
+          _adoptServerConversation(data, conversationId);
 
           const responseText =
             data.response ||
@@ -1981,6 +2019,8 @@ const NovaDrawer = (() => {
       } catch (e) {
         /* storage unavailable */
       }
+      /* The old conversation's token goes with it; others' tokens stay. */
+      if (_convId) _forgetConversationToken(_convId);
       _convId = _mintConversationId();
       NovaContext.clearCampaign();
       NovaContext.flush();

@@ -14651,14 +14651,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         import hmac
 
         # Method 1: Authorization: Bearer <key> header (API clients)
+        # Compared as UTF-8 bytes: hmac.compare_digest raises TypeError on a
+        # non-ASCII str, which would turn a bad header into a 500.
+        expected = ADMIN_API_KEY.encode("utf-8")
         auth = self.headers.get("Authorization") or ""
         if auth.startswith("Bearer "):
             key = auth[7:]
-            if key and hmac.compare_digest(key, ADMIN_API_KEY):
+            if key and hmac.compare_digest(
+                key.encode("utf-8", "surrogateescape"), expected
+            ):
                 return True
         # Method 2: X-Admin-Key header (dashboard / browser access)
         admin_key_header = self.headers.get("X-Admin-Key") or ""
-        if admin_key_header and hmac.compare_digest(admin_key_header, ADMIN_API_KEY):
+        if admin_key_header and hmac.compare_digest(
+            admin_key_header.encode("utf-8", "surrogateescape"), expected
+        ):
             return True
         return False
 
@@ -15263,6 +15270,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 "done": True,
                                 "cancelled": True,
                                 "full_response": "Your request was cancelled.",
+                                "conversation_id": conversation_id,
+                                "session_token": _conv_session_token,
                             }
                         )
                         continue
@@ -15318,6 +15327,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                         "cancelled": True,
                                         "full_response": full_response,
                                         "sources": sources,
+                                        "conversation_id": conversation_id,
+                                        "session_token": _conv_session_token,
                                     }
                                 )
                                 break
@@ -23825,6 +23836,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "done": True,
                             "cancelled": True,
                             "full_response": "Your request was cancelled.",
+                            "conversation_id": conversation_id,
+                            "session_token": _conv_session_token,
                         }
                     )
                     self.wfile.write(f"data: {_cancel_evt}\n\n".encode())
@@ -23920,6 +23933,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                             "cancelled": True,
                                             "full_response": full_response,
                                             "sources": sources,
+                                            "conversation_id": conversation_id,
+                                            "session_token": _conv_session_token,
                                         }
                                     )
                                 )
@@ -27315,7 +27330,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
     # and the API portal.
     _NOVA_WIDGET_SNIPPET = (
         b"\n<!-- Nova AI Chat Widget (auto-injected) -->"
-        b'\n<script src="/static/nova-chat.js?v=nux3"></script>'
+        b'\n<script src="/static/nova-chat.js?v=nux4"></script>'
         b'\n<script>(function(){if(typeof NovaChat!=="undefined")NovaChat.init({containerId:null})})();</script>\n'
     )
     _NOVA_WIDGET_SKIP_PAGES = {

@@ -72,6 +72,10 @@ except ImportError:
 # Schema detection cache: None = unknown, True = new (document model), False = old (row-per-turn)
 _schema_is_document_model: Optional[bool] = None
 _schema_detection_lock = threading.Lock()
+# A failed detection (Supabase unreachable, timeout) is not an answer: it is
+# not cached, and detection is retried once this many seconds have passed.
+_SCHEMA_RECHECK_SECONDS: float = 30.0
+_schema_recheck_after: float = 0.0
 
 # Column name used to look up conversations by the widget-generated ID.
 # Old schema (pre-001 migration): "conversation_id" TEXT column.
@@ -107,21 +111,26 @@ def _detect_schema() -> bool:
         True if document model (new schema), False if row-per-turn (old schema).
     """
     global _schema_is_document_model, _conversation_lookup_column
+    global _schema_recheck_after
 
     if _schema_is_document_model is not None:
         return _schema_is_document_model
+    if time.monotonic() < _schema_recheck_after:
+        return False  # last check failed; not re-checked yet
 
     with _schema_detection_lock:
         # Double-check after acquiring lock
         if _schema_is_document_model is not None:
             return _schema_is_document_model
+        if time.monotonic() < _schema_recheck_after:
+            return False
 
         sb = _get_supabase()
         if not sb:
             logger.warning(
-                "Cannot detect schema: Supabase unavailable; assuming old schema"
+                "Cannot detect schema: Supabase unavailable; will re-check later"
             )
-            _schema_is_document_model = False
+            _schema_recheck_after = time.monotonic() + _SCHEMA_RECHECK_SECONDS
             return False
 
         try:
@@ -191,8 +200,10 @@ def _detect_schema() -> bool:
                         _conversation_lookup_column,
                     )
                 except Exception as ins_exc:
-                    _schema_is_document_model = False
                     _conversation_lookup_column = "conversation_id"
+                    if not _is_missing_column_error(ins_exc):
+                        raise
+                    _schema_is_document_model = False
                     logger.info(
                         "Detected row-per-turn schema (empty table, insert test "
                         "failed: %s)",
@@ -201,13 +212,32 @@ def _detect_schema() -> bool:
 
         except Exception as exc:
             logger.error(
-                "Schema detection failed: %s; assuming old schema", exc, exc_info=True
+                "Schema detection failed: %s; will re-check later",
+                exc,
+                exc_info=True,
             )
-            _schema_is_document_model = False
             _conversation_lookup_column = "conversation_id"
+            _schema_recheck_after = time.monotonic() + _SCHEMA_RECHECK_SECONDS
             _log_persistence_error("_detect_schema", "N/A", repr(exc))
+            return False
 
         return _schema_is_document_model
+
+
+def _is_missing_column_error(exc: BaseException) -> bool:
+    """True when ``exc`` is the database reporting a column that does not exist.
+
+    Only that answer proves the table uses the old schema; any other failure
+    (network, timeout, auth) says nothing about the schema.
+    """
+    text = str(exc)
+    lowered = text.lower()
+    return (
+        "PGRST204" in text
+        or "42703" in text
+        or ("column" in lowered and "does not exist" in lowered)
+        or ("could not find the" in lowered and "column" in lowered)
+    )
 
 
 def reset_schema_cache() -> None:
@@ -217,8 +247,10 @@ def reset_schema_cache() -> None:
     without restarting the server.
     """
     global _schema_is_document_model, _conversation_lookup_column
+    global _schema_recheck_after
     with _schema_detection_lock:
         _schema_is_document_model = None
+        _schema_recheck_after = 0.0
         _conversation_lookup_column = "conversation_id"
     logger.info("Schema detection cache reset; will re-detect on next operation")
 
@@ -672,6 +704,13 @@ def _fetch_session_token_row(conversation_id: str) -> Optional[Dict[str, Any]]:
     return result.data[0] if result.data else None
 
 
+def _conv_log_tag(conversation_id: Any) -> str:
+    """Log-safe stand-in for a conversation id (a short hash, never the id)."""
+    from nova_memory import conversation_log_tag
+
+    return conversation_log_tag(conversation_id)
+
+
 def _tokens_match(stored_token: str, client_token: Any) -> bool:
     """Constant-time comparison; False for an empty or non-string token."""
     if not stored_token or not isinstance(client_token, str) or not client_token:
@@ -705,7 +744,7 @@ def verify_conversation_token(
     except Exception as exc:
         logger.error(
             "verify_conversation_token(%s) failed: %s",
-            conversation_id,
+            _conv_log_tag(conversation_id),
             exc,
             exc_info=True,
         )
@@ -745,8 +784,9 @@ def resolve_chat_conversation(
     never reads or writes another conversation's state. Callers return the
     resulting id and token to the client.
 
-    Without persistence there are no stored conversations or tokens, and the
-    requested id is returned unchanged with an empty token.
+    Without persistence nothing can be verified, so a requested id is never
+    resumed: the turn gets a new id (with an empty token) and none of the
+    requested conversation's in-process state is used.
 
     Args:
         conversation_id: Conversation id requested by the client.
@@ -755,16 +795,14 @@ def resolve_chat_conversation(
     Returns:
         (conversation_id, session_token) for the turn to use.
     """
-    if not _get_supabase():
-        return conversation_id, ""
-    if not _detect_schema():
+    if not _get_supabase() or not _detect_schema():
         return _start_fresh_conversation(conversation_id)
     try:
         row = _fetch_session_token_row(conversation_id)
     except Exception as exc:
         logger.error(
             "resolve_chat_conversation(%s) lookup failed: %s",
-            conversation_id,
+            _conv_log_tag(conversation_id),
             exc,
             exc_info=True,
         )

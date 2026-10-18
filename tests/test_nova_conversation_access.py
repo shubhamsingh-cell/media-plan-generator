@@ -148,3 +148,15 @@ def test_conversation_listing_for_admin(stored, live_port, path):
     status, body = _request(live_port, "GET", path, {"X-Admin-Key": ADMIN_KEY})
     assert status == 200
     assert body["conversations"][0]["conversation_id"] == CONV
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{"X-Admin-Key": "café-key"}, {"Authorization": "Bearer café-key"}],
+    ids=["x-admin-key", "bearer"],
+)
+def test_non_ascii_admin_credentials_are_refused_not_an_error(
+    stored, live_port, headers
+):
+    status, _body = _request(live_port, "GET", "/api/chat/conversations", headers)
+    assert status == 401

@@ -138,7 +138,7 @@ def test_nova_page_and_chat_empty_state_link_to_the_guide():
     nova_js = (PROJECT_ROOT / "static" / "js" / "nova.js").read_text(encoding="utf-8")
     assert 'href="/help/media-plans"' in nova_js
     # nova.js is immutable-cached: its ?v= must move with it
-    assert "/static/js/nova.js?v=s60" in nova_html
+    assert "/static/js/nova.js?v=s61" in nova_html
 
 
 def test_every_internal_link_on_the_guide_resolves():

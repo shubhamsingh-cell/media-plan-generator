@@ -207,8 +207,48 @@
   }
 
   function clearStoredSessionToken() {
+    removeSessionToken(state.sessionId);
+  }
+
+  // Session tokens are stored per conversation id. One shared slot let two
+  // tabs on different conversations overwrite each other's token, so every
+  // turn in both tabs moved to a new conversation.
+  function sessionTokenKeyFor(conversationId) {
+    return CONFIG.sessionTokenKey + ":" + conversationId;
+  }
+
+  function readSessionToken(conversationId) {
     try {
-      localStorage.removeItem(CONFIG.sessionTokenKey);
+      var token = localStorage.getItem(sessionTokenKeyFor(conversationId));
+      if (token) return token;
+      // One-time move of the shared slot older builds wrote: it belongs to the
+      // conversation id stored beside it. Nothing writes the shared slot now.
+      var legacy = localStorage.getItem(CONFIG.sessionTokenKey);
+      if (legacy) {
+        localStorage.removeItem(CONFIG.sessionTokenKey);
+        var owner = localStorage.getItem(CONFIG.sessionKey);
+        if (owner && !localStorage.getItem(sessionTokenKeyFor(owner))) {
+          localStorage.setItem(sessionTokenKeyFor(owner), legacy);
+        }
+        if (owner === conversationId) return legacy;
+      }
+    } catch (_e) {
+      /* localStorage unavailable */
+    }
+    return "";
+  }
+
+  function writeSessionToken(conversationId, token) {
+    try {
+      localStorage.setItem(sessionTokenKeyFor(conversationId), token);
+    } catch (_e) {
+      /* localStorage unavailable */
+    }
+  }
+
+  function removeSessionToken(conversationId) {
+    try {
+      localStorage.removeItem(sessionTokenKeyFor(conversationId));
     } catch (_e) {
       /* localStorage unavailable */
     }
@@ -1693,7 +1733,13 @@
   function adoptServerSession(meta, sentConversationId) {
     if (!meta || state.sessionId !== sentConversationId) return;
     var cid = meta.conversation_id;
-    if (typeof cid === "string" && /^nova-[0-9a-f-]{32,36}$/.test(cid)) {
+    if (
+      typeof cid === "string" &&
+      cid !== sentConversationId &&
+      /^nova-[0-9a-f-]{32,36}$/.test(cid)
+    ) {
+      // Moved to a new conversation: the old id's token did not match it.
+      removeSessionToken(sentConversationId);
       state.sessionId = cid;
       try {
         localStorage.setItem(CONFIG.sessionKey, cid);
@@ -1701,12 +1747,9 @@
         /* localStorage write failed -- the id still lives in state */
       }
     }
-    if (meta.session_token) {
-      try {
-        localStorage.setItem(CONFIG.sessionTokenKey, meta.session_token);
-      } catch (e) {
-        /* localStorage write failed */
-      }
+    var owner = typeof cid === "string" && cid ? cid : sentConversationId;
+    if (meta.session_token && owner === state.sessionId) {
+      writeSessionToken(owner, meta.session_token);
     }
   }
 
@@ -3691,9 +3734,9 @@
     state.messages = [];
     try {
       localStorage.removeItem(CONFIG.storageKey);
-      // The stored session token is bound to the OLD conversation id; the new
-      // id gets its own token from the server on its first turn.
-      localStorage.removeItem(CONFIG.sessionTokenKey);
+      // The OLD conversation's token goes with it (other conversations' tokens
+      // stay); the new id gets its own token from the server on its first turn.
+      removeSessionToken(state.sessionId);
     } catch (e) {
       /* localStorage unavailable */
     }
@@ -3790,12 +3833,7 @@
     });
 
     // API call
-    var sessionToken = "";
-    try {
-      sessionToken = localStorage.getItem(CONFIG.sessionTokenKey) || "";
-    } catch (e) {
-      /* localStorage read failed */
-    }
+    var sessionToken = readSessionToken(state.sessionId);
     var payload = {
       message: text,
       conversation_id: state.sessionId,

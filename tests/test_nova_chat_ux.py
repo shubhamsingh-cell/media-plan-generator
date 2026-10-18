@@ -254,9 +254,8 @@ def test_widget_send_message_keeps_the_input_on_retry_and_retries_once_per_cause
 
 @needs_node
 def test_widget_new_chat_drops_the_stored_session_token():
-    """The token is bound to the conversation row it was issued for. Kept across
-    New chat it is presented with the NEW id, the server answers 403 "invalid
-    session token", and every Retry repeats it."""
+    """The token is bound to the conversation row it was issued for: New chat
+    drops the old conversation's token and leaves other conversations' tokens."""
     src = _widget_src()
     out = run_node(
         _STORAGE
@@ -278,19 +277,24 @@ var _activeAbortCtrl = null;
 """
         + js_block(src, "function secureRandomId()")
         + js_block(src, "function mintSessionId()")
+        + js_block(src, "function sessionTokenKeyFor(")
+        + js_block(src, "function removeSessionToken(")
         + js_block(src, "function clearConversation(")
         + r"""
-store.nova_session_token = "TOKEN-FOR-THE-OLD-CONVERSATION";
+store["nova_session_token:nova-OLD"] = "TOKEN-FOR-THE-OLD-CONVERSATION";
+store["nova_session_token:nova-OTHER-TAB"] = "TOKEN-FOR-ANOTHER-CONVERSATION";
 store.nova_chat_history = "[]";
 clearConversation("new_chat_button");
 console.log(JSON.stringify({
-  token: "nova_session_token" in store ? store.nova_session_token : null,
+  token: store["nova_session_token:nova-OLD"] || null,
+  other: store["nova_session_token:nova-OTHER-TAB"] || null,
   history: "nova_chat_history" in store ? store.nova_chat_history : null,
   sid: state.sessionId,
 }));
 """
     )
     assert out["token"] is None
+    assert out["other"] == "TOKEN-FOR-ANOTHER-CONVERSATION"
     assert out["history"] is None
     assert out["sid"] != "nova-OLD"
 
@@ -620,21 +624,24 @@ def test_widget_stale_session_token_is_recovered_once_over_ws_and_sse():
         + r"""
 var CONFIG = { sessionTokenKey: "nova_session_token" };
 var _widgetWsFailCount = 0, _WIDGET_WS_MAX_FAILS = 3;
-var state = { isLoading: true };
+var state = { isLoading: true, sessionId: "nova-CUR" };
+var KEY = "nova_session_token:nova-CUR";
 var sends = [], csrf = 0;
-function sendMessage(text, opts) { sends.push({text: text, opts: opts, token: store.nova_session_token || null}); }
+function sendMessage(text, opts) { sends.push({text: text, opts: opts, token: store[KEY] || null}); }
 function refreshCsrfToken(done) { csrf++; done(); }
 """
         + js_block(src, "function isWsTransportError(")
         + js_block(src, "function isStaleAuthError(")
         + js_block(src, "function clearStoredSessionToken(")
+        + js_block(src, "function sessionTokenKeyFor(")
+        + js_block(src, "function removeSessionToken(")
         + js_block(src, "function resendAfterRecoverableError(")
         + r"""
 var r = {};
-store.nova_session_token = "STALE";
+store[KEY] = "STALE";
 r.wsStale = resendAfterRecoverableError("Unauthorized: invalid session token", "q1", {});
-r.afterWsStale = {token: store.nova_session_token || null, sends: sends.slice(), csrf: csrf};
-sends.length = 0; store.nova_session_token = "STALE";
+r.afterWsStale = {token: store[KEY] || null, sends: sends.slice(), csrf: csrf};
+sends.length = 0; store[KEY] = "STALE";
 r.wsStaleTwice = resendAfterRecoverableError("Unauthorized: invalid session token", "q1", {isRetry: true, authRetried: true});
 r.sse403 = resendAfterRecoverableError("HTTP 403", "q2", {});
 r.sse403Twice = resendAfterRecoverableError("HTTP 403", "q2", {authRetried: true});

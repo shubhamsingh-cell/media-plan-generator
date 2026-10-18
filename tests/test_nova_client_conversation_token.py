@@ -24,6 +24,18 @@ var localStorage = { getItem: function (k) { return k in store ? store[k] : null
 
 SERVER_ID_SUFFIX = "0123abcd-0000-4000-8000-0123456789ab"
 
+WIDGET_TOKEN_FUNCTIONS = (
+    "function sessionTokenKeyFor(",
+    "function readSessionToken(",
+    "function writeSessionToken(",
+    "function removeSessionToken(",
+    "function adoptServerSession(",
+)
+
+
+def widget_token_js(src: str) -> str:
+    return "\n".join(js_block(src, name) for name in WIDGET_TOKEN_FUNCTIONS) + "\n"
+
 
 def test_nova_page_sends_the_token_and_follows_the_server_conversation():
     out = run_nova_page(
@@ -50,8 +62,7 @@ def _widget(body: str):
         + 'var state = { sessionId: "nova-'
         + "a" * 32
         + '" };\n'
-        + js_block(src, "function adoptServerSession(")
-        + "\n"
+        + widget_token_js(src)
         + body
     )
     return run_node(script)
@@ -63,12 +74,13 @@ def test_widget_adopts_the_server_conversation_and_token():
 var sent = state.sessionId;
 adoptServerSession({{conversation_id: "nova-{SERVER_ID_SUFFIX}", session_token: "tok-2"}}, sent);
 console.log(JSON.stringify({{id: state.sessionId, storedId: store.nova_session_id,
-  token: store.nova_session_token}}));
+  token: store["nova_session_token:" + state.sessionId], oldToken: store["nova_session_token:" + sent] || null}}));
 """
     )
     assert out["id"] == f"nova-{SERVER_ID_SUFFIX}"
     assert out["storedId"] == out["id"]
     assert out["token"] == "tok-2"
+    assert out["oldToken"] is None
 
 
 def test_widget_ignores_a_reply_from_before_a_new_chat():
@@ -77,11 +89,12 @@ def test_widget_ignores_a_reply_from_before_a_new_chat():
 var sent = state.sessionId;
 state.sessionId = "nova-" + "e".repeat(32);  // visitor started a new chat
 adoptServerSession({{conversation_id: "nova-{SERVER_ID_SUFFIX}", session_token: "tok-3"}}, sent);
-console.log(JSON.stringify({{id: state.sessionId, token: store.nova_session_token || null}}));
+console.log(JSON.stringify({{id: state.sessionId,
+  tokens: Object.keys(store).filter(function (k) {{ return k.indexOf("nova_session_token") === 0; }})}}));
 """
     )
     assert out["id"] == "nova-" + "e" * 32
-    assert out["token"] is None
+    assert out["tokens"] == []
 
 
 def _drawer(body: str):
@@ -96,8 +109,10 @@ def _drawer(body: str):
                 "function _secureRandomId()",
                 "function _mintConversationId()",
                 "function _conversationId()",
+                "function _tokenKey(id)",
                 "function _conversationToken()",
-                "function _adoptServerConversation(data)",
+                "function _forgetConversationToken(id)",
+                "function _adoptServerConversation(data, sentId)",
             )
         )
         + "\n"
@@ -110,7 +125,7 @@ def test_drawer_sends_the_token_and_follows_the_server_conversation():
     out = _drawer(
         f"""
 var first = _conversationId(), firstToken = _conversationToken();
-_adoptServerConversation({{conversation_id: "drawer-{SERVER_ID_SUFFIX}", session_token: "tok-4"}});
+_adoptServerConversation({{conversation_id: "drawer-{SERVER_ID_SUFFIX}", session_token: "tok-4"}}, first);
 var second = _conversationId(), secondToken = _conversationToken();
 _convId = _mintConversationId();  // new chat
 console.log(JSON.stringify({{first: first, firstToken: firstToken, second: second,
@@ -207,7 +222,7 @@ var _activeAbortCtrl = null;
         + js_block(src, "function secureRandomId()")
         + js_block(src, "function mintSessionId()")
         + js_block(src, "function getSessionId()")
-        + js_block(src, "function adoptServerSession(")
+        + widget_token_js(src)
         + js_block(src, "function clearConversation(")
         + "\nfunction buildPayload(text, history) {\n"
         + send
@@ -221,10 +236,11 @@ function turn(text) {
   adoptServerSession(serverAnswer(payload), payload.conversation_id);
 }
 turn("one"); turn("two"); turn("three");
-store.nova_session_token = "stale";
+store["nova_session_token:" + state.sessionId] = "stale";
 turn("four"); turn("five");
+var beforeNewChat = state.sessionId;
 clearConversation("new_chat_button");
-var afterNewChat = {token: store.nova_session_token || null};
+var afterNewChat = {token: store["nova_session_token:" + beforeNewChat] || null};
 turn("six");
 console.log(JSON.stringify({sent: sent, minted: serverMinted, afterNewChat: afterNewChat}));
 """
@@ -249,10 +265,10 @@ var sent = [];
 function turn() {
   var body = {conversation_id: _conversationId(), session_token: _conversationToken()};
   sent.push({id: body.conversation_id, token: body.session_token});
-  _adoptServerConversation(serverAnswer(body));
+  _adoptServerConversation(serverAnswer(body), body.conversation_id);
 }
 turn(); turn(); turn();
-store.nova_drawer_conv_token = "stale";
+store["nova_drawer_conv_token:" + _convId] = "stale";
 turn(); turn();
 _convId = _mintConversationId();  // newChat()
 turn();
@@ -273,4 +289,87 @@ def test_drawer_send_bodies_carry_the_token():
     """Both /api/chat bodies in platform.js (first try and CSRF retry) send it."""
     src = (ROOT / "static" / "js" / "platform.js").read_text(encoding="utf-8")
     assert src.count("session_token: _conversationToken(),") == 2
-    assert src.count("_adoptServerConversation(data);") == 1
+    assert src.count("_adoptServerConversation(data, conversationId);") == 1
+
+
+def test_nova_page_title_sync_uses_the_conversation_the_server_bound():
+    src = (ROOT / "static" / "js" / "nova.js").read_text(encoding="utf-8")
+    out = run_node(
+        r"""
+var synced = [];
+function _syncTitleToSupabase(id, title) { synced.push(id); }
+function generateSmartTitle(t) { return "Nurses in Texas"; }
+function isGreetingOnly() { return false; }
+function saveConversations() {} function renderSidebar() {}
+"""
+        + js_block(src, "function updateConvTitle(conv)")
+        + r"""
+updateConvTitle({id: "conv-local", serverId: "conv-server", title: "New Chat",
+  messages: [{role: "user", content: "nurses in texas"}]});
+updateConvTitle({id: "conv-only-local", title: "New Chat",
+  messages: [{role: "user", content: "nurses in texas"}]});
+console.log(JSON.stringify({synced: synced}));
+"""
+    )
+    assert out["synced"] == ["conv-server", "conv-only-local"]
+
+
+def _two_drawer_tabs(body: str):
+    """Two drawer instances (tabs) sharing one localStorage."""
+    src = (ROOT / "static" / "js" / "platform.js").read_text(encoding="utf-8")
+    lifted = "\n".join(
+        js_block(src, name)
+        for name in (
+            "function _secureRandomId()",
+            "function _mintConversationId()",
+            "function _conversationId()",
+            "function _tokenKey(id)",
+            "function _conversationToken()",
+            "function _forgetConversationToken(id)",
+            "function _adoptServerConversation(data, sentId)",
+        )
+    )
+    script = (
+        _STORAGE_STUB
+        + 'var CONV_KEY = "nova_drawer_conv", CONV_TOKEN_KEY = "nova_drawer_conv_token";\n'
+        + "function makeDrawer() {\n  var _convId = '', _generation = 0, _chatHistory = [];\n"
+        + "  var CHAT_KEY = 'nova_chat_v1', document = { getElementById: function () { return null; } };\n"
+        + "  var NovaContext = { clearCampaign: function () {}, flush: function () {} };\n"
+        + "  function _renderMessages() {}\n"
+        + lifted
+        + "\n  var api = {\n"
+        + js_block(src, "    newChat() {")
+        + """,
+    body: function () { return {conversation_id: _conversationId(), session_token: _conversationToken()}; },
+    adopt: function (data, sent) { _adoptServerConversation(data, sent); },
+  };
+  return api;
+}
+"""
+        + body
+    )
+    return run_node(script)
+
+
+def test_two_drawer_tabs_keep_their_own_conversations_after_new_chat():
+    out = _two_drawer_tabs(
+        _SERVER_JS.replace('cid.split("-")[0] + "-"', '"drawer-"')
+        + r"""
+var a = makeDrawer(), b = makeDrawer(), log = [];
+function turn(tab, name) {
+  var body = tab.body();
+  log.push({tab: name, id: body.conversation_id});
+  tab.adopt(serverAnswer(body), body.conversation_id);
+}
+turn(a, "A"); turn(b, "B");
+a.newChat();
+for (var i = 0; i < 3; i++) { turn(a, "A"); turn(b, "B"); }
+console.log(JSON.stringify({log: log, minted: serverMinted}));
+"""
+    )
+    a_ids = [e["id"] for e in out["log"] if e["tab"] == "A"]
+    b_ids = [e["id"] for e in out["log"] if e["tab"] == "B"]
+    assert a_ids[0] == b_ids[0]
+    assert len(set(a_ids[1:])) == 1 and a_ids[1] != a_ids[0]
+    assert len(set(b_ids[2:])) == 1
+    assert out["minted"] <= 1

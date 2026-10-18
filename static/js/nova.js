@@ -1432,8 +1432,9 @@
       conv.title = newTitle;
       saveConversations();
       renderSidebar();
-      // Sync title to Supabase in the background
-      _syncTitleToSupabase(conv.id, newTitle);
+      // Sync title to Supabase in the background (to the conversation the
+      // server bound this chat to, which can differ from the local id)
+      _syncTitleToSupabase(conv.serverId || conv.id, newTitle);
     }
   }
 

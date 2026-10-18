@@ -549,3 +549,101 @@ def test_verify_token_denies_without_persistence(monkeypatch):
 def test_verify_token_denies_an_unknown_conversation(monkeypatch):
     conv_store.install(monkeypatch)
     assert nova_persistence.verify_conversation_token(CONV_B, TOKEN_B) is False
+
+
+# ── Fail safe when the conversation store cannot answer ──
+
+
+def _sse_turns(port: int, conversation_id: str, turns: int) -> list:
+    """Run turns the way a client does: adopt the id and token each reply returns."""
+    cid, token, ids = conversation_id, "", []
+    for _ in range(turns):
+        done = _sse_done(
+            port,
+            {
+                "message": "hello there",
+                "conversation_id": cid,
+                "session_token": token,
+                "history": [],
+            },
+        )
+        cid, token = done["conversation_id"], done.get("session_token") or ""
+        ids.append(cid)
+    return ids
+
+
+def test_a_failed_schema_check_is_retried_not_remembered(
+    chat_env, live_port, monkeypatch
+):
+    """A transient error on the first schema check must not pin the old-schema
+    path (every turn a new conversation) for the life of the process."""
+    monkeypatch.setattr(nova_persistence, "_schema_is_document_model", None)
+    monkeypatch.setattr(nova_persistence, "_schema_recheck_after", 0.0, raising=False)
+    monkeypatch.setattr(nova_persistence, "_SCHEMA_RECHECK_SECONDS", 0.0, raising=False)
+    chat_env["store"].fail_next_reads = 1  # the first schema check fails
+    ids = _sse_turns(live_port, "nova-" + "f" * 32, 3)
+    assert len(set(ids)) == 1, ids
+    assert nova_persistence._schema_is_document_model is True
+
+
+def test_a_missing_column_answer_is_a_definitive_old_schema():
+    missing = RuntimeError(
+        "{'code': 'PGRST204', 'message': \"Could not find the 'messages' column\"}"
+    )
+    assert nova_persistence._is_missing_column_error(missing) is True
+    assert nova_persistence._is_missing_column_error(TimeoutError("timed out")) is False
+    assert nova_persistence._is_missing_column_error(OSError("network down")) is False
+
+
+@pytest.mark.parametrize("token", ["", TOKEN_B], ids=["no-token", "stored-token"])
+def test_persistence_down_never_resumes_a_requested_conversation(
+    chat_env, live_port, monkeypatch, token
+):
+    """Nothing can be verified without the store, so the turn gets a new
+    conversation and none of the requested conversation's state."""
+    monkeypatch.setattr(nova_persistence, "_get_supabase", lambda: None)
+    done = _sse_done(
+        live_port,
+        {
+            "message": "hello there",
+            "conversation_id": CONV_B,
+            "session_token": token,
+            "history": [],
+        },
+    )
+    assert chat_env["bound"][-1] != CONV_B
+    assert done["conversation_id"] == chat_env["bound"][-1]
+    assert done["conversation_id"].startswith("nova-")
+    assert REMEMBERED not in (done.get("full_response") or "")
+    saved = _wait_for(chat_env["saved"])
+    assert CONV_B not in saved
+
+
+def test_lookup_error_log_does_not_carry_the_conversation_id(monkeypatch, caplog):
+    store = conv_store.install(monkeypatch)
+    store.add(CONV_B, TOKEN_B, B_TRANSCRIPT)
+    store.fail_reads = True
+    with caplog.at_level("ERROR", logger="nova_persistence"):
+        nova_persistence.resolve_chat_conversation(CONV_B, TOKEN_B)
+        nova_persistence.verify_conversation_token(CONV_B, TOKEN_B)
+    assert caplog.records
+    assert all(CONV_B not in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("transport", ["sse", "ws"])
+def test_cancelled_reply_carries_the_conversation_it_ran_in(
+    chat_env, live_port, monkeypatch, transport
+):
+    """A turn moved to a new conversation and then stopped still tells the
+    client which conversation (and token) it ran in."""
+    monkeypatch.setattr(
+        app_module,
+        "_enrich_chat_context",
+        lambda data, *_a, **_k: app_module._cancel_stream(data["conversation_id"]),
+    )
+    done = _turn(transport, live_port, "2" * 64)
+    assert done.get("cancelled") is True
+    new_id = done.get("conversation_id")
+    assert new_id and new_id != CONV_B
+    row = chat_env["store"].row(new_id)
+    assert row is not None and done.get("session_token") == row["session_token"]

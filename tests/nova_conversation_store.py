@@ -47,7 +47,10 @@ class _Query:
         return self
 
     def execute(self) -> SimpleNamespace:
-        if self._store.fail_reads and self._op == "select":
+        if self._op == "select" and (
+            self._store.fail_reads or self._store.fail_next_reads > 0
+        ):
+            self._store.fail_next_reads = max(0, self._store.fail_next_reads - 1)
             raise RuntimeError("simulated lookup failure")
         rows = self._store.rows
         if self._op == "insert":
@@ -68,6 +71,7 @@ class FakeConversationStore:
     def __init__(self) -> None:
         self.rows: List[Dict[str, Any]] = []
         self.fail_reads = False
+        self.fail_next_reads = 0
 
     def table(self, _name: str) -> _Query:
         return _Query(self)
