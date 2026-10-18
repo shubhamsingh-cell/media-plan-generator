@@ -60,7 +60,9 @@ def test_budget_box_error_rule_outranks_the_box_rule():
 
 def test_period_select_stays_neutral_when_the_amount_is_wrong():
     bodies = _rule_bodies('.form-group.field-error #budgetPeriod:not([aria-invalid="true"])')
-    assert any("var(--np-hair)" in b for b in bodies)
+    # neutral = the ordinary control edge (--np-field-line, 3:1), not the red
+    # error edge and not the 1.0:1 hairline the wizard UX pass replaced
+    assert any("var(--np-field-line)" in b for b in bodies)
 
 
 def _field_error_script(calls: str) -> str:

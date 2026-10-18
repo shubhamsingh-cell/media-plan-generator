@@ -197,6 +197,47 @@
     </div>
   </nav>
 
+  <!-- Draft status. The wizard already autosaves the form to this tab's
+       sessionStorage (saveFormState); this row says so, and adds a download
+       / restore pair for the same inputs as a JSON file (client-side only:
+       nothing is sent anywhere). Account-level saved plans stay gated on
+       server secrets and are NOT claimed here. Painted by body_app_js.html
+       (novaDraftStatusSync). The buttons carry .bare-btn: the global
+       `button:not(.bare-btn)` rule would otherwise strip their border. -->
+  <div
+    class="draft-status"
+    id="draftStatus"
+    role="group"
+    aria-label="Draft and inputs file"
+  >
+    <span
+      class="draft-status-text"
+      id="draftStatusText"
+      role="status"
+      aria-live="polite"
+      >Your inputs autosave in this browser tab while you work.</span
+    >
+    <span class="draft-status-actions">
+      <button type="button" class="draft-btn bare-btn" id="downloadInputsBtn">
+        Download your inputs (JSON)
+      </button>
+      <button type="button" class="draft-btn bare-btn" id="restoreInputsBtn">
+        Restore from file
+      </button>
+      <input
+        type="file"
+        id="restoreInputsFile"
+        accept="application/json,.json"
+        hidden
+        aria-label="Inputs file to restore"
+      />
+    </span>
+    <span class="draft-status-note" id="draftStatusNote"
+      >Saved plans for accounts are not turned on yet, and a closed tab loses
+      the draft. Download your inputs to redo a plan in seconds.</span
+    >
+  </div>
+
   <!-- Preset Prompt Chips -->
   <div class="preset-row" id="presetRow">
     <span class="preset-label">Try an example:</span>
@@ -339,9 +380,10 @@
       <p class="subtitle">
         Enter the basic details about your client and campaign
       </p>
+      <p class="req-legend" data-req-legend="required"><span class="req-mark" aria-hidden="true">*</span> Required to continue. Everything else is optional.</p>
 
       <div class="form-group">
-        <label for="clientName">Client Name *</label>
+        <label for="clientName">Client Name <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
         <input
           type="text"
           id="clientName"
@@ -379,7 +421,7 @@
       </div>
 
       <div class="form-group">
-        <label for="useCase">Client's Use Case / Brief *</label>
+        <label for="useCase">Client's Use Case / Brief <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
         <textarea
           id="useCase"
           placeholder="Describe the client's recruitment goals, target roles, and any specific hiring challenges..."
@@ -479,7 +521,7 @@
 
       <div class="form-row form-row-3 form-row-budget">
         <div class="form-group budget-group">
-          <label for="exactBudget">Total Campaign Budget *</label>
+          <label for="exactBudget">Total Campaign Budget <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
           <!-- Exact-first single control: type any amount; quick chips below.
                #budgetRange is a hidden flag ("__exact__" when filled) so the
                existing validation/payload/exact-path keep working. The
@@ -548,7 +590,7 @@
           ></div>
         </div>
         <div class="form-group">
-          <label for="campaignDuration">Campaign Duration *</label>
+          <label for="campaignDuration">Campaign Duration <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
           <select
             id="campaignDuration"
             aria-required="true"
@@ -580,6 +622,7 @@
               <option value="Ongoing">Ongoing</option>
             </optgroup>
           </select>
+          <div class="field-error-msg" id="campaignDuration-error"></div>
           <div
             class="copilot-nudge"
             id="nudge-duration"
@@ -898,12 +941,12 @@
       </div>
 
       <div class="form-group">
-        <label
-          >Target Locations *
+        <label for="locationInput"
+          >Target Locations <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span>
           <span
             style="
               font-weight: 400;
-              color: var(--primary);
+              color: var(--np-purple-light);
               font-size: 11px;
               letter-spacing: 0;
             "
@@ -921,7 +964,7 @@
             aria-describedby="locationInput-error"
           />
         </div>
-        <div class="form-hint" style="opacity: 0.7">
+        <div class="form-hint">
           Press Enter or comma to add &bull; Click outside to auto-add &bull;
           Click &times; to remove
         </div>
@@ -1034,7 +1077,7 @@
             autocomplete="off"
           />
         </div>
-        <div class="form-hint" style="opacity: 0.7">
+        <div class="form-hint">
           Press Enter to add &bull; Click &times; to remove
         </div>
         <div class="form-hint">
@@ -1140,9 +1183,10 @@
       </div>
       </details>
     </div>
+    <p class="step-needs" id="stepNeeds1" data-step-needs="1" role="status" aria-live="polite"></p>
     <div class="btn-row">
       <div></div>
-      <button class="btn btn-primary" onclick="nextStep()">
+      <button class="btn btn-primary" onclick="nextStep()" aria-describedby="stepNeeds1">
         Continue &#8594;
       </button>
     </div>
@@ -1155,9 +1199,10 @@
       <p class="subtitle">
         Select the industry and define your target audience
       </p>
+      <p class="req-legend" data-req-legend="required"><span class="req-mark" aria-hidden="true">*</span> Required to continue. Everything else is optional.</p>
 
       <div class="form-group">
-        <label>Industry *</label>
+        <label id="industryLabel">Industry <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
 
         <!-- S94 (design panel 2026-07-31): ONE search box now covers both
              jobs the two stacked inputs used to split -- it live-filters the
@@ -1252,7 +1297,13 @@
             aria-live="polite"
           ></div>
         </div>
-        <div class="industry-grid" id="industryGrid">
+        <div
+          class="industry-grid"
+          id="industryGrid"
+          role="group"
+          aria-labelledby="industryLabel"
+          aria-describedby="industry-error"
+        >
           <div
             class="industry-card"
             data-industry="healthcare_medical"
@@ -1645,6 +1696,7 @@
             <div class="desc">K-12, Higher Ed, EdTech</div>
           </div>
         </div>
+        <div class="field-error-msg" id="industry-error"></div>
       </div>
 
       <div class="li-section-divider">
@@ -1682,7 +1734,7 @@
       </div>
 
       <div class="form-group">
-        <label>Target Roles</label>
+        <label for="roleInput">Target Roles <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
         <div class="tags-container" id="rolesContainer">
           <input
             type="text"
@@ -1690,18 +1742,14 @@
             id="roleInput"
             placeholder="Type a role and press Enter..."
             autocomplete="off"
+            aria-required="true"
+            aria-describedby="roleInput-error"
           />
         </div>
-        <div
-          style="
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 4px;
-            opacity: 0.7;
-          "
-        >
+        <div class="form-hint">
           Press Enter to add &bull; Click &times; to remove
         </div>
+        <div class="field-error-msg" id="roleInput-error"></div>
         <div
           class="copilot-suggestions"
           id="copilot-roles"
@@ -1760,11 +1808,12 @@
         </div>
       </div>
     </div>
+    <p class="step-needs" id="stepNeeds2" data-step-needs="2" role="status" aria-live="polite"></p>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="prevStep()">
         &#8592; Back
       </button>
-      <button class="btn btn-primary" onclick="nextStep()">
+      <button class="btn btn-primary" onclick="nextStep()" aria-describedby="stepNeeds2">
         Continue &#8594;
       </button>
     </div>
@@ -1777,6 +1826,7 @@
       <p class="subtitle">
         Select the types of recruitment channels to include in your media plan
       </p>
+      <p class="req-legend" data-req-legend="none">Nothing on this step is required. Continue when you are ready.</p>
 
       <div class="channel-categories">
         <div class="channel-category-card">
@@ -2005,7 +2055,7 @@
             autocomplete="off"
           />
         </div>
-        <div class="form-hint" style="opacity: 0.7">
+        <div class="form-hint">
           Press Enter or comma to add &bull; Click &times; to remove
         </div>
         <div class="form-hint">
@@ -2247,6 +2297,7 @@
       <p class="subtitle">
         Choose which extra sections to include in the media plan
       </p>
+      <p class="req-legend" data-req-legend="none">Nothing on this step is required. Continue when you are ready.</p>
 
       <div class="toggle-group">
         <div>
@@ -2414,6 +2465,7 @@
       <p class="subtitle">
         Review your media plan configuration before generating the Excel file
       </p>
+      <p class="req-legend" data-req-legend="required"><span class="req-mark" aria-hidden="true">*</span> Required to continue. Your name and email go on the plan you generate.</p>
 
       <div
         class="form-section"
@@ -2437,7 +2489,7 @@
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
           <div class="form-group">
-            <label for="requesterName">Your Name *</label>
+            <label for="requesterName">Your Name <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
             <input
               type="text"
               id="requesterName"
@@ -2450,7 +2502,7 @@
             <div class="field-error-msg" id="requesterName-error"></div>
           </div>
           <div class="form-group">
-            <label for="requesterEmail">Your Email *</label>
+            <label for="requesterEmail">Your Email <span class="req-mark" aria-hidden="true">*</span><span class="sr-only"> (required)</span></label>
             <input
               type="email"
               id="requesterEmail"
@@ -3023,6 +3075,7 @@
       </p>
     </div>
 
+    <p class="step-needs" id="stepNeeds5" data-step-needs="5" role="status" aria-live="polite"></p>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="prevStep()">
         &#8592; Back
@@ -3059,6 +3112,7 @@
           class="btn btn-success"
           id="generateBtn"
           onclick="generatePlan()"
+          aria-describedby="stepNeeds5"
         >
           <span
             id="generateBtnLabel"

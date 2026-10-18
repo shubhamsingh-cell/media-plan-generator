@@ -938,6 +938,79 @@
     return raw || "Not specified";
   }
 
+  // The results screen's first card: cost per application, application
+  // volume, what the budget supports and the recommended channels -- the
+  // answer most people open a plan for, before the long dashboard. Figures
+  // come from the live preview's own estimate (NovaPreview.quickAnswer: same
+  // response, same helpers, ranges only); channels are the plan's funded list.
+  // Anything without a source is simply not drawn.
+  function novaQuickAnswerHtml(channelNames, budgetDisplay) {
+    var qa = null;
+    try {
+      if (
+        typeof NovaPreview !== "undefined" &&
+        NovaPreview &&
+        typeof NovaPreview.quickAnswer === "function"
+      )
+        qa = NovaPreview.quickAnswer(channelNames);
+    } catch (_e) {
+      qa = null;
+    }
+    var names = (channelNames || []).filter(Boolean).map(String);
+    if (!qa) qa = { ready: false, channels: names.slice(0, 5), more: Math.max(0, names.length - 5) };
+    var budget = budgetDisplay || qa.budget || "";
+    if (!qa.ready && !qa.channels.length && !budget) return "";
+    var h =
+      '<details class="plan-quick" id="planQuickAnswer" open>' +
+      '<summary class="plan-quick-title">Quick answer</summary>';
+    if (qa.ready) {
+      h += '<div class="plan-quick-figs">';
+      [
+        ["Cost per application", qa.cpa],
+        ["Applications", qa.applications],
+        ["Est. hires", qa.hires],
+      ].forEach(function (f) {
+        if (!f[1]) return;
+        h +=
+          '<div class="plan-quick-fig"><div class="plan-quick-fig-label">' +
+          escapeHtml(f[0]) +
+          '</div><div class="plan-quick-fig-value">' +
+          escapeHtml(f[1]) +
+          "</div></div>";
+      });
+      h += "</div>";
+      h += '<p class="plan-quick-caption">Each figure runs from the low end to the high end of the estimate.</p>';
+    } else {
+      h +=
+        '<p class="plan-quick-caption">A cost and volume estimate was not available on screen for these inputs. ' +
+        "The downloaded files carry the plan&rsquo;s own figures.</p>";
+    }
+    if (budget || qa.supports) {
+      h += '<div class="plan-quick-row"><div class="plan-quick-row-label">What your budget supports</div>';
+      h += '<div class="plan-quick-row-body">';
+      if (budget) h += "<b>" + escapeHtml(budget) + "</b> total campaign budget. ";
+      // (the tone picks a class: only the two this card styles are ever used)
+      if (qa.supports) h += '<span class="plan-quick-' + (qa.tone === "warn" ? "warn" : "info") + '">' + escapeHtml(qa.supports) + "</span>";
+      if (qa.basis) h += '<span class="plan-quick-basis"> Hires: ' + escapeHtml(qa.basis) + ".</span>";
+      h += "</div></div>";
+    }
+    if (qa.channels && qa.channels.length) {
+      h += '<div class="plan-quick-row"><div class="plan-quick-row-label">Recommended channels</div>';
+      h += '<div class="plan-quick-row-body"><ol class="plan-quick-channels">';
+      qa.channels.forEach(function (n) {
+        h += "<li>" + escapeHtml(n) + "</li>";
+      });
+      h += "</ol>";
+      if (qa.more > 0)
+        h += '<span class="plan-quick-more">+' + qa.more + " more, largest budget first, in the Funded list below.</span>";
+      h += "</div></div>";
+    }
+    h +=
+      '<p class="plan-quick-foot">Directional estimate from Joveo&rsquo;s channel knowledge base, as in the live preview. ' +
+      "The generated files refine it. It is not a guarantee of results.</p>";
+    return h + "</details>";
+  }
+
   function buildPlanDashboard(payload, serverData) {
     const container = document.getElementById("planDashboardContent");
     if (!container) return;
@@ -985,6 +1058,9 @@
 
     // ── 1. Summary Cards Row ──
     html += '<div class="plan-dashboard-title">Plan Results Dashboard</div>';
+    // (guarded: the results-screen tests lift this function without it)
+    if (typeof novaQuickAnswerHtml === "function")
+      html += novaQuickAnswerHtml(fundedNames, budgetDisplay);
     html += '<div class="plan-metrics-row">';
     html += tile("Total Budget", budgetDisplay, "accent");
     if (channelCount > 0) html += tile("Channels Funded", String(channelCount));
@@ -1525,9 +1601,13 @@
         ts: Date.now(),
       };
       sessionStorage.setItem(_FORM_STORAGE_KEY, JSON.stringify(state));
+      // (guarded: the form-state tests evaluate this function standalone)
+      if (typeof novaDraftStatusSync === "function") novaDraftStatusSync(state.ts, false);
     } catch (_e) {
-      /* quota exceeded or private browsing */
+      /* quota exceeded or private browsing -- the status line says so */
+      if (typeof novaDraftStatusSync === "function") novaDraftStatusSync(0, true);
     }
+    if (typeof novaRenderStepNeeds === "function") novaRenderStepNeeds();
   }
   function restoreFormState() {
     try {
@@ -2227,6 +2307,16 @@
   // ============================================
   // 27. Inline validation
   // ============================================
+  // The message each required text field shows under it. The markup's message
+  // boxes are empty and this function used to switch them on without writing
+  // anything, so a blank required field turned red with no words (and the
+  // requester fields never got aria-invalid either).
+  var NOVA_FIELD_MESSAGES = {
+    clientName: "Client name is required",
+    useCase: "Use case / brief is required",
+    requesterName: "Enter your name",
+    requesterEmail: "Enter a valid email address",
+  };
   function validateField(fieldId) {
     const field = document.getElementById(fieldId);
     if (!field) return true;
@@ -2235,17 +2325,34 @@
 
     const value = field.value.trim();
     const errorMsg = formGroup.querySelector(".field-error-msg");
+    // an email that is typed but is not one (the same test generatePlan uses)
+    const emailBad =
+      fieldId === "requesterEmail" &&
+      !!value &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-    if (!value) {
+    if (!value || emailBad) {
       novaTagNewestErrorToast(field.id);
       formGroup.classList.add("field-error");
       formGroup.classList.remove("field-valid");
-      if (errorMsg) errorMsg.style.display = "block";
+      if (errorMsg) {
+        errorMsg.textContent =
+          NOVA_FIELD_MESSAGES[fieldId] || "This field is required";
+        errorMsg.setAttribute("role", "alert");
+        errorMsg.style.display = "block";
+        if (typeof novaTieErrorToControl === "function")
+          novaTieErrorToControl(field, errorMsg);
+      }
+      if (field.setAttribute) field.setAttribute("aria-invalid", "true");
       return false;
     } else {
       formGroup.classList.remove("field-error");
       formGroup.classList.add("field-valid");
-      if (errorMsg) errorMsg.style.display = "none";
+      if (field.removeAttribute) field.removeAttribute("aria-invalid");
+      if (errorMsg) {
+        errorMsg.style.display = "none";
+        errorMsg.textContent = "";
+      }
       return true;
     }
   }
@@ -2727,6 +2834,7 @@
     // Form state persistence: restore + wire auto-save
     _wireFormPersistence();
     const wasRestored = restoreFormState();
+    if (typeof novaRenderStepNeeds === "function") novaRenderStepNeeds();
     if (wasRestored) {
       const toast = document.createElement("div");
       toast.className = "form-restored-toast";
@@ -2795,7 +2903,7 @@
     try {
       var params = new URLSearchParams(window.location.search);
       var keys = ["industry", "role", "roles", "location", "locations",
-        "budget", "hires", "timeline", "client"];
+        "budget", "hires", "timeline", "client", "excluded_publishers"];
       if (!keys.some(function (k) { return params.get(k); })) return;
 
       var fire = function (el, type) { el.dispatchEvent(new Event(type, { bubbles: true })); };
@@ -2867,6 +2975,23 @@
             }
           });
         }, 150);
+      }
+
+      // Excluded job boards -- Nova chat's hand-off ("exclude Indeed and
+      // ZipRecruiter") carries them as excluded_publishers=a,b. They go
+      // through the SAME commit path as typing or pasting a list into the
+      // excluded-boards box (commitExcludedBoards: split on , ; newline,
+      // refuse a generic word, treat "Indeed" and "indeed.com" as one board,
+      // addTag -> chips + draft save), so they reach /api/estimate and
+      // /api/generate exactly like manually entered ones. Guarded: tests lift
+      // this function with only the helpers they need.
+      var exText = params.get("excluded_publishers") || "";
+      var exInputEl = document.getElementById("excludedPublisherInput");
+      if (exText && exInputEl && typeof commitExcludedBoards === "function") {
+        commitExcludedBoards(exInputEl, exText, false);
+        if (window.NovaPreview && typeof window.NovaPreview.update === "function") {
+          window.NovaPreview.update();
+        }
       }
 
       // Use case
@@ -3511,6 +3636,10 @@
     container.appendChild(input);
     // a blur commit must not pull focus back into the box it just left
     if (!(input.dataset && input.dataset.noFocus)) input.focus();
+    // A tag committed with Enter/comma fires no input or change event, so the
+    // draft autosave never saw it (a reload after "add role, Enter" lost it)
+    // and the "Still needed" line did not move. Guarded: tests stub this.
+    if (typeof saveFormState === "function") saveFormState();
   }
 
   /* ── Location resolution echo-back (S93) ──
@@ -4105,11 +4234,17 @@
   }
 
   function selectIndustry(el, opts) {
-    document
-      .querySelectorAll(".industry-card")
-      .forEach((c) => c.classList.remove("selected"));
+    document.querySelectorAll(".industry-card").forEach((c) => {
+      c.classList.remove("selected");
+      if (c.setAttribute) c.setAttribute("aria-pressed", "false");
+    });
     el.classList.add("selected");
+    // which card is chosen is state a screen reader must be able to read
+    if (el.setAttribute) el.setAttribute("aria-pressed", "true");
     selectedIndustry = el.dataset.industry;
+    // the "Select an industry" message goes as soon as one is picked
+    const _indGrid = document.getElementById("industryGrid");
+    if (_indGrid && typeof _clearFieldError === "function") _clearFieldError(_indGrid);
 
     // S94: a direct quick-pick card click clears any precise NAICS
     // selection (the two are mutually exclusive ways of setting the
@@ -4141,6 +4276,7 @@
 
     // Re-check budget feasibility with updated industry
     checkBudgetFeasibility();
+    if (typeof novaRenderStepNeeds === "function") novaRenderStepNeeds();
   }
 
   // ============================================
@@ -4891,16 +5027,41 @@
     group.querySelectorAll('[aria-invalid="true"]').forEach(function (c) {
       if (c !== el) c.removeAttribute("aria-invalid");
     });
-    if (el.setAttribute && el.type !== "hidden") el.setAttribute("aria-invalid", "true");
+    // aria-invalid belongs on a form control; a card grid / tag box is not one.
+    if (
+      el.setAttribute &&
+      el.type !== "hidden" &&
+      (!el.tagName || /^(INPUT|SELECT|TEXTAREA)$/i.test(el.tagName))
+    )
+      el.setAttribute("aria-invalid", "true");
     var errEl = group.querySelector(".field-error-msg");
     if (!errEl) {
       errEl = document.createElement("div");
       errEl.className = "field-error-msg";
       group.appendChild(errEl);
     }
+    // A message created here had no id, so the control's aria-describedby
+    // pointed at nothing: give it one and tie it to the control.
+    if (!errEl.id && el.id) errEl.id = el.id + "-error";
+    // (guarded: the field-error tests lift this function alone)
+    if (typeof novaTieErrorToControl === "function") novaTieErrorToControl(el, errEl);
     errEl.setAttribute("role", "alert");
     errEl.textContent = message;
     errEl.style.display = "block";
+  }
+  // aria-describedby on the control (or, for a tag box, its input) lists the
+  // message so a screen reader reads the error with the field.
+  function novaTieErrorToControl(el, errEl) {
+    if (!el || !errEl || !errEl.id) return;
+    if (typeof el.getAttribute !== "function" || typeof el.setAttribute !== "function")
+      return;
+    var tokens = (el.getAttribute("aria-describedby") || "")
+      .split(/\s+/)
+      .filter(Boolean);
+    if (tokens.indexOf(errEl.id) < 0) {
+      tokens.push(errEl.id);
+      el.setAttribute("aria-describedby", tokens.join(" "));
+    }
   }
 
   // Helper: clear inline validation error on a form group
@@ -4913,7 +5074,119 @@
       c.removeAttribute("aria-invalid");
     });
     var errEl = group.querySelector(".field-error-msg");
-    if (errEl) errEl.style.display = "none";
+    if (errEl) {
+      errEl.style.display = "none";
+      // aria-describedby still lists it: a stale "is required" must not be read
+      errEl.textContent = "";
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // What "Continue" needs -- ONE list per step
+  // ═══════════════════════════════════════════════════════════════
+  // The conditions nextStep() (steps 1-2) and generatePlan() (step 5) block
+  // on, written once as data + a reader. The "*" markers in the markup, the
+  // "Still needed" line under each Continue and the gates cannot disagree:
+  // tests/test_wizard_ux_feedback.py runs the real nextStep() against
+  // novaStepMissing() for every single-field omission, and checks the
+  // markers against this table. A field that is optional carries no marker.
+  // (The API itself only rejects client name, requester name/email, a role
+  // and an unreadable budget; the wizard also asks for the brief, a
+  // duration, a location and an industry because the plan needs them.)
+  var NOVA_STEP_REQUIRED = {
+    1: [
+      { id: "clientName", label: "Client name" },
+      { id: "useCase", label: "Use case / brief" },
+      { id: "exactBudget", label: "Budget" },
+      { id: "campaignDuration", label: "Campaign duration" },
+      { id: "locationInput", label: "Target location" },
+    ],
+    2: [
+      { id: "industryGrid", label: "Industry" },
+      { id: "roleInput", label: "Target role" },
+    ],
+    5: [
+      { id: "requesterName", label: "Your name" },
+      { id: "requesterEmail", label: "Your email" },
+    ],
+  };
+  // The required fields of `step` that are not yet satisfied: [{id, label}],
+  // [] when Continue will go through. Reads the same state nextStep reads.
+  function novaStepMissing(step) {
+    var missing = [];
+    var val = function (id) {
+      var el = document.getElementById(id);
+      return ((el && el.value) || "").trim();
+    };
+    var need = function (id) {
+      var spec = (NOVA_STEP_REQUIRED[step] || []).filter(function (r) {
+        return r.id === id;
+      })[0];
+      missing.push({ id: id, label: spec ? spec.label : id });
+    };
+    if (step === 1) {
+      if (!val("clientName") || novaClientNameProblem(val("clientName"))) need("clientName");
+      if (!val("useCase")) need("useCase");
+      var rangeEl = document.getElementById("budgetRange");
+      var budgetText =
+        rangeEl && rangeEl.value
+          ? rangeEl.value === "__exact__"
+            ? val("exactBudget")
+            : rangeEl.value
+          : "";
+      if (!budgetText || !validateBudgetInput(budgetText).valid) need("exactBudget");
+      if (!val("campaignDuration")) need("campaignDuration");
+      // text typed into the location box but not yet committed counts: Continue
+      // adds it itself when there are no locations
+      if ((locations || []).length === 0 && !val("locationInput")) need("locationInput");
+      // the server's own length limits are checked at Continue too
+      var over = ["clientName", "useCase", "callTranscript"].filter(function (id) {
+        return !!novaCheckTextLimit(id);
+      })[0];
+      if (over && !missing.some(function (m) { return m.id === over; }))
+        missing.push({
+          id: over,
+          label: (over === "useCase" ? "Brief" : over === "clientName" ? "Client name" : "Call transcript") + " within the length limit",
+        });
+    } else if (step === 2) {
+      if (!selectedIndustry) need("industryGrid");
+      if ((roles || []).length === 0) need("roleInput");
+    } else if (step === 5) {
+      if (!val("requesterName")) need("requesterName");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val("requesterEmail"))) need("requesterEmail");
+    }
+    return missing;
+  }
+  // "Still needed to continue: Budget, Target location." under each Continue
+  // (and "Required fields complete." once none is). Plain status text, not an
+  // error: the red inline messages appear only after a Continue that fails.
+  function novaStepNeedsText(step, missing) {
+    if (missing && missing.length)
+      return (
+        "Still needed to continue: " +
+        missing
+          .map(function (m) {
+            return m.label;
+          })
+          .join(", ") +
+        "."
+      );
+    return step === 5
+      ? "Required fields complete. Ready to generate."
+      : "Required fields complete. Continue when you are ready.";
+  }
+  function novaRenderStepNeeds() {
+    try {
+      document.querySelectorAll("[data-step-needs]").forEach(function (el) {
+        var step = parseInt(el.getAttribute("data-step-needs"), 10);
+        var miss = novaStepMissing(step);
+        var text = novaStepNeedsText(step, miss);
+        if (el.textContent !== text) el.textContent = text;
+        el.setAttribute("data-state", miss.length ? "needs" : "ok");
+      });
+    } catch (_e) {
+      /* advisory text only: never break the form over it */
+    }
   }
 
   // 23. Step transition animations - enhanced nextStep
@@ -5048,8 +5321,12 @@
       if (currentStep === 2 && !selectedIndustry) {
         showToast("Please select an industry", "error");
         var indGrid = document.querySelector(".industry-grid");
-        if (indGrid)
+        if (indGrid) {
+          // the message sits under the cards (it was only a toast that goes
+          // after a few seconds), tied to the group by aria-describedby
+          _showFieldError(indGrid, "Select an industry to continue");
           indGrid.scrollIntoView({ behavior: novaScrollBehavior(), block: "center" });
+        }
         return;
       }
       if (currentStep === 2 && roles.length === 0) {
@@ -5266,6 +5543,7 @@
         el.removeAttribute("aria-current");
       }
     });
+    if (typeof novaRenderStepNeeds === "function") novaRenderStepNeeds();
   }
 
   // Goal label lookup for human-readable display
@@ -6192,14 +6470,25 @@
     // Validate name and email before generating
     const reqName = document.getElementById("requesterName").value.trim();
     const reqEmail = document.getElementById("requesterEmail").value.trim();
-    if (!reqName) {
-      showToast("Please enter your name", "error");
-      validateField("requesterName");
-      return;
-    }
-    if (!reqEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqEmail)) {
-      showToast("Please enter a valid email address", "error");
-      validateField("requesterEmail");
+    const _nameOk = !!reqName;
+    const _emailOk = !!reqEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqEmail);
+    if (!_nameOk || !_emailOk) {
+      // Both problems are shown at once, each with its words under its box
+      // (a blank name used to stop here and leave the email until the next
+      // click). The toast names the first; validateField runs last for the
+      // field that toast is about, which tags it.
+      showToast(
+        !_nameOk
+          ? "Please enter your name"
+          : "Please enter a valid email address",
+        "error",
+      );
+      if (!_emailOk) validateField("requesterEmail");
+      if (!_nameOk) validateField("requesterName");
+      const _firstBad = document.getElementById(
+        !_nameOk ? "requesterName" : "requesterEmail",
+      );
+      if (_firstBad && typeof _firstBad.focus === "function") _firstBad.focus();
       return;
     }
 
@@ -7357,8 +7646,17 @@
       "excludedPublishersContainer",
     ].forEach(
       function (id) {
+        // Drop the tags only: each container also HOLDS its text input
+        // (#locationInput / #roleInput / ...). `innerHTML = ""` deleted the
+        // inputs, so addTag threw on its first call -- loading a saved draft
+        // (or a restored inputs file) restored no roles or locations and left
+        // steps 1-2 without their boxes until a reload (clearFormState and
+        // renderTags both document the same trap).
         var el = document.getElementById(id);
-        if (el) el.innerHTML = "";
+        if (el)
+          el.querySelectorAll(".tag").forEach(function (t) {
+            t.remove();
+          });
       },
     );
     if (Array.isArray(s.locations)) {
@@ -7514,6 +7812,213 @@
 
   // Initialize draft list on page load
   _refreshDraftList();
+
+  // ═══════════════════════════════════════════════════════════════
+  // Draft status + "Download your inputs" / "Restore from file"
+  // ═══════════════════════════════════════════════════════════════
+  // The wizard autosaves the form to THIS TAB's sessionStorage (saveFormState:
+  // survives a reload, lost when the tab closes, dropped after two hours).
+  // The status line says exactly that, and the file pair lets the same inputs
+  // outlive the tab -- redoing a plan is then a restore, not a retype.
+  // Everything here is client-side: no request is made and nothing leaves the
+  // browser; the file holds only what the user typed or picked. Saved plans
+  // for accounts are gated on server secrets that are not set, so nothing
+  // here claims them.
+  var NOVA_INPUTS_FILE_APP = "nova-media-plan-inputs";
+  var NOVA_INPUTS_FILE_VERSION = 1;
+  var NOVA_INPUTS_FILE_MAX_BYTES = 2000000;
+
+  function novaDraftStatusText(ts, failed) {
+    if (failed)
+      return "Draft could not be saved in this browser (storage is blocked). Download your inputs to keep a copy.";
+    if (!ts) return "Your inputs autosave in this browser tab while you work.";
+    var when = "";
+    try {
+      when = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch (_e) {
+      when = "";
+    }
+    return "Draft saved in this tab" + (when ? " at " + when : "") + ".";
+  }
+  function novaDraftStatusSync(ts, failed) {
+    var el = document.getElementById("draftStatusText");
+    if (!el) return;
+    var text = novaDraftStatusText(ts, failed);
+    if (el.textContent !== text) el.textContent = text;
+    var box = document.getElementById("draftStatus");
+    if (box) box.setAttribute("data-state", failed ? "failed" : ts ? "saved" : "idle");
+  }
+
+  // "nova-plan-inputs-<client>-<yyyy-mm-dd>.json"; the client part is the
+  // typed name reduced to a-z, 0-9 and dashes (never a path character).
+  function novaInputsFileName(client, now) {
+    var slug = String(client || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 30)
+      .replace(/-+$/g, "");
+    var d = now instanceof Date ? now : new Date();
+    var day = d.toISOString().slice(0, 10);
+    return "nova-plan-inputs-" + (slug ? slug + "-" : "") + day + ".json";
+  }
+  function novaBuildInputsFile() {
+    return {
+      app: NOVA_INPUTS_FILE_APP,
+      version: NOVA_INPUTS_FILE_VERSION,
+      saved_at: new Date().toISOString(),
+      note: "The inputs typed into the Nova media plan wizard. Restore it from the wizard's 'Restore from file' button.",
+      inputs: _collectDraftState(),
+    };
+  }
+  function novaDownloadInputs() {
+    try {
+      var file = novaBuildInputsFile();
+      var blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = novaInputsFileName(file.inputs.clientName, new Date());
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 1000);
+      showToast("Inputs downloaded. Restore the file here to redo this plan.", "success");
+    } catch (e) {
+      console.error("novaDownloadInputs failed:", e);
+      showToast("Could not create the inputs file in this browser.", "error");
+    }
+  }
+
+  // A value from the file is DATA: only the keys the wizard itself saves are
+  // kept, each cut to a sane length/type, and no key that could reach an
+  // object's prototype ever survives. Anything else in the file is dropped.
+  var NOVA_INPUTS_STRING_KEYS = {
+    clientName: 500, clientWebsite: 500, useCase: 200000, callTranscript: 200000,
+    budgetRange: 200, budgetPeriod: 50, exactBudget: 200, campaignDuration: 100,
+    campaignStartMonth: 20, hireVolume: 100, exactHires: 50, targetDemographic: 500,
+    requesterName: 300, requesterEmail: 300, region: 50, selectedIndustry: 100,
+    selectedNaicsCode: 50, selectedNaicsTitle: 500,
+  };
+  var NOVA_INPUTS_LIST_KEYS = [
+    "locations", "roles", "competitors", "excludedPublishers", "customCountries",
+    "selectedJobCategories", "campaignGoals", "workEnvironment", "experienceLevel",
+  ];
+  function novaCleanJson(v, depth) {
+    if (depth > 4) return null;
+    if (v === null || typeof v === "boolean") return v;
+    if (typeof v === "number") return isFinite(v) ? v : null;
+    if (typeof v === "string") return v.slice(0, 2000);
+    if (Array.isArray(v)) return v.slice(0, 100).map(function (x) { return novaCleanJson(x, depth + 1); });
+    if (typeof v === "object") {
+      var out = {};
+      Object.keys(v).slice(0, 100).forEach(function (k) {
+        if (k === "__proto__" || k === "constructor" || k === "prototype") return;
+        out[k] = novaCleanJson(v[k], depth + 1);
+      });
+      return out;
+    }
+    return null;
+  }
+  function novaSanitizeInputsFile(text) {
+    var fail = function (error) {
+      return { ok: false, error: error };
+    };
+    if (typeof text !== "string" || !text.trim()) return fail("The file is empty.");
+    if (text.length > NOVA_INPUTS_FILE_MAX_BYTES) return fail("The file is too large to be a Nova inputs file.");
+    var obj;
+    try {
+      obj = JSON.parse(text);
+    } catch (_e) {
+      return fail("The file is not valid JSON.");
+    }
+    if (!obj || typeof obj !== "object" || obj.app !== NOVA_INPUTS_FILE_APP)
+      return fail("This is not a Nova inputs file (use the one from 'Download your inputs').");
+    if (typeof obj.version !== "number" || obj.version > NOVA_INPUTS_FILE_VERSION)
+      return fail("This inputs file comes from a newer version of the wizard.");
+    var src = obj.inputs;
+    if (!src || typeof src !== "object" || Array.isArray(src)) return fail("The file holds no inputs.");
+    var state = {};
+    var n = 0;
+    Object.keys(NOVA_INPUTS_STRING_KEYS).forEach(function (k) {
+      if (typeof src[k] === "string") {
+        state[k] = src[k].slice(0, NOVA_INPUTS_STRING_KEYS[k]);
+        if (state[k]) n++;
+      } else if (src[k] === null && (k === "selectedIndustry" || k === "selectedNaicsCode" || k === "selectedNaicsTitle")) {
+        state[k] = null;
+      }
+    });
+    NOVA_INPUTS_LIST_KEYS.forEach(function (k) {
+      if (Array.isArray(src[k])) {
+        state[k] = src[k]
+          .filter(function (x) { return typeof x === "string" && x.trim(); })
+          .slice(0, 100)
+          .map(function (x) { return x.slice(0, 300); });
+        if (state[k].length) n++;
+      }
+    });
+    ["channelsTouched", "regionPicked"].forEach(function (k) {
+      if (typeof src[k] === "boolean") state[k] = src[k];
+    });
+    [["channels", /^ch[A-Za-z]+$/], ["sections", /^include[A-Za-z]+$/]].forEach(function (pair) {
+      var map = src[pair[0]];
+      if (!map || typeof map !== "object" || Array.isArray(map)) return;
+      state[pair[0]] = {};
+      Object.keys(map).forEach(function (id) {
+        if (pair[1].test(id) && typeof map[id] === "boolean") state[pair[0]][id] = map[id];
+      });
+    });
+    if (src.enterprise && typeof src.enterprise === "object" && !Array.isArray(src.enterprise))
+      state.enterprise = novaCleanJson(src.enterprise, 0);
+    if (n === 0) return fail("The file has none of the wizard's inputs in it.");
+    return { ok: true, state: state, fields: n };
+  }
+  function novaRestoreInputsFromText(text, fileName) {
+    var parsed = novaSanitizeInputsFile(text);
+    if (!parsed.ok) {
+      showToast(parsed.error, "error");
+      return false;
+    }
+    _restoreDraftState(parsed.state);
+    if (typeof saveFormState === "function") saveFormState();
+    if (window.NovaPreview && typeof window.NovaPreview.update === "function") window.NovaPreview.update();
+    if (typeof novaRenderStepNeeds === "function") novaRenderStepNeeds();
+    if (typeof goToStep === "function" && currentStep !== 1) goToStep(1);
+    showToast(
+      "Inputs restored" + (fileName ? " from " + fileName : "") + ". Check each step, then generate.",
+      "success",
+    );
+    return true;
+  }
+  (function wireInputsFile() {
+    var dl = document.getElementById("downloadInputsBtn");
+    var rs = document.getElementById("restoreInputsBtn");
+    var fi = document.getElementById("restoreInputsFile");
+    if (dl) dl.addEventListener("click", novaDownloadInputs);
+    if (rs && fi) rs.addEventListener("click", function () { fi.click(); });
+    if (fi)
+      fi.addEventListener("change", function () {
+        var f = fi.files && fi.files[0];
+        if (!f) return;
+        if (f.size > NOVA_INPUTS_FILE_MAX_BYTES) {
+          showToast("That file is too large to be a Nova inputs file.", "error");
+          fi.value = "";
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () {
+          novaRestoreInputsFromText(String(reader.result || ""), f.name);
+          fi.value = "";
+        };
+        reader.onerror = function () {
+          showToast("Could not read that file.", "error");
+          fi.value = "";
+        };
+        reader.readAsText(f);
+      });
+  })();
 
   // ============================================
   // Unsaved changes warning (beforeunload)

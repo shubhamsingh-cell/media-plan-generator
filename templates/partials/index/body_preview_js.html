@@ -788,6 +788,75 @@
       };
     }
 
+    // ── Quick answer (the results screen's first card) ────────────────
+    // The four things most people open a plan for, from the SAME estimate
+    // response and helpers as the preview tiles, the compact bar and the
+    // Budget Reality Check, so the card can never print a figure they do not:
+    //   cost per application  -> projection.text.cpa           (a range)
+    //   application volume    -> projection.text.applications  (a range)
+    //   what the budget buys  -> projection.text.hires + the hire-goal
+    //                            sentence (goal plan callout when there is
+    //                            one; else budgetGap / hireBasisText)
+    //   recommended channels  -> the names passed in (the plan's own funded
+    //                            list, largest first); top 5, the rest counted
+    // Ranges only, the low end to the high end of the estimate, never the
+    // optimistic point; the hire sentence names the cost-per-hire it rests on
+    // or claims nothing. Without an estimate FOR THESE INPUTS (estimateFor)
+    // there are no figures at all -- never a stale or invented one.
+    // (Self-contained: tests lift this function with the helpers it calls.)
+    function quickAnswerModel(m, est, channelNames) {
+      var names = (channelNames || []).filter(Boolean).map(String);
+      var out = {
+        ready: false, budget: m && m.total > 0 ? hero(m.total) : "",
+        applications: "", cpa: "", hires: "", supports: "", basis: "", note: "", tone: "info",
+        channels: names.slice(0, 5), more: Math.max(0, names.length - 5),
+      };
+      var proj = est && est.projection;
+      var txt = proj && proj.text;
+      if (!txt) return out;
+      out.ready = true;
+      out.applications = txt.applications || "";
+      out.cpa = txt.cpa || "";
+      out.note = txt.cpa_note || "";
+      var noHires = !!(proj.assumptions && proj.assumptions.hires_suppressed);
+      out.hires = noHires ? "" : (txt.hires || "");
+      out.basis = !noHires && typeof hireBasisText === "function" ? hireBasisText(est) : "";
+      var gp = est.goal_plan;
+      if (noHires) {
+        out.supports = txt.hires_note || "Hires are not projected for this market (no local cost-per-hire benchmark).";
+        return out;
+      }
+      if (gp && gp.ok && gp.text && gp.text.callout) {
+        out.supports = String(gp.text.callout);
+        return out;
+      }
+      var hr = proj.hires;
+      var hiLo = hr && hr.low != null ? hr.low : est.est_hires;
+      var hiHi = hr && hr.high != null ? hr.high : est.est_hires;
+      if (!(est.est_hires >= 1)) {
+        out.supports = "At " + out.budget + " the budget supports fewer than one hire at the assumed cost per hire.";
+        out.tone = "warn";
+      } else if (m.targetHires > 0 && m.targetHires > hiHi) {
+        var gap = typeof budgetGap === "function" ? budgetGap(m, est, hiHi) : m.total * (m.targetHires / hiHi - 1);
+        out.supports = "Supports an estimated " + out.hires + " hires against your " + goalText(m) +
+          ". Consider raising the budget by about " + hero(gap) + " or narrowing scope.";
+        out.tone = "warn";
+      } else if (m.targetHires > 0 && m.targetHires <= hiLo) {
+        out.supports = "Your " + goalText(m) + " sits at or below the low end of the estimated " + out.hires + " hires; that rests on the cost per hire stated below.";
+      } else if (m.targetHires > 0) {
+        out.supports = "Your " + goalText(m) + " sits inside the estimated range of " + out.hires + " hires; it depends on your real cost per hire.";
+      } else {
+        out.supports = "Supports an estimated " + out.hires + " hires at the cost per hire stated below.";
+      }
+      return out;
+    }
+    // The card's model for the wizard's CURRENT inputs (null estimate unless
+    // /api/estimate answered for exactly these inputs).
+    function quickAnswer(channelNames) {
+      var m = gather();
+      return quickAnswerModel(m, estimateFor(m), channelNames);
+    }
+
     // The inputs a plan was last generated from (JSON of the estimate
     // payload), or "" before any generation; see markGenerated.
     var generatedSig = "";
@@ -1186,7 +1255,7 @@
     window.NovaPreview = {
       update: render, finalize: finalize, applyMix: applyMix, fundedChannels: funded,
       markGenerated: markGenerated, showPane: showPane, feasibility: feasibility,
-      planIsCurrent: planIsCurrent,
+      planIsCurrent: planIsCurrent, quickAnswer: quickAnswer,
     };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot);
