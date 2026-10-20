@@ -2127,6 +2127,36 @@ def _safe_num(val: Any, default: float = 0.0) -> float:
     return default
 
 
+def _channel_cpa_cell(ch: Dict[str, Any], dollars: Any = None) -> Any:
+    """A channel's CPA for a table cell: the number, or ``"n/a"`` for a priced
+    channel the engine expects to produce no application (it leaves that
+    channel's CPA ``None``). Zero would print as ``$0.00`` and the channel's whole
+    spend would be a false CPA; neither belongs in a client's workbook."""
+    cpa = _safe_num((ch or {}).get("cpa") or 0)
+    if cpa > 0:
+        return cpa
+    spend = _safe_num(
+        dollars
+        if dollars is not None
+        else (ch or {}).get("dollar_amount", (ch or {}).get("dollars"))
+    )
+    if spend > 0 and _safe_num((ch or {}).get("projected_applications") or 0) <= 0:
+        return "n/a"
+    return cpa
+
+
+def _engine_expects_no_applications(ch: Dict[str, Any]) -> bool:
+    """True when the engine says this priced channel yields no application
+    (explicit ``cpa: None`` with zero applications), as opposed to a channel
+    that merely lacks a CPA."""
+    return (
+        isinstance(ch, dict)
+        and "cpa" in ch
+        and ch.get("cpa") is None
+        and not (ch.get("projected_applications") or 0)
+    )
+
+
 def _fmt_currency(
     val: Any, prefix: Optional[str] = None, show_cents: bool = False
 ) -> str:
@@ -4232,6 +4262,11 @@ def _write_num(cell, raw_value: Any, number_format: str) -> None:
     (0.32), so callers pass the already-divided value. Everything else stores
     the raw number so the client can SUM / sort / chart it.
     """
+    if isinstance(raw_value, str) and raw_value.strip().lower() == "n/a":
+        # a figure that does not exist (a channel with no application has no
+        # CPA): say so, never coerce it to a live 0 that prints as $0.00
+        cell.value = "n/a"
+        return
     cell.value = _safe_num(raw_value)
     cell.number_format = number_format
 
@@ -6895,7 +6930,7 @@ def _build_sheet_executive_summary(
                 int(_safe_num(ch_data.get("projected_applications") or 0)),
                 int(_safe_num(ch_data.get("projected_hires") or 0)),
                 _safe_num(_ch_cpc),
-                _safe_num(_ch_cpa),
+                _channel_cpa_cell(ch_data, _ch_dollars),
                 round(_safe_num(_ch_roi), 1),
             ]
             _aligns = [_ALIGN_LEFT] + [_ALIGN_CENTER] * (len(values) - 1)
@@ -11842,6 +11877,10 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
             existing_apps = ch_data.get("projected_applications") or 0
             if existing_apps > 0:
                 projected_apps = existing_apps
+            elif _engine_expects_no_applications(ch_data):
+                # the engine says this channel yields none at this spend: the
+                # knowledge-base CPA estimate above must not invent one
+                projected_apps = 0
 
             # Conversion rate: midpoint of channel-type range
             conv_lo, conv_hi = _ROI_CONVERSION_RATES.get(category, (0.05, 0.10))
@@ -14954,7 +14993,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
                 _pct / 100.0,
                 _dollars,
                 _cpc,
-                _cpa,
+                _channel_cpa_cell(ch, _dollars),
                 int(_safe_num(ch.get("projected_clicks") or 0)),
                 int(_safe_num(ch.get("projected_applications") or 0)),
                 int(_safe_num(ch.get("projected_hires") or 0)),

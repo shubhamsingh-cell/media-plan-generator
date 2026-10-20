@@ -51,7 +51,21 @@ def test_every_row_ends_with_provenance():
 
 
 def test_verified_facts_are_stamped_on_their_rows():
-    assert "3.22% (Appcast 2026)" in _ROWS["healthcare_medical"]["provenance"]
+    # Healthcare 3.22% is NOT "verified": the Appcast 2026 report is gated and
+    # Appcast's own healthcare page gives no figure. JobScore (2026-03-12) and
+    # Recruiting Headlines (2026-02-17) report it, and JobScore ranks it the
+    # lowest of 15 occupational groups -- the row says exactly that, no more.
+    hc = _ROWS["healthcare_medical"]
+    assert (
+        "Apply rate 3.22% (Appcast 2026 figure as reported by JobScore; "
+        "lowest of 15 occupational groups)"
+    ) in hc["provenance"]
+    assert "Verified" not in hc["provenance"]
+    assert hc["apply_rate"]["2025"] == (
+        "3.22% (Appcast 2026 figure as reported by JobScore; "
+        "lowest of 15 occupational groups)"
+    )
+    assert "24" not in hc["apply_rate"]["2025"]  # there are 15 groups, not 24
     assert "7.14% (Appcast 2026)" in _ROWS["technology_engineering"]["provenance"]
     for name in ("blue_collar_skilled_trades", "construction_real_estate"):
         assert "439,000 construction workers" in _ROWS[name]["provenance"], name

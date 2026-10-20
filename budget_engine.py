@@ -17,6 +17,7 @@ The caller (app.py or data_orchestrator.py) passes in any enrichment
 data it has already fetched.
 """
 
+import copy
 import json
 import logging
 import datetime
@@ -1027,9 +1028,11 @@ def _industry_apply_scale_for(
     The KB figure is the industry's job-board rate at its OWN typical collar
     mix (healthcare: mixed; manufacturing: blue collar), so the scale is
     taken against the table rate at that reference collar. The plan's own
-    collar multiplier still applies on top: an RN plan's boards land on the
-    KB figure, a blue-collar hourly healthcare plan keeps its blue-collar
-    uplift instead of being priced like nurses."""
+    collar multiplier still applies on top, so job boards land on the KB
+    figure only at the reference collar: a nurse plan (grey collar, 1.2x
+    job-board uplift) comes out at 3.84% on job boards against the KB's 3.2%,
+    and a blue-collar hourly healthcare plan keeps its blue-collar uplift
+    instead of being priced like nurses."""
     if intl_cpc_basis:
         return None
     kb_apply, kb_ref_collar = _industry_job_board_apply_rate(industry)
@@ -1048,8 +1051,18 @@ def _relevel_applications_only(
 ) -> bool:
     """Re-level every priced channel's apply rate, applications and CPA onto
     the KB industry rate AFTER the allocation pipeline has run on the generic
-    rates (see ``_APPLY_RELEVEL_APPLICATIONS_ONLY``). Clicks, dollars, hires
-    and cost per hire are not touched. Returns whether anything was re-levelled."""
+    rates (see ``_APPLY_RELEVEL_APPLICATIONS_ONLY``). Clicks, dollars, hires and
+    cost per hire are not touched. Returns whether anything was re-levelled.
+
+    Applications are shown as whole numbers the way the engine always has (the
+    integer part), except that a channel expected to produce half an
+    application or more is shown as one, never rounded away to nothing. A
+    channel expected to produce less than that has no application to price:
+    its CPA is ``None`` (n/a on every surface and out of every blended CPA),
+    never its whole spend divided by a phantom application.
+
+    Entries of an optimizer section (``dollars`` instead of ``dollar_amount``)
+    are handled too, so the section reads on the same apply rates as the rows."""
     scale = _industry_apply_scale_for(industry, intl_cpc_basis)
     if scale is None:
         return False
@@ -1061,12 +1074,15 @@ def _relevel_applications_only(
         if not (cpc > 0 and rate):
             continue  # flat-cost channels never priced applications off a rate
         new_rate = round(rate * scale, 4)
-        apps = max(0, int((ch.get("projected_clicks") or 0) * new_rate))
-        dollars = ch.get("dollar_amount") or 0
+        expected = (ch.get("projected_clicks") or 0) * new_rate
+        apps = int(expected)
+        if apps == 0 and expected >= 0.5:
+            apps = 1
+        dollars = ch["dollars"] if "dollars" in ch else (ch.get("dollar_amount") or 0)
         ch["apply_rate"] = new_rate
         ch["apply_rate_source"] = "kb_industry"
         ch["projected_applications"] = apps
-        ch["cpa"] = round(_safe_divide(dollars, max(apps, 1), dollars), 2)
+        ch["cpa"] = round(dollars / apps, 2) if apps > 0 else None
     return True
 
 
@@ -3471,8 +3487,9 @@ def compute_channel_dollar_amounts(
     # table contradicting (healthcare 3.2% and manufacturing 4.5% against a
     # job-board 8% / blue-collar 11.2%), scale EVERY channel's apply rate by
     # kb_rate / (the job-board table rate at the KB's reference collar):
-    # job boards land on the KB figure at that collar and the relative
-    # channel ranking is preserved.
+    # job boards land on the KB figure at that collar (the plan's own collar
+    # multiplier still applies on top: a nurse plan's boards come out at
+    # 3.84%, not 3.2%) and the relative channel ranking is preserved.
     # Overriding job boards alone left boards at 3.2% beside programmatic
     # at 7.8% in the same healthcare plan and shifted the efficiency
     # reweight on nothing but which constant had been refreshed. US plans
@@ -5857,6 +5874,13 @@ def calculate_budget_allocation(
             ):
                 _quality_flags.append({"channel": _name, "flag": _qf})
 
+    # The optimizer's "improve projected hires by N%" is a funnel-based hires
+    # claim: it must read the allocation as the generic-rate pipeline left it,
+    # not the re-levelled apply rates (it used to quote a different number to
+    # Nova). Its section is re-levelled on applications afterwards.
+    _optimizer_input = (
+        copy.deepcopy(channel_allocs) if _apps_only_relevel else channel_allocs
+    )
     if _apps_only_relevel and _relevel_applications_only(
         channel_allocs, industry, _intl_cpc_basis
     ):
@@ -5968,12 +5992,16 @@ def calculate_budget_allocation(
 
     # Step 6: Optimisation suggestions
     optimized = optimize_allocation(
-        channel_allocs,
+        _optimizer_input,
         total_budget,
         "hires",
         collar_type=collar_type,
         intl_cpc_basis=_intl_cpc_basis,
     )
+    if _apps_only_relevel:
+        _relevel_applications_only(
+            optimized.get("optimized_allocations") or {}, industry, _intl_cpc_basis
+        )
 
     # Consolidate warnings and recommendations
     all_warnings = list(sufficiency.get("warnings") or [])

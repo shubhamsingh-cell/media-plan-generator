@@ -147,7 +147,7 @@
       },
       "apply_rate": {
         "2024": "3.41%",
-        "2025": "3.22% (Appcast 2026; lowest of all 24 occupations, declining)",
+        "2025": "3.22% (Appcast 2026 figure as reported by JobScore; lowest of 15 occupational groups)",
         "yoy_change": "-5.67%",
         "notes": "Lowest apply rate of any sector. Ultra-tight labor market. Standing-up roles chronically hard to fill."
       },
@@ -186,7 +186,7 @@
         ],
         "notes": "Year-round demand with surges in Q1 and September. Vacation season causes summer dip. Healthcare accounted for 75% of net job growth in 2025."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17. Verified: apply rate 3.22% (Appcast 2026)."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17. Apply rate 3.22% (Appcast 2026 figure as reported by JobScore; lowest of 15 occupational groups)."
     },
     "technology_engineering": {
       "cpa": {

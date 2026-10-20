@@ -107,7 +107,9 @@ class TestApplyRates:
         assert gb["apply_rate"] == 0.032 and gb["apply_rate_source"] == "kb_industry"
 
     def test_collar_uplift_still_applies_on_top(self):
-        gb = self._gb("healthcare_medical", "Housekeeper", "Dallas", "TX", "blue_collar")
+        gb = self._gb(
+            "healthcare_medical", "Housekeeper", "Dallas", "TX", "blue_collar"
+        )
         assert gb["apply_rate"] == pytest.approx(0.032 * 1.4, abs=1e-4)
 
     def test_other_channels_move_by_the_same_factor(self):
@@ -125,7 +127,9 @@ class TestApplyRates:
         prog = res["channel_allocations"]["programmatic_dsp"]
         assert prog["apply_rate"] == pytest.approx(0.06 * 0.032 / 0.08, abs=1e-4)
 
-    @pytest.mark.parametrize("role", ["Registered Nurse", "Certified Nursing Assistant"])
+    @pytest.mark.parametrize(
+        "role", ["Registered Nurse", "Certified Nursing Assistant"]
+    )
     @pytest.mark.parametrize("budget", [2_500, 9_000, 15_000, 28_000, 60_000, 250_000])
     def test_healthcare_relevel_moves_applications_and_cpa_only(
         self, monkeypatch, role, budget
@@ -141,7 +145,9 @@ class TestApplyRates:
             return be.calculate_budget_allocation(
                 total_budget=float(budget),
                 roles=[{"title": role, "count": 1, "tier": "Professional"}],
-                locations=[{"city": "Columbus", "state": "OH", "country": "United States"}],
+                locations=[
+                    {"city": "Columbus", "state": "OH", "country": "United States"}
+                ],
                 industry="healthcare_medical",
                 channel_percentages={
                     "global_boards": 30,
@@ -167,7 +173,12 @@ class TestApplyRates:
         rc, gc = relevelled["channel_allocations"], generic["channel_allocations"]
         assert set(rc) == set(gc)
         for name in gc:
-            for key in ("dollar_amount", "percentage", "projected_clicks", "projected_hires"):
+            for key in (
+                "dollar_amount",
+                "percentage",
+                "projected_clicks",
+                "projected_hires",
+            ):
                 assert rc[name][key] == gc[name][key], (budget, role, name, key)
         # ... and applications / CPA are the part that moved
         assert r["applications"] < g["applications"]

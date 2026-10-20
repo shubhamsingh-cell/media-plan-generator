@@ -114,14 +114,18 @@ def test_generic_nursing_titles_get_the_industry_band_not_200_to_400(title):
 
 def test_competitive_market_sub_band_still_maps_when_the_brief_names_the_market():
     kb = plan_projection.kb_cpa_range(
-        "healthcare_medical", ["Certified Nursing Assistant"], market_qualifiers={"competitive"}
+        "healthcare_medical",
+        ["Certified Nursing Assistant"],
+        market_qualifiers={"competitive"},
     )
     assert kb["scope"] == "sub_role"
     assert kb["key"] == "healthcare_medical.cpa.specialized_nursing_competitive_markets"
     assert (kb["low"], kb["high"]) == (200.0, 400.0)
     # a qualifier for some other market does not select it, nor does a role mismatch
     other = plan_projection.kb_cpa_range(
-        "healthcare_medical", ["Certified Nursing Assistant"], market_qualifiers={"rural"}
+        "healthcare_medical",
+        ["Certified Nursing Assistant"],
+        market_qualifiers={"rural"},
     )
     assert other["scope"] == "industry"
     no_role = plan_projection.kb_cpa_range(
@@ -134,7 +138,12 @@ def test_hospital_brief_with_a_cna_has_a_sane_cpa_range_top():
     p = plan_projection.project_plan(
         {
             "budget": 250_000,
-            "roles": ["Registered Nurse", "Certified Nursing Assistant", "Clinical Pharmacist", "ICU Nurse"],
+            "roles": [
+                "Registered Nurse",
+                "Certified Nursing Assistant",
+                "Clinical Pharmacist",
+                "ICU Nurse",
+            ],
             "locations": ["Houston, TX", "Dallas, TX"],
             "industry": "healthcare_medical",
         }
