@@ -6,6 +6,7 @@ must not cancel country detection (US$ figures on a UK plan).
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -83,6 +84,8 @@ def test_foreign_bare_cities_pass_the_bundle_gate(locations):
         for loc, row in table.items():
             if loc in foreign:
                 assert row.get("Country") != "United States", (loc, row)
-                assert "US$" not in " ".join(row.values()), (loc, row)
-
-
+                # a median salary is shown as a labelled US$ estimate
+                # (research.MEDIAN_SALARY_BASIS); any OTHER US$ figure is a
+                # US-sourced value on a foreign row
+                shown = re.sub(r"US\$[\d,]+ \(est\.\)", "", " ".join(row.values()))
+                assert "US$" not in shown, (loc, row)

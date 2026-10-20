@@ -75,15 +75,19 @@ UBER_GBP_BRIEF: dict = {
     "notes": "Global commercial driver supply across 6 non-US markets.",
 }
 
-# Exact values verbatim from the diagnosed incident (research.COUNTRY_DATA's
-# own median_salary/currency for each of these 6 countries).
+# research.COUNTRY_DATA's median_salary for each of these 6 countries. The
+# 2026-10-18 international audit (#4) found the column is a US$ estimate, not
+# local currency (Mexico MX$9,500 / Argentina AR$8,000 were US$-magnitude
+# numbers wearing the local sign; see research.MEDIAN_SALARY_BASIS), so the cell
+# reads "US$<n> (est.)" for every country. The incident this test guards
+# (a bare "$" on a GBP plan) stays impossible: the figure carries "US$".
 _EXPECTED_MEDIAN_INCOME = {
-    "UK": "£42,000 (GBP)",
-    "Australia": "A$55,000 (AUD)",
-    "Mexico": "MX$9,500 (MXN)",
-    "argentina": "AR$8,000 (ARS)",
-    "canada": "C$52,000 (CAD)",
-    "new zealand": "NZ$48,000 (NZD)",
+    "UK": "US$42,000 (est.)",
+    "Australia": "US$55,000 (est.)",
+    "Mexico": "US$9,500 (est.)",
+    "argentina": "US$8,000 (est.)",
+    "canada": "US$52,000 (est.)",
+    "new zealand": "US$48,000 (est.)",
 }
 
 # Quality Intelligence's "Market" column is title-cased (excel_v2._title_case_city).
@@ -200,7 +204,7 @@ def test_defect1_location_intelligence_median_income_uses_local_currency(gbp_bun
     for loc, expected in _EXPECTED_MEDIAN_INCOME.items():
         assert seen[loc] == expected, (
             f"{loc}: Median Income cell = {seen[loc]!r}, expected {expected!r} "
-            "(bare '$' on a GBP plan's own local-currency figure)"
+            "(a US$ estimate must say so: never a bare '$' or a local symbol)"
         )
 
 

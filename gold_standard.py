@@ -6427,6 +6427,35 @@ def build_linkedin_intelligence(data: dict) -> dict[str, Any]:
                 except (ImportError, AttributeError):
                     pass
 
+    # A plan whose first market is a known foreign country is named by that
+    # country ("Toronto, ON" is Canada, not "ON"; "Manchester, UK" is the
+    # United Kingdom, the name the dataset's rows use). A US first market keeps
+    # the legacy reading above, so a US plan's output is unchanged.
+    _foreign_target = False
+    # no US market in the plan: an unresolved first market ("Birmingham, UK")
+    # still has no country row, so a global fallback is labelled global too
+    try:
+        import plan_geo as _plan_geo_li
+
+        _non_us_plan = not _plan_geo_li.plan_has_us_market(data)
+    except (ImportError, AttributeError):
+        _non_us_plan = False
+    _first_text = ""
+    if locs:
+        _first = locs[0] if isinstance(locs, list) else locs
+        if isinstance(_first, str):
+            _first_text = _first
+    if _first_text:
+        try:
+            import research as _research_li
+
+            _detected = _research_li._detect_country(_first_text)
+        except (ImportError, AttributeError):
+            _detected = None
+        if _detected and _detected != "United States":
+            target_country = _detected
+            _foreign_target = True
+
     result: dict[str, Any] = {
         "source": "slotops_108k_linkedin_dataset",
         "country": target_country,
@@ -6465,6 +6494,8 @@ def build_linkedin_intelligence(data: dict) -> dict[str, Any]:
             }
             result["avg_views"] = country_data.get("avg_views", 0)
             result["avg_days_open"] = country_data.get("avg_days_open", 0)
+            if _foreign_target:
+                result["country_scope"] = "country"
         else:
             # Fallback to global
             result["sample_size"] = overall.get("total_sample", 108871)
@@ -6474,6 +6505,12 @@ def build_linkedin_intelligence(data: dict) -> dict[str, Any]:
                 "p75": 0,
                 "p90": 0,
             }
+            if _foreign_target or _non_us_plan:
+                # The dataset has no row for this country: the figures below
+                # are the GLOBAL record, and the global record carries only an
+                # average (no median / percentiles). Say so, and let the
+                # renderers drop the empty percentile lines.
+                result["country_scope"] = "global"
 
         # EA vs ATS -- country-specific if available, else global
         country_ea = {}

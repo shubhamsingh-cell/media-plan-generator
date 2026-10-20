@@ -55,6 +55,20 @@ except ImportError:
 # GLOBAL COUNTRY DATA - 40+ Countries
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# BASIS OF ``median_salary`` (audit 2026-10-18, #4): every row is an annual
+# **US$** estimate, NOT local currency -- the column was once read as local
+# (UK 42,000 -> "GBP 42,000", India 8,500 -> "INR 8,500"), which printed
+# Vietnam "VND 5,000" and Japan "JPY 38,000". Cross-check against the sourced
+# wage anchors in data/international_benchmarks_2026.json (``official_wage_
+# anchors``): Singapore S$5,775/month (MOM/SINGSTAT, mid-2025) = S$69,300 a
+# year = ~US$52,000 -- this table's 52000; Vietnam VND 8.4M/month (GSO) =
+# ~US$3,900 a year -- 5000; Mexico MXN 18,750/month (IMSS) = ~US$12,000 --
+# 9500; Brazil R$3,560/month (IBGE PNAD) = ~US$7,700 -- 10000. As local
+# currency those rows would be 10-1000x below the same sources. No sourced
+# per-country local median exists in the repo, so the figure is shown as what
+# it is: a US$ estimate (``median_salary_basis``), never converted.
+MEDIAN_SALARY_BASIS = "usd_estimate"
+
 COUNTRY_DATA = {
     "United States": {
         "coli": 100,
@@ -4737,6 +4751,11 @@ def get_location_info(location_str, resolution=None):
             "coli": cd["coli"],
             "population": cd["population"],
             "median_salary": cd["median_salary"],
+            # the salary is a US$ estimate whatever the country's own currency
+            # is (see MEDIAN_SALARY_BASIS); ``currency`` below stays the
+            # country's, for the cost-per-click and cost figures that use it
+            "median_salary_currency": "USD",
+            "median_salary_basis": MEDIAN_SALARY_BASIS,
             "unemployment": cd["unemployment"],
             "currency": cd.get("currency", "USD"),
             "metro_name": f"{location_str} ({country})",
@@ -7936,20 +7955,18 @@ def get_labour_market_intelligence(industry, locations, location_resolutions=Non
 
         if is_intl and country and country in COUNTRY_DATA:
             c = COUNTRY_DATA[country]
-            # INCIDENT FIX: this used to hardcode a literal "$" glyph
-            # regardless of the country's actual currency -- e.g. the United
-            # Kingdom (median_salary=42000, currency="GBP") rendered as
-            # "$42,000 (GBP)", a dollar sign next to a Sterling code. Resolve
-            # the glyph from the SAME currency code being printed so they
-            # can never disagree.
-            _salary_code = c.get("currency", "USD")
-            _salary_sym = plan_currency.symbol_for_code(_salary_code)
+            # The country's median salary is a US$ estimate (see
+            # MEDIAN_SALARY_BASIS): printed as "US$5,000 (est.)". An earlier
+            # fix resolved the glyph from the country's own currency
+            # ("GBP 42,000"), which read a US$ figure as local currency and
+            # printed "VND 5,000" for Vietnam.
             location_contexts.append(
                 {
                     "location": loc,
                     "country": country,
                     "unemployment_rate": c.get("unemployment", "N/A"),
-                    "median_salary": f"{_salary_sym}{c.get('median_salary') or 0:,} ({_salary_code})",
+                    "median_salary": f"US${c.get('median_salary') or 0:,} (est.)",
+                    "median_salary_basis": MEDIAN_SALARY_BASIS,
                     "population": c.get("population", "N/A"),
                     "top_industries": c.get("top_industries") or "",
                     "top_job_boards": c.get("top_boards") or "",

@@ -6294,6 +6294,27 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
 # ===================================================================
 
 
+def _linkedin_apply_rate_row(li_intel: Dict[str, Any]) -> Optional[Tuple[str, str]]:
+    """(label, value) for the LinkedIn apply-rate benchmark row, or None.
+
+    A country the SlotOps dataset has no row for (``country_scope`` "global")
+    shows the GLOBAL average and says so -- it used to be labelled with the
+    plan's country, as if measured there."""
+    country_ar = li_intel.get("country_apply_rate") or {}
+    if not country_ar.get("avg"):
+        return None
+    sample = li_intel.get("sample_size", 0)
+    if li_intel.get("country_scope") == "global":
+        return (
+            "LinkedIn Apply Rate (global)",
+            f"{country_ar['avg']:.1f}% avg ({sample:,} jobs, global)",
+        )
+    return (
+        f"LinkedIn Apply Rate ({li_intel.get('country', '')})",
+        f"{country_ar['avg']:.1f}% avg ({sample:,} jobs)",
+    )
+
+
 def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     """Build the Channel Strategy slide with channel mix bars, benchmarks, and attribution."""
     slide_layout = prs.slide_layouts[6]
@@ -6859,15 +6880,9 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     if li_intel:
         country_ar = li_intel.get("country_apply_rate", {})
         ea_ats_data = li_intel.get("ea_vs_ats", {})
-        li_country = li_intel.get("country", "")
-        li_sample = li_intel.get("sample_size", 0)
-        if country_ar.get("avg"):
-            _bench_add_curated(
-                (
-                    f"LinkedIn Apply Rate ({li_country})",
-                    f"{country_ar['avg']:.1f}% avg ({li_sample:,} jobs)",
-                )
-            )
+        _li_row = _linkedin_apply_rate_row(li_intel)
+        if _li_row:
+            _bench_add_curated(_li_row)
         if ea_ats_data.get("easy_apply_rate") and ea_ats_data.get("ats_rate"):
             lift = ea_ats_data.get("lift_factor", 0)
             _bench_add_curated(

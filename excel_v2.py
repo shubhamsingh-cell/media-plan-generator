@@ -317,6 +317,90 @@ def _cpc_number_format(ch_data: Optional[dict]) -> str:
     return _usd2_fmt()
 
 
+def _us_benchmark_table(data: Any) -> bool:
+    """True when a table of US-calibrated static figures (the ad-platform
+    CPC / CPM / CPA benchmarks) is being shown on a plan that is not a US
+    plan: a non-USD plan, or a USD plan whose markets are outside the US."""
+    if _get_active_currency() != "USD":
+        return True
+    try:
+        return not plan_geo.is_us_plan(data if isinstance(data, dict) else {})
+    except (TypeError, AttributeError, ValueError):
+        return False
+
+
+def _ad_platform_money_fmt(data: Any) -> str:
+    """Number format for an ad-platform benchmark cell.  The figures are the
+    static US$ table (data_synthesizer._PLATFORM_BENCHMARKS): on a non-USD
+    plan they print "US$5.81", never the plan's own symbol ("INR plan: 5.81");
+    on a USD plan they keep the plain format."""
+    if _get_active_currency() != "USD":
+        return FMT_USD2_MARKED
+    return _usd2_fmt()
+
+
+AD_PLATFORM_US_BENCHMARK_NOTE = (
+    "Ad platform CPC, CPM and CPA are US$ (US benchmark) figures shown as "
+    "published: they are not converted to, or measured in, this plan's market."
+)
+
+# Niche / Industry Boards and Employer Branding CPCs on a plan with no US
+# market are the static US benchmark (budget_engine.BASE_BENCHMARKS, the
+# niche_board and employer_branding rows) converted at the plan's rate -- no
+# local niche board is identified for the market, so there is no local price
+# behind them.
+NICHE_US_BENCHMARK_CPC_LABEL = "US benchmark estimate, no local niche board identified"
+EMPLOYER_BRANDING_US_BENCHMARK_CPC_LABEL = "US benchmark estimate"
+
+
+def _us_benchmark_cpc_channels(data: Any) -> Dict[str, str]:
+    """{channel key: label} for the funded channels whose CPC is the static US
+    benchmark on a plan with NO US market (niche boards, employer branding).
+    Empty for any plan with a US market, and for a channel whose CPC came from
+    the market's own data (``cpc_source`` not ``static_benchmark*``)."""
+    if not isinstance(data, dict):
+        return {}
+    try:
+        if plan_geo.plan_has_us_market(data):
+            return {}
+    except (TypeError, AttributeError, ValueError):
+        return {}
+    alloc = data.get("_budget_allocation")
+    chans = alloc.get("channel_allocations") if isinstance(alloc, dict) else None
+    out: Dict[str, str] = {}
+    for name, ch in (chans if isinstance(chans, dict) else {}).items():
+        if not isinstance(ch, dict):
+            continue
+        if _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0)) <= 0:
+            continue
+        if not str(ch.get("cpc_source") or "").startswith("static_benchmark"):
+            continue
+        category = str(ch.get("category") or "")
+        if category == "niche_board":
+            out[name] = NICHE_US_BENCHMARK_CPC_LABEL
+        elif category == "employer_branding":
+            out[name] = EMPLOYER_BRANDING_US_BENCHMARK_CPC_LABEL
+    return out
+
+
+def _write_us_benchmark_cpc_note(ws, row: int, data: Any) -> int:
+    """One footnote under a channel table naming the rows whose CPC is a US
+    benchmark estimate (no-op when none is).  Returns the next row."""
+    labelled = _us_benchmark_cpc_channels(data)
+    if not labelled:
+        return row
+    clauses = [
+        f"{display_format.channel_label(name)}: {label}"
+        for name, label in labelled.items()
+    ]
+    return _write_footnote(
+        ws,
+        row,
+        "CPC -- " + "; ".join(clauses) + ". These are the US benchmark converted "
+        "at the plan's rate, not a price found in this market.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Seasonal Hiring Trends -- loaded once from data/seasonal_hiring_trends.json
 # Used to adjust 90-day forecast phasing based on industry seasonality.
@@ -2496,6 +2580,35 @@ def _workforce_global_row(block_key: str, row_key: str, value: Any) -> Any:
         if pruned is not None:
             return pruned
     return {}
+
+
+def _drop_blocked_platform_keys(obj: Any, countries: List[str]) -> Any:
+    """``obj`` without the sub-trees keyed by a platform that runs in NONE of
+    the plan's markets ("tiktok" on an India plan -- blocked there since
+    2020-06-29).  Dropping the whole sub-tree matters: the clause-level scrub
+    (publisher_filter.scrub_text) removes only the clauses that name the
+    platform and would leave its unnamed siblings ("Algorithm Advantage: ...")
+    behind.  A plan whose markets the platforms all run in gets ``obj`` back
+    unchanged."""
+    if not countries:
+        return obj
+
+    def runs(key: Any) -> bool:
+        name = str(key).replace("_", " ").strip()
+        return not name or any(
+            publisher_filter.platform_runs_in(name, c) for c in countries
+        )
+
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            if not runs(k):
+                continue
+            out[k] = _drop_blocked_platform_keys(v, countries)
+        return out
+    if isinstance(obj, list):
+        return [_drop_blocked_platform_keys(v, countries) for v in obj]
+    return obj
 
 
 def _drop_us_labelled_groups(obj: Any) -> Any:
@@ -6412,6 +6525,15 @@ _NUMBERISH = re.compile(
 )
 
 
+def _row_label(ws, row: int) -> str:
+    """The first text in the first four columns of ``row`` ('' when none)."""
+    for col in range(1, 5):
+        value = ws.cell(row=row, column=col).value
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
 def _numberish(value: Any) -> bool:
     if isinstance(value, bool):
         return False
@@ -6462,6 +6584,10 @@ def _strip_hires_from_workbook(wb: Any) -> None:
                 while r <= ws.max_row and ws.cell(row=r, column=c.column).value is not None:
                     below.append(ws.cell(row=r, column=c.column))
                     r += 1
+                # a TOTAL row set apart from the rows above by a blank row
+                # (Channel Recommendations) belongs to the same column
+                if r + 1 <= ws.max_row and _row_label(ws, r + 1).lower() == "total":
+                    below.append(ws.cell(row=r + 1, column=c.column))
                 if any(_numberish(b.value) for b in below):
                     for b in below:
                         if _numberish(b.value):
@@ -6518,6 +6644,15 @@ def _hires_not_projected(budget_alloc: Any, budget_num: float, data: dict) -> bo
     plan_projection makes once, for every surface."""
     proj = _excel_projection(budget_alloc, budget_num, data)
     return bool(proj and (proj.get("assumptions") or {}).get("hires_suppressed"))
+
+
+def _hires_off_for_plan(data: dict) -> bool:
+    """:func:`_hires_not_projected` for a plan dict -- the one decision every
+    sheet reads, so a note about hire ranges is never printed where the
+    Executive Summary says hires are not projected."""
+    return _hires_not_projected(
+        data.get("_budget_allocation"), _get_budget_numeric(data), data
+    )
 
 
 def _conc_hires_txt(
@@ -7216,6 +7351,9 @@ def _build_sheet_executive_summary(
                 )
             except Exception as _cf_exc:  # noqa: BLE001 - cosmetic
                 logger.debug("Channel CF skipped: %s", _cf_exc)
+
+        # CPC of a niche / employer-branding row that is the US benchmark
+        row = _write_us_benchmark_cpc_note(ws, row, data)
 
         # S82: native, editable pie chart of budget share by channel. Upgrades
         # the Excel deliverable from tables-only -- the client can restyle/edit
@@ -8410,6 +8548,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 )
             except Exception as _cf_exc:  # noqa: BLE001
                 logger.debug("Channels CF skipped: %s", _cf_exc)
+        row = _write_us_benchmark_cpc_note(ws, row, data)
     else:
         ws.merge_cells(
             start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
@@ -8526,9 +8665,13 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 _rationale_cpc_prefix = (
                     "US$" if _cpc_number_format(ch) == FMT_USD2_MARKED else None
                 )
-                rationale_parts.append(
-                    f"CPC {_fmt_currency(ch_cpc, prefix=_rationale_cpc_prefix, show_cents=True)}"
-                )
+                _cpc_text = f"CPC {_fmt_currency(ch_cpc, prefix=_rationale_cpc_prefix, show_cents=True)}"
+                # a niche / employer-branding CPC that is the US benchmark on a
+                # plan with no US market says so beside the figure
+                _cpc_basis = _us_benchmark_cpc_channels(data).get(ch.get("name") or "")
+                if _cpc_basis:
+                    _cpc_text += f" ({_cpc_basis})"
+                rationale_parts.append(_cpc_text)
             if ch_pct > 15:
                 rationale_parts.append(
                     f"Primary channel — {ch_pct:.0f}% of budget for volume"
@@ -8623,6 +8766,10 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     )
     row = _write_confidence_gate_note(ws, row, "ad_platform_analysis", _apa_conf)
 
+    _apa_money_fmt = _ad_platform_money_fmt(data)
+    if ad_platforms and _us_benchmark_table(data):
+        row = _write_footnote(ws, row, AD_PLATFORM_US_BENCHMARK_NOTE)
+
     if ad_platforms:
         # Build headers dynamically -- exclude ROI Projection
         # Include Audience Reach only if at least one platform has non-zero reach
@@ -8663,7 +8810,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 _p_cpm,
                 _p_cpa,
             ]
-            _plat_formats = [None, _usd2_fmt(), _usd2_fmt(), _usd2_fmt()]
+            _plat_formats = [None, _apa_money_fmt, _apa_money_fmt, _apa_money_fmt]
 
             if has_reach:
                 reach = _safe_num(
@@ -8737,9 +8884,9 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                         _role_formats = [
                             None,
                             None,
-                            _usd2_fmt() if r_cpc else None,
-                            _usd2_fmt() if r_cpm else None,
-                            _usd2_fmt() if r_cpa else None,
+                            _apa_money_fmt if r_cpc else None,
+                            _apa_money_fmt if r_cpm else None,
+                            _apa_money_fmt if r_cpa else None,
                         ]
                         row = _write_table_row(
                             ws,
@@ -9360,10 +9507,13 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # to claim this figure is "US Census/METRO_DATA source only --
         # always USD", but for a non-US location loc_data falls back to
         # research.get_location_info's INTERNATIONAL branch, which returns
-        # COUNTRY_DATA's own median_salary in that country's OWN currency
-        # (and carries a "currency" key naming it) -- e.g. United Kingdom's
-        # 42000 is GBP, not USD. A bare "$" here rendered "$42,000" for a
-        # £42,000 figure. The sibling "Location Economic Context" table
+        # COUNTRY_DATA's median_salary and a "currency" key naming the
+        # country's own currency. A bare "$" here rendered "$42,000" for the
+        # United Kingdom. SUPERSEDED 2026-10-18 (audit #4): that median is a
+        # US$ estimate for every country (research.MEDIAN_SALARY_BASIS), so
+        # the international branch now prints "US$42,000 (est.)"; the
+        # local-currency branch below remains for profiles that carry their
+        # own sourced local figure. The sibling "Location Economic Context" table
         # above (research.get_labour_market_intelligence) already fixed the
         # identical bug via plan_currency.symbol_for_code; resolve the SAME
         # way here (loc_data's own "currency" key first, else the country
@@ -9380,8 +9530,19 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             except Exception:  # noqa: BLE001 - resolution is best-effort
                 _income_code = None
         _income_code = (_income_code or "USD").strip().upper()
+        # research.COUNTRY_DATA's median salary is a US$ estimate whatever the
+        # country's own currency is (research.MEDIAN_SALARY_BASIS): printing it
+        # with that currency's symbol read a US$ figure as "VND 5,000".
+        _income_is_usd_est = (
+            isinstance(loc_data, dict)
+            and loc_data.get("median_salary_basis") == "usd_estimate"
+        )
+        if _income_is_usd_est:
+            _income_code = "USD"
         if isinstance(median_income, (int, float)):
-            if _income_code and _income_code != "USD":
+            if _income_is_usd_est:
+                income_str = f"US${median_income:,.0f} (est.)"
+            elif _income_code and _income_code != "USD":
                 _income_sym = (
                     _plan_currency.symbol_for_code(_income_code)
                     if _plan_currency is not None
@@ -10440,8 +10601,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             _wf_no_us_market = False
         _wf_filter = (not _wf_is_us) or _wf_no_us_market
 
+        _wf_countries = publisher_filter.plan_countries(data)
+
         def _wf_source(v: Any) -> Any:
-            return _drop_us_labelled_groups(v) if _wf_no_us_market else v
+            v = _drop_us_labelled_groups(v) if _wf_no_us_market else v
+            return _drop_blocked_platform_keys(v, _wf_countries)
 
         _wf_any_written = False
 
@@ -10575,18 +10739,36 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # Country-level apply rates
         country_ar = li_intel.get("country_apply_rate", {})
         country_name = li_intel.get("country", "United States")
-        row = _write_subsection_header(ws, row, f"Apply Rates: {country_name}")
-        ar_fields = [
-            ("Average Apply Rate", f"{country_ar.get('avg', 0):.1f}%"),
-            ("Median Apply Rate", f"{country_ar.get('median', 0):.1f}%"),
-            ("75th Percentile", f"{country_ar.get('p75', 0):.1f}%"),
-        ]
+        # The dataset has no row for this country: the figures are the global
+        # record (an average only -- no median or percentiles), said so.
+        _li_global = li_intel.get("country_scope") == "global"
+        if _li_global:
+            row = _write_subsection_header(
+                ws,
+                row,
+                f"Apply Rates: {country_name} -- no country-level data; "
+                "global average",
+            )
+        else:
+            row = _write_subsection_header(ws, row, f"Apply Rates: {country_name}")
+        ar_fields = [("Average Apply Rate", f"{country_ar.get('avg', 0):.1f}%")]
+        if not _li_global or country_ar.get("median"):
+            ar_fields.append(
+                ("Median Apply Rate", f"{country_ar.get('median', 0):.1f}%")
+            )
+        if not _li_global or country_ar.get("p75"):
+            ar_fields.append(("75th Percentile", f"{country_ar.get('p75', 0):.1f}%"))
         p90 = country_ar.get("p90", 0)
         if p90:
             ar_fields.append(("90th Percentile", f"{p90:.1f}%"))
         sample = li_intel.get("sample_size", 0)
         if sample:
-            ar_fields.append(("Sample Size", _fmt_number(sample)))
+            ar_fields.append(
+                (
+                    "Sample Size (global dataset)" if _li_global else "Sample Size",
+                    _fmt_number(sample),
+                )
+            )
         avg_views = li_intel.get("avg_views", 0)
         if avg_views:
             ar_fields.append(("Avg Views per Posting", _fmt_number(avg_views)))
@@ -12390,7 +12572,7 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
 
     if _roi_cph_suppressed:
         row = _write_footnote(ws, row, _SUPPRESSED_CPH_NOTE)
-    if _roi_hire_bands:
+    if _roi_hire_bands and not _hires_off_for_plan(data):
         row = _write_footnote(ws, row, _hire_band_note(data, _roi_bands_range))
     row += 1
 
@@ -14957,7 +15139,7 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
     row += 1
     if _ci_cph_suppressed:
         row = _write_footnote(ws, row, _SUPPRESSED_CPH_NOTE)
-    if _ci_hire_bands:
+    if _ci_hire_bands and not _hires_off_for_plan(data):
         row = _write_footnote(ws, row, _hire_band_note(data, _ci_bands_range))
     row = _write_footnote(
         ws,
@@ -15023,6 +15205,28 @@ _CATEGORY_PLATFORM_CANDIDATES: Dict[str, Tuple[str, ...]] = {
 }
 
 
+# The social ad platforms the "social" category suggests, in print order; a
+# platform that runs in none of the plan's markets (TikTok in India, blocked
+# since 2020-06-29 -- data/platform_market_blocks.json) leaves the label.
+_SOCIAL_PLATFORM_PARTS: Tuple[str, ...] = ("LinkedIn", "Meta", "TikTok")
+
+
+def _social_platform_label(data: Any) -> str:
+    """ "LinkedIn / Meta / TikTok Ads", minus the platforms that run in none of
+    the plan's markets ("LinkedIn / Meta Ads" on an India plan).  A plan with
+    no market the filter knows keeps the full label."""
+    countries = publisher_filter.plan_countries(data)
+    kept = [
+        part
+        for part in _SOCIAL_PLATFORM_PARTS
+        if not countries
+        or any(publisher_filter.platform_runs_in(f"{part} Ads", c) for c in countries)
+    ]
+    if not kept:
+        return "Social media advertising"
+    return " / ".join(kept) + " Ads"
+
+
 def _recommended_platform_for_channel(channel_name: str, data: Any = None) -> str:
     """Suggest a representative ad platform for a budget_engine channel category.
 
@@ -15033,6 +15237,9 @@ def _recommended_platform_for_channel(channel_name: str, data: Any = None) -> st
     default = _CATEGORY_TO_PLATFORM.get(category, "Best-fit platform for this channel")
     if data is None:
         return default
+    if category == "social":
+        # the label names three platforms; each is judged on its own
+        default = _social_platform_label(data)
     candidates = _CATEGORY_PLATFORM_CANDIDATES.get(category) or (default,)
     countries = publisher_filter.plan_countries(data)
     country = countries[0] if len(countries) == 1 else None
@@ -15225,6 +15432,8 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
 
     total_qualified = sum(_channel_qualified(n) for n, _ in funded)
     avg_cpqa = round(total_spend / total_qualified, 2) if total_qualified > 0 else 0.0
+    # ad-platform CPCs on a non-US plan are the US benchmark: the rationale says so
+    _us_cpc_labels = _us_benchmark_cpc_channels(data)
 
     industry = data.get("industry") or "general_entry_level"
     industry_label = _get_industry_label(industry)
@@ -15394,6 +15603,8 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             )
             if str(name) in _zero_hire_keys:
                 _rationale = f"{channel_funding.AWARENESS_TEST_LABEL}. " + _rationale
+            if name in _us_cpc_labels:
+                _rationale += f" CPC: {_us_cpc_labels[name]}."
             values = [
                 _display,
                 _platform,
@@ -15443,7 +15654,9 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         avg_cpqa if total_qualified > 0 else "n/a",
         total_clicks,
         total_apps,
-        total_hires,
+        # no hires are projected for a market with no local cost-per-hire
+        # benchmark: the total says so, like the Executive Summary
+        "n/a" if _hires_off else total_hires,
         "",
         "",
     ]
@@ -15579,7 +15792,17 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     # live so this reads correctly whether the hire-distribution model
     # gives niche boards 0 hires or a nonzero allocation.
     _niche_rate, _niche_apps, _niche_hires = _niche_board_implied_rate(data)
-    if _niche_rate is not None:
+    if _niche_rate is not None and _hires_off_for_plan(data):
+        # Hires are not projected for this market (the Executive Summary says
+        # so), so no apply-to-hire rate or hire count is quoted here either.
+        _niche_purpose = (
+            "Specialty job boards matched to your target roles for higher-quality, "
+            "lower-CPA applicants. Hires are not projected for this market (no "
+            "local cost-per-hire benchmark), so no apply-to-hire rate is shown "
+            "for this channel. Industry benchmark: 10-15% apply-to-hire vs. 5-8% "
+            "on general boards."
+        )
+    elif _niche_rate is not None:
         # S89A FIX (findings strategy:atria#1 residual / strategy:manpower
         # niche framing): the bare "0.5% vs industry benchmark 10-15%" read
         # as a self-indictment. Reframe against the plan's own disclosed
@@ -15720,6 +15943,16 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     # ── No matches fallback ──
     if not role_matches and not industry_boards:
         if not _is_us:
+            # the Niche / Industry Boards budget line is funded on a US
+            # benchmark CPC where no local niche board is identified
+            _niche_estimate_note = (
+                " The Niche / Industry Boards budget line is therefore a US "
+                "benchmark estimate: no local niche board is identified for "
+                "this market."
+                if NICHE_US_BENCHMARK_CPC_LABEL
+                in _us_benchmark_cpc_channels(data).values()
+                else ""
+            )
             _signals = _non_us_signals(data)
             _signal_txt = f" (targets {', '.join(_signals[:3])})" if _signals else ""
             # FIX (finding #19): this used to hardcode "Seek, Trade Me Jobs,
@@ -15750,7 +15983,8 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
                     f"plan targets a non-US market{_signal_txt} and no local "
                     "niche-board data was available for this campaign. Consider "
                     f"general-purpose boards available in-market (e.g. {_boards_txt}) "
-                    "with targeted ad copy and audience filters.",
+                    "with targeted ad copy and audience filters."
+                    f"{_niche_estimate_note}",
                 )
             else:
                 _generic_boards = ", ".join(
@@ -15765,7 +15999,8 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
                     f"plan targets a non-US market{_signal_txt} and no local "
                     "niche-board data was available for this campaign. Consider "
                     f"general-purpose boards available in-market{_generic_eg} "
-                    "with targeted ad copy and audience filters.",
+                    "with targeted ad copy and audience filters."
+                    f"{_niche_estimate_note}",
                 )
         else:
             _generic_us = ", ".join(
