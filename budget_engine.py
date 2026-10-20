@@ -1310,11 +1310,28 @@ _US_CPH_SOURCE = (
 )
 
 
+def _plan_is_non_us_market(locations_raw: Optional[List[Any]]) -> bool:
+    """True when the plan's ORIGINAL location strings name no US market
+    (``plan_projection.is_non_us_market``, the test every surface applies).
+    ``False`` when the caller passed no locations -- the legacy path, whose
+    behaviour is unchanged."""
+    if not locations_raw:
+        return False
+    try:
+        import plan_projection
+
+        return bool(plan_projection.is_non_us_market(locations_raw))
+    except Exception as exc:  # noqa: BLE001 -- classification is best-effort
+        logger.debug("market classification unavailable: %s", exc)
+        return False
+
+
 def resolve_industry_cph(
     industry: str,
     usd_per_local: Optional[float] = None,
     plan_currency: Optional[str] = None,
     intl_cpc_basis: Optional[Dict[str, Any]] = None,
+    non_us_market: bool = False,
 ) -> Dict[str, Any]:
     """THE single industry-average cost-per-hire for one plan.
 
@@ -1350,6 +1367,15 @@ def resolve_industry_cph(
       has no row there and the cross-industry default range was used --
       presenters must say "cross-industry default", never print it under
       the plan's own industry name.
+    * A US$-priced plan whose markets are all OUTSIDE the US (``non_us_market``
+      -- the plan's locations, or the dataset-matched countries in
+      ``intl_cpc_basis``) with no local cost per hire behaves like the
+      local-currency case above: ``claim_suppressed`` True, ``value`` None,
+      ``us_benchmark_non_us_market`` True, ``math_value`` the US midpoint
+      (a US$ plan is already at parity, so the engine's floor and every
+      plan figure are unchanged). It used to keep the US figure as a
+      presentable value, so a Vietnam plan was graded "Underfunded"
+      against US$3,350 while its own workbook said no local benchmark.
 
     Returns a dict with ``value``/``low``/``high`` (plan currency, the
     presentable figures; ``None`` when suppressed), ``math_value`` (what the
@@ -1364,7 +1390,9 @@ def resolve_industry_cph(
     raises.
     """
     return _attach_cph_floor(
-        _resolve_industry_cph(industry, usd_per_local, plan_currency, intl_cpc_basis)
+        _resolve_industry_cph(
+            industry, usd_per_local, plan_currency, intl_cpc_basis, non_us_market
+        )
     )
 
 
@@ -1474,6 +1502,7 @@ def _resolve_industry_cph(
     usd_per_local: Optional[float],
     plan_currency: Optional[str],
     intl_cpc_basis: Optional[Dict[str, Any]],
+    non_us_market: bool = False,
 ) -> Dict[str, Any]:
     """``resolve_industry_cph`` before the floor is attached."""
     usd_low, usd_high = _industry_cph_range_usd(industry)
@@ -1555,6 +1584,22 @@ def _resolve_industry_cph(
                 )
             else:
                 result["us_benchmark_non_us_market"] = True
+        elif non_us_market:
+            # the plan's markets are all outside the US but the benchmark
+            # dataset has no basis for them (Spain, Turkey ...): a US figure
+            # all the same
+            result["us_benchmark_non_us_market"] = True
+        if non_us_market and result.get("us_benchmark_non_us_market"):
+            # Declare, never convert: no presentable cost per hire for this
+            # market. The engine keeps ``math_value`` (the US midpoint, a US$
+            # plan being at parity) so its floor and every plan figure are
+            # unchanged; only the CLAIM is withheld, exactly as for a
+            # local-currency plan with no local figure.  A plan that ALSO has
+            # a US market (Dallas + London) keeps the labelled US figure: it
+            # has a US benchmark to stand on.
+            result.update(
+                {"value": None, "low": None, "high": None, "claim_suppressed": True}
+            )
         return result
 
     basis = intl_cpc_basis if isinstance(intl_cpc_basis, dict) else {}
@@ -4269,6 +4314,7 @@ def assess_budget_sufficiency(
     usd_per_local: Optional[float] = None,
     industry_cph: Optional[Dict[str, Any]] = None,
     target_is_goal: bool = True,
+    non_us_market: bool = False,
 ) -> Dict[str, Any]:
     """
     Check whether the total budget is sufficient for the hiring goals.
@@ -4303,6 +4349,9 @@ def assess_budget_sufficiency(
             has no local cost-per-hire benchmark) the benchmark comparisons
             are skipped and said so, instead of comparing against an
             FX-translated US figure.
+        non_us_market: the plan's markets are all outside the US (used only
+            when ``industry_cph`` is resolved here): a US$ plan in such a
+            market is not graded against the US cost per hire.
         target_is_goal: ``False`` when ``total_openings`` is the plan's OWN
             projected hires (no stated goal, no role headcounts -- see
             calculate_budget_allocation's target order). There is then no
@@ -4319,7 +4368,10 @@ def assess_budget_sufficiency(
     _rate = usd_per_local if (usd_per_local and usd_per_local > 0) else None
     if not isinstance(industry_cph, dict):
         industry_cph = resolve_industry_cph(
-            industry, usd_per_local=_rate, plan_currency=_code
+            industry,
+            usd_per_local=_rate,
+            plan_currency=_code,
+            non_us_market=non_us_market,
         )
 
     # Every money figure printed below is either genuinely in plan_currency
@@ -5588,6 +5640,7 @@ def calculate_budget_allocation(
         usd_per_local=_resolved_usd_per_local,
         plan_currency=_resolved_plan_currency,
         intl_cpc_basis=_intl_cpc_basis,
+        non_us_market=_plan_is_non_us_market(locations_raw),
     )
     if _industry_cph.get("basis") == "local_kb" and _intl_cpc_basis:
         # Per-channel CPH floors follow the market's own average too (see

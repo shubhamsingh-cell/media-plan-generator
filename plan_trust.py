@@ -458,7 +458,24 @@ def review_items(
         meta0 = alloc0.get("metadata") if isinstance(alloc0, dict) else None
         icph0 = meta0.get("industry_cph") if isinstance(meta0, dict) else None
         basis0 = plan_projection.cph_basis(icph0)
-        if basis0["kind"] in ("kb_row", "cross_industry_default"):
+        head0 = alloc0.get("headline_projection") if isinstance(alloc0, dict) else None
+        no_hires0 = bool(
+            (isinstance(icph0, dict) and icph0.get("claim_suppressed"))
+            or (
+                isinstance(head0, dict)
+                and (head0.get("assumptions") or {}).get("hires_suppressed")
+            )
+        )
+        if no_hires0:
+            # a market with no local cost-per-hire benchmark projects no hires:
+            # the checklist must not tell the sender to treat "projected hires"
+            # as estimates that are nowhere in the files
+            lead = (
+                "Hires and cost per hire are not projected for this market (no "
+                "local cost-per-hire benchmark); applications and cost per "
+                "application are estimates built from benchmarks"
+            )
+        elif basis0["kind"] in ("kb_row", "cross_industry_default"):
             # one plain clause that already carries its parenthetical:
             # "an assumed industry cost per hire of $3,000-$5,000 (Nova
             # estimate, food-manufacturing row)"
