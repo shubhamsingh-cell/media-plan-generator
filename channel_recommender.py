@@ -621,6 +621,27 @@ _CHANNEL_RATIONALE: Dict[str, str] = {
 # Core engine
 
 
+def _platforms_not_running(locations: List[str]) -> List[str]:
+    """The ad platforms in ``_FIT_CHANNELS`` that run in NONE of the plan's
+    markets (publisher_filter.platform_runs_in).  Empty when the markets are
+    unknown or the filter is unavailable -- the platform list is then left as
+    it was (fail open)."""
+    try:
+        import publisher_filter
+
+        countries = publisher_filter.plan_countries({"locations": list(locations)})
+        if not countries:
+            return []
+        return [
+            ch
+            for ch in _FIT_CHANNELS
+            if not any(publisher_filter.platform_runs_in(ch, c) for c in countries)
+        ]
+    except Exception as exc:  # noqa: BLE001 -- the recommender must never fail on this
+        logger.debug("platform market filter unavailable: %s", exc)
+        return []
+
+
 def recommend_channels(
     industry: str,
     role: str = "",
@@ -669,6 +690,12 @@ def recommend_channels(
         # ind_key didn't have a fit table (e.g. general_entry_level) -- use
         # professional_services as a balanced fallback, NOT retail_consumer
         fit_scores = dict(_INDUSTRY_PLATFORM_FIT.get("professional_services", {}))
+
+    # ── Platforms that do not run in the plan's markets ──
+    # (TikTok in India, blocked since 2020-06-29; ZipRecruiter outside the
+    # US / Canada / UK): never recommended, whatever their fit score.
+    for _blocked in _platforms_not_running(locs):
+        fit_scores.pop(_blocked, None)
 
     # ── Role-tier adjustments ──
     # Executive/professional roles: boost LinkedIn, lower TikTok/Snapchat

@@ -1,0 +1,13 @@
+{
+  "_description": "Ad platforms that cannot be bought in a market because the market's government blocks them. Read by publisher_filter.platform_blocked_in / platform_runs_in, so every plan surface (workbook, deck, Nova tools) drops the platform for a plan whose markets are all blocked. Kept apart from publisher_availability.json on purpose: that file's dates describe the Joveo supply network, and a government block is not a supply-network change. Every entry carries a source and the date it was checked.",
+  "blocks": [
+    {
+      "name": "TikTok",
+      "aliases": ["TikTok Ads", "TikTok for Business", "TikTok Marketing"],
+      "countries": ["India"],
+      "reason": "TikTok has been blocked in India since 29 June 2020; ads cannot be bought there.",
+      "source": "https://www.bbc.com/future/article/20240426-the-ghosts-of-indias-tiktok-social-media-ban",
+      "checked_on": "2026-10-18"
+    }
+  ]
+}

@@ -1807,6 +1807,17 @@ def _copilot_suggest_channels(
                 }
             )
 
+    # A hint that names TikTok is only true where TikTok runs (blocked in
+    # India since 2020-06-29): in such a plan's markets it names Instagram alone.
+    _countries = publisher_filter.plan_countries({"locations": list(locations or [])})
+    if _countries and not any(
+        publisher_filter.platform_runs_in("TikTok", _c) for _c in _countries
+    ):
+        for _s in suggestions:
+            _s["reason"] = str(_s.get("reason") or "").replace(
+                "Instagram/TikTok reach", "Instagram reaches"
+            )
+
     return suggestions[:5]
 
 

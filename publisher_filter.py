@@ -45,6 +45,7 @@ _REPOSITORY_PATH = os.path.join(
 _NETWORK_PATH = os.path.join(_BASE_DIR, "data", "joveo_network_groups.json")
 _SUPPLY_NOTES_PATH = os.path.join(_BASE_DIR, "data", "global_supply.json")
 _PIPELINE_PATH = os.path.join(_BASE_DIR, "data", "publisher_onboarding_pipeline.json")
+_BLOCKS_PATH = os.path.join(_BASE_DIR, "data", "platform_market_blocks.json")
 
 # Request-boundary caps (mirrored in wizard_inputs.INPUT_LIMITS).
 MAX_EXCLUDED = 20
@@ -850,6 +851,12 @@ def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ..
             if not any(platform_runs_in(scope["name"], c) for c in wanted):
                 terms.append(_fold(scope["name"]))
                 terms.extend(_fold(a) for a in (scope.get("aliases") or []))
+        # ... nor is a platform the government of EVERY plan market blocks
+        # (TikTok on an India plan)
+        for block in _load_platform_blocks():
+            if wanted <= block["_countries"]:
+                terms.append(_fold(block["name"]))
+                terms.extend(_fold(a) for a in (block.get("aliases") or []))
     return tuple(sorted({t for t in terms if t}))
 
 
@@ -1091,13 +1098,68 @@ def disclosure_line(data: Any) -> str:
 # ---------------------------------------------------------------------------
 
 
+_blocks_cache: Optional[List[Dict[str, Any]]] = None
+
+
+def _load_platform_blocks() -> List[Dict[str, Any]]:
+    """data/platform_market_blocks.json: platforms a market's government
+    blocks (TikTok in India).  Every block is {names -> keys, countries}."""
+    global _blocks_cache
+    with _lock:
+        if _blocks_cache is not None:
+            return _blocks_cache
+        raw: Dict[str, Any] = {}
+        try:
+            with open(_BLOCKS_PATH, encoding="utf-8") as fh:
+                raw = json.load(fh)
+        except (OSError, ValueError) as exc:
+            logger.error(
+                "platform_market_blocks.json unreadable: %s", exc, exc_info=True
+            )
+        blocks: List[Dict[str, Any]] = []
+        for item in (raw.get("blocks") if isinstance(raw, dict) else None) or []:
+            if not isinstance(item, dict) or not item.get("name"):
+                continue
+            names = [item["name"]] + [
+                a for a in (item.get("aliases") or []) if isinstance(a, str)
+            ]
+            keys = frozenset(normalize(n) for n in names) - {""}
+            countries = frozenset(
+                canonical_country(c) for c in (item.get("countries") or [])
+            ) - {""}
+            if keys and countries:
+                blocks.append({**item, "_keys": keys, "_countries": countries})
+        _blocks_cache = blocks
+        return _blocks_cache
+
+
+def platform_blocked_in(name: Any, country: Any) -> bool:
+    """True when ``name`` is a platform the government of ``country`` blocks
+    (data/platform_market_blocks.json).  A compound string ('A / B') is
+    blocked only when every part is, like :func:`is_excluded`.  Unknown
+    platforms and unknown countries are not blocked (fail open)."""
+    want = canonical_country(country)
+    if not want:
+        return False
+    parts = _parts(name)
+    if parts:
+        return all(platform_blocked_in(p, want) for p in parts)
+    keys = set(_keys_for(name))
+    return any(
+        keys & block["_keys"] and want in block["_countries"]
+        for block in _load_platform_blocks()
+    )
+
+
 def platform_runs_in(name: Any, country: Any) -> bool:
     """False when ``name`` is a platform with a declared market scope that
-    does not include ``country``.  Unknown platforms and unknown countries
-    return True (fail open)."""
+    does not include ``country``, or one the country's government blocks.
+    Unknown platforms and unknown countries return True (fail open)."""
     want = canonical_country(country)
     if not want:
         return True
+    if platform_blocked_in(name, want):
+        return False
     keys = set(_keys_for(name))
     for scope in _load_availability()["scopes"]:
         if keys & scope["_keys"]:
@@ -2762,7 +2824,9 @@ def reset_caches() -> None:
     global _availability_cache, _repo_index_cache, _known_cache, _network_cache
     global _repo_date_cache, _supply_notes_cache, _repo_board_rows_cache
     global _pipeline_cache, _repo_job_board_cache, _conflict_cache
+    global _blocks_cache
     with _lock:
+        _blocks_cache = None
         _conflict_cache = None
         _pipeline_cache = None
         _repo_job_board_cache = None
