@@ -32,6 +32,7 @@ from pathlib import Path
 
 import country_registry  # countries the datasets cover that COUNTRY_DATA has no row for
 import proof_claims  # public proof numbers: one source of truth, each with its artifact
+import channel_funding  # local-relevance board score shared with the media plan
 import publisher_filter  # client exclusions + availability: one matcher for every board list
 import nova_plan_figures as _plan_figs  # ONE source of plan applications / hires / CPA / CPH
 from nova_cache import normalize_number_tokens as _normalize_number_tokens
@@ -2031,6 +2032,66 @@ _CURRENCY_SYMBOLS: Dict[str, str] = {
     "ISK": "kr",
     "BGN": "лв",
 }
+
+
+_ONBOARDING_ASK_WORDS = (
+    "onboarding",
+    "pipeline",
+    "new partner",
+    "upcoming",
+    "coming soon",
+    "coming on",
+    "being onboarded",
+    "in the works",
+)
+
+
+def _onboarding_answer(
+    term: str,
+    country: Optional[str],
+    pf_data: Dict[str, Any],
+    overview: bool = False,
+) -> Dict[str, Any]:
+    """The onboarding-pipeline part of a publisher answer
+    (data/publisher_onboarding_pipeline.json, via publisher_filter): partners
+    the partnerships team is onboarding, each with its stage.  Answers "is X
+    onboarding?" for a name and "what new partners are coming?" for a general
+    ask (``term`` using onboarding words, or no filter at all).  Never presents
+    a pipeline board as available or as part of the network: every row says
+    'In onboarding (<stage>) - not yet available' and the answer carries the
+    same warning.  {} when there is nothing to say."""
+    text = str(term or "").strip().lower()
+    general = overview or any(w in text for w in _ONBOARDING_ASK_WORDS)
+    try:
+        rows = publisher_filter.onboarding_pipeline(
+            None if general else text or None, country
+        )
+        if not general and not text:
+            return {}
+        rows = [r for r in rows if not publisher_filter.is_excluded(r["name"], pf_data)]
+    except (TypeError, ValueError, KeyError, AttributeError):
+        logger.error("onboarding pipeline answer failed", exc_info=True)
+        return {}
+    if not rows:
+        return {}
+    stages: Dict[str, int] = {}
+    for row in rows:
+        stages[row["stage"]] = stages.get(row["stage"], 0) + 1
+    return {
+        "onboarding_pipeline": {
+            "as_of": publisher_filter.pipeline_date(),
+            "count": len(rows),
+            "by_stage": stages,
+            "partners": rows[:25],
+            "note": (
+                "These partners have signed or are going live. Only a row whose "
+                "availability says it is in the Joveo network may be described "
+                "as available; every other row is NOT available in plans yet: "
+                "do not recommend it and do not count it as part of the Joveo "
+                "network. Earlier-stage prospects are not listed."
+            ),
+        }
+    }
 
 
 def _supply_verdicts(
@@ -8817,6 +8878,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                         ),
                                         "region": pub.get("region", ""),
                                         "priority": pub.get("priority", ""),
+                                        "repository_status": pub.get("status") or "",
                                         "source": "global_supply_repository",
                                     }
                                 )
@@ -8835,6 +8897,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                             {
                                                 "name": pub.get("name", ""),
                                                 "category": f"Region: {region_key}",
+                                                "repository_status": pub.get("status") or "",
                                                 "source": "global_supply_repository",
                                             }
                                         )
@@ -8888,10 +8951,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     }
                     for h in _net_hits.values()
                 ]
-            if _before and not matches:
-                # The board exists in the data but must not be recommended:
-                # say so plainly rather than "not found".
-                _entry = publisher_filter.availability_for(search_term, _pf_country)
+            _entry = (
+                publisher_filter.availability_for(search_term, _pf_country)
+                if not matches
+                else None
+            )
+            if not matches and (_before or _entry):
+                # The board exists in the data (or the availability file bars it
+                # even though no catalog row survives, e.g. a VONQ-only board the
+                # repository no longer lists) but must not be recommended: say so
+                # plainly rather than "not found".
                 result["availability_note"] = (
                     f"{(_entry or {}).get('name') or search_term}: "
                     f"{(_entry or {}).get('reason') or 'excluded for this plan'}"
@@ -8899,9 +8968,68 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             result["search_results"] = matches
             result["search_term"] = search_term
             result["match_count"] = len(matches)
-            if matches:
+            # A match counts as "in the network" only when the supply record
+            # says so for this country -- whatever catalog it came from (the
+            # older catalogs list boards the repository now marks Deactivated,
+            # Via Redwood or absent). Wording follows the record's state.
+            _records = [
+                (m, publisher_filter.board_supply_record(m.get("name"), _pf_country))
+                for m in matches
+            ]
+            for _m, _rec in _records:
+                _m["supply_state"] = _rec["state"]
+                _m["supply_status"] = publisher_filter.status_label(_rec)
+            _in_net = [
+                m
+                for m, rec in _records
+                if rec["state"] == publisher_filter.SUPPLY_IN_NETWORK
+            ]
+            _no_country = not _pf_country
+            _conflicts = (
+                publisher_filter.network_conflicts_for(search_term)
+                if _no_country
+                else []
+            )
+            if _no_country and _conflicts:
+                # no market given: the export's contrary row still wins over the
+                # network group's confirmation -- never a bare "in network"
+                result["in_joveo_network"] = False
+                result["note"] = "; ".join(
+                    f"not confirmed: {c['export_status']} in the {c['as_of']} "
+                    f"supply export for {c['country'] or 'every country'} "
+                    "(network group confirmation superseded)"
+                    for c in _conflicts
+                )
+            elif _in_net:
                 result["in_joveo_network"] = True
                 result["note"] = "Publisher found in Joveo supply network"
+                if _no_country:
+                    _where = sorted(
+                        {
+                            c
+                            for m in _in_net
+                            for c in publisher_filter.confirmed_countries(
+                                m.get("name")
+                            )
+                        }
+                    )
+                    result["note"] += (
+                        "; the repository confirms it in: " + ", ".join(_where)
+                        if _where
+                        else "; no country given, so the market is unconfirmed"
+                    )
+                    result["confirmed_countries"] = _where
+            elif matches:
+                result["in_joveo_network"] = False
+                result["note"] = (
+                    "Listed in the data but not confirmed in the Joveo network for "
+                    "this market (see each match's supply_status): not a direct "
+                    "network relationship. "
+                    + "; ".join(
+                        publisher_filter.supply_status_phrase(rec)
+                        for _, rec in _records[:3]
+                    )
+                )
             else:
                 result["in_joveo_network"] = False
 
@@ -9006,6 +9134,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             result["categories"] = {k: len(v) for k, v in by_category.items()}
             result["countries_covered"] = len(by_country)
 
+        _no_filter = not (search_term or category or country)
+        result.update(
+            _onboarding_answer(
+                search_term or category, _pf_country, _pf_data, overview=_no_filter
+            )
+        )
         return result
 
     def _query_kb_deep(self, params: dict) -> dict:
@@ -10760,6 +10894,19 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
             else:
                 _add_hire_target_comparison(result, target_hires)
+                # funded channels that project no hires are said so, once,
+                # and each is labelled (awareness / test budget)
+                import channel_funding as _cf
+
+                _zero_note = _cf.zero_hire_summary(
+                    result, False, lambda v: f"${v:,.0f}"
+                )
+                if _zero_note:
+                    result["zero_hire_channels_note"] = _zero_note
+                    _zero_keys = {r["key"] for r in _cf.zero_hire_channels(result)}
+                    for _k, _ch in (result.get("channel_allocations") or {}).items():
+                        if isinstance(_ch, dict) and str(_k) in _zero_keys:
+                            _ch["budget_role"] = _cf.AWARENESS_TEST_LABEL
             if goal_n > 0:
                 gp = demand_planning.build_goal_plan(
                     goal=goal_n,
@@ -19545,6 +19692,17 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if not _country_ok:
                 continue
 
+            # Only boards the supply data confirms in the Joveo network for
+            # this market: the P0/P1 list also carries rows now marked
+            # Deactivated, Paused or Churned.
+            if (
+                publisher_filter.board_supply_record(_p_name, country_key or None)[
+                    "state"
+                ]
+                != publisher_filter.SUPPLY_IN_NETWORK
+            ):
+                continue
+
             # Industry filter: permissive -- include if job_type is generic,
             # or matches the industry keyword
             if matched_industry:
@@ -19588,6 +19746,22 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "status": _p.get("status", ""),
                 }
             )
+
+        # --- Best-fit boards for the market: the plan's own local-relevance
+        # score (channel_funding), so chat and plan agree on which lead ---
+        best_local: list = []
+        if country_key:
+            try:
+                best_local = channel_funding.funding_order({}, country_key)[
+                    : channel_funding.FUNDED_BOARD_COUNT
+                ]
+                _ranked_names = channel_funding.rank_names(
+                    [_rp["name"] for _rp in repo_partners], country_key
+                )
+                repo_partners.sort(key=lambda _rp: _ranked_names.index(_rp["name"]))
+            except (AttributeError, KeyError, OSError, TypeError, ValueError):
+                logger.error("local-relevance ordering failed", exc_info=True)
+                best_local = []
 
         # --- Dedupe and merge ---
         def _norm(name: str) -> str:
@@ -19652,6 +19826,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             f"repository."
         )
         lines.append("")
+
+        if best_local:
+            lines.append(f"### Best-fit boards in {_country_label} (by local relevance)")
+            for _i, _b in enumerate(best_local, 1):
+                lines.append(f"{_i}. {_b['name']} \u2014 {_b['why']}")
+            lines.append("")
 
         if industry_specialised:
             lines.append(

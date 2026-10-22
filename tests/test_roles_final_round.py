@@ -78,7 +78,7 @@ def test_v1_a_bare_generic_word_is_not_a_title(
     monkeypatch: pytest.MonkeyPatch, role: str
 ) -> None:
     # "manager" used to hit "product manager" (11-2021) and "associate" hit
-    # "warehouse associate" (53-7065) through the `role in title` direction.
+    # "warehouse associate" (53-7062) through the `role in title` direction.
     assert _soc_calls(monkeypatch, role) == []
 
 
@@ -227,7 +227,8 @@ def test_v1c_anesthetist_midwife_and_security_analyst_have_their_own_soc(
         ("Sr. Software Engineer II", "15-1252"),
         ("Remote Software Engineer", "15-1252"),
         ("Retail Sales Associate", "41-2031"),
-        ("Night Shift Warehouse Associate", "53-7065"),
+        # O*NET lists Warehouse Associate under 53-7062.00; 53-7065 is stocker/order filler
+        ("Night Shift Warehouse Associate", "53-7062"),
         ("Part Time Cashier", "41-2011"),
         ("CDL A Truck Driver", "53-3032"),
         ("OTR Truck Driver", "53-3032"),

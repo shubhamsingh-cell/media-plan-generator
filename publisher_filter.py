@@ -44,6 +44,7 @@ _REPOSITORY_PATH = os.path.join(
 )
 _NETWORK_PATH = os.path.join(_BASE_DIR, "data", "joveo_network_groups.json")
 _SUPPLY_NOTES_PATH = os.path.join(_BASE_DIR, "data", "global_supply.json")
+_PIPELINE_PATH = os.path.join(_BASE_DIR, "data", "publisher_onboarding_pipeline.json")
 
 # Request-boundary caps (mirrored in wizard_inputs.INPUT_LIMITS).
 MAX_EXCLUDED = 20
@@ -280,8 +281,11 @@ _lock = threading.Lock()
 _availability_cache: Optional[Dict[str, Any]] = None
 _repo_index_cache: Optional[Dict[str, List[Tuple[frozenset, str]]]] = None
 _repo_date_cache: str = ""
+_pipeline_cache: Optional[Dict[str, Any]] = None
 _supply_notes_cache: Optional[Dict[str, List[Tuple[frozenset, Dict[str, Any]]]]] = None
 _repo_board_rows_cache: Optional[List[Tuple[str, frozenset, str, str]]] = None
+_repo_job_board_cache: Optional[List[Dict[str, Any]]] = None
+_conflict_cache: Optional[List[Dict[str, Any]]] = None
 _network_cache: Optional[List[Dict[str, Any]]] = None
 
 
@@ -1261,6 +1265,7 @@ SUPPLY_IN_NETWORK = "in_network"
 SUPPLY_NOT_IN_NETWORK = "not_in_network"
 SUPPLY_NO_RECORD = "no_record"
 SUPPLY_UNAVAILABLE = "unavailable"
+SUPPLY_ONBOARDING = "onboarding"
 _IN_NETWORK_STATUS = "In Joveo Network"
 UNAVAILABLE_STATUS = "Not available through Joveo"
 EXITED_STATUS = "No longer operating in this market"
@@ -1268,7 +1273,9 @@ EXITED_STATUS = "No longer operating in this market"
 # The one-line key to the supply statuses, in plain words (workbook, help page).
 SUPPLY_STATUS_KEY = (
     "Supply status key: In Joveo Network = confirmed as in the Joveo network. "
-    "VONQ Only / Via Redwood = listed, but not in the Joveo network. "
+    "Via Redwood / Handshake / Symplicity / 12twenty / Jobteaser = reachable "
+    "through a partner route, not a direct Joveo network relationship. "
+    "In onboarding = a partnership is being set up and is not yet available. "
     "Relationship unverified = the supply repository has no row for this "
     "board in this market. Not available through Joveo = never shown in a plan."
 )
@@ -1297,6 +1304,19 @@ _JOB_BOARD_CATEGORIES = frozenset(
 )
 
 SELECTION_NOTE = "Boards shown are chosen by market share, not matched to the role."
+# Beside the regional & aggregator boards a plan funds (scored, not just ranked
+# by market share) the selection note above would be false; this replaces it.
+RANKED_NOTE = (
+    "Boards are ranked by local relevance: market share, Joveo supply-team "
+    "performance notes, use in Joveo-built plans, local presence, role fit and "
+    "programmatic buying."
+)
+# Said wherever the regional & aggregator budget is split over named boards:
+# the amounts are proportional to the score, so equal scores are equal amounts.
+FUNDED_SHARE_NOTE = (
+    "Each board's share of the regional budget follows that score, so boards "
+    "with equal scores receive equal amounts."
+)
 
 
 def repository_date() -> str:
@@ -1377,6 +1397,273 @@ def _supply_note_entry(name: Any, country: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Publisher onboarding pipeline (data/publisher_onboarding_pipeline.json)
+# ---------------------------------------------------------------------------
+#
+# A sanitized copy of the partnerships team's tracker: name, regions, stage and
+# status per partner.  A partner in the pipeline is NOT available: only a
+# partner whose stage is "Live" and whom the repository does not contradict
+# reads as in network.  A "Dropped" status, a "Not pursued" stage or an
+# unrecognised stage has no effect at all.
+
+_PIPELINE_LIVE_STAGE = "Live"
+_PIPELINE_NO_EFFECT_STAGE = "Not pursued"
+_PIPELINE_NO_EFFECT_STATUS = "Dropped"
+
+
+def _pipeline() -> Dict[str, Any]:
+    """``{"as_of", "stages", "by_key": {matcher key: [partner, ...]}}``; empty
+    when the file is missing or unreadable (the pipeline then has no effect)."""
+    global _pipeline_cache
+    with _lock:
+        if _pipeline_cache is not None:
+            return _pipeline_cache
+        data: Dict[str, Any] = {"as_of": "", "stages": [], "by_key": {}}
+        try:
+            with open(_PIPELINE_PATH, encoding="utf-8") as fh:
+                raw = json.load(fh)
+            stages = [
+                str(s.get("name"))
+                for s in raw.get("stages") or []
+                if isinstance(s, dict) and s.get("name")
+            ]
+            data["as_of"] = str(raw.get("as_of") or "")[:10]
+            data["stages"] = stages
+            for partner in raw.get("partners") or []:
+                if not isinstance(partner, dict):
+                    continue
+                key = normalize(partner.get("name"))
+                stage = str(partner.get("stage") or "")
+                if not key or stage not in stages:
+                    continue  # a stage outside the tracker's own list is ignored
+                if stage == _PIPELINE_NO_EFFECT_STAGE:
+                    continue
+                if partner.get("status") == _PIPELINE_NO_EFFECT_STATUS:
+                    continue
+                data["by_key"].setdefault(key, []).append(partner)
+        except (OSError, ValueError, AttributeError) as exc:
+            logger.error("onboarding pipeline unreadable: %s", exc, exc_info=True)
+        _pipeline_cache = data
+        return data
+
+
+def pipeline_date() -> str:
+    """The date the onboarding tracker export carries ('' when unreadable)."""
+    return str(_pipeline()["as_of"])
+
+
+def _partner_regions(partner: Dict[str, Any]) -> frozenset:
+    return frozenset(
+        canonical_country(r) for r in partner.get("regions") or [] if str(r).strip()
+    )
+
+
+_EUROPE_COUNTRIES = frozenset(
+    canonical_country(c)
+    for c in (
+        "Albania", "Andorra", "Austria", "Belarus", "Belgium",
+        "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Cyprus",
+        "Czech Republic", "Denmark", "Estonia", "Finland", "France", "Germany",
+        "Greece", "Guernsey", "Hungary", "Iceland", "Ireland", "Isle of Man",
+        "Italy", "Kosovo", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg",
+        "Malta", "Moldova", "Monaco", "Montenegro", "Netherlands",
+        "North Macedonia", "Norway", "Poland", "Portugal", "Romania",
+        "San Marino", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden",
+        "Switzerland", "Ukraine", "United Kingdom", "Vatican City",
+    )
+)  # fmt: skip
+
+
+def _regions_cover(regions: frozenset, want: str) -> bool:
+    """Does a partner's region list apply to ``want``?  A country applies when
+    listed; the word "Europe" covers only European countries, never the US or
+    India."""
+    return want in regions or ("Europe" in regions and want in _EUROPE_COUNTRIES)
+
+
+def onboarding_entry(name: Any, country: Any = None) -> Optional[Dict[str, Any]]:
+    """The live onboarding-pipeline partner for ``name`` (in ``country``), or
+    None.  A partner that lists regions applies only to a country it lists (or
+    when no country is asked about); one that lists none applies everywhere."""
+    want = canonical_country(country)
+    index = _pipeline()["by_key"]
+    for key in _record_keys(name):
+        for partner in index.get(key, ()):
+            regions = _partner_regions(partner)
+            if want and regions and not _regions_cover(regions, want):
+                continue
+            return partner
+    return None
+
+
+def onboarding_status_text(stage: Any) -> str:
+    """'In onboarding (Contract sent) - not yet available'."""
+    return f"In onboarding ({stage}) \u2014 not yet available"
+
+
+_SIGNED_STAGES = frozenset(
+    {"Contract signed", "Dashboard access granted", "Test campaign allocated"}
+)
+SIGNED_SOON_TEXT = "Signed, going live soon \u2014 not yet available in plans"
+LIVE_IN_NETWORK_TEXT = "In the Joveo network (live per the onboarding tracker)"
+
+
+def _pipeline_availability(partner: Dict[str, Any], want: str) -> str:
+    """How an answer may describe one pipeline partner.  Live and confirmed by
+    the same record that decides the dagger -> in network; Live but the
+    repository says otherwise -> that status, not in network; signed but not
+    yet live -> 'Signed, going live soon - not yet available in plans'; any
+    earlier stage -> 'In onboarding (<stage>) - not yet available'."""
+    stage = str(partner.get("stage") or "")
+    if stage == _PIPELINE_LIVE_STAGE:
+        record = board_supply_record(partner.get("name"), want or None)
+        if record["state"] == SUPPLY_IN_NETWORK:
+            return LIVE_IN_NETWORK_TEXT
+        return (
+            f"Marked live in the onboarding tracker, but not confirmed in the "
+            f"Joveo network ({record['status'] or 'no repository status'})"
+        )
+    if stage in _SIGNED_STAGES:
+        return SIGNED_SOON_TEXT
+    return onboarding_status_text(stage)
+
+
+def onboarding_pipeline(term: Any = None, country: Any = None) -> List[Dict[str, Any]]:
+    """The partners now in onboarding (not yet available), furthest stage
+    first, optionally narrowed by a name fragment and/or a country:
+    ``[{"name", "stage", "status", "regions", "as_of", "availability"}]``.
+    ``availability`` says how it may be described (see _pipeline_availability).
+    Nothing here is a recommendation: callers must not present these boards as
+    available."""
+    pipe = _pipeline()
+    order = {s: i for i, s in enumerate(pipe["stages"])}
+    needle = normalize(term) if str(term or "").strip() else ""
+    want = canonical_country(country)
+    rows: List[Dict[str, Any]] = []
+    for key, partners in pipe["by_key"].items():
+        for partner in partners:
+            regions = _partner_regions(partner)
+            if want and regions and not _regions_cover(regions, want):
+                continue
+            if needle and needle not in key:
+                continue
+            stage = str(partner.get("stage") or "")
+            rows.append(
+                {
+                    "name": str(partner.get("name") or ""),
+                    "stage": stage,
+                    "status": str(partner.get("status") or ""),
+                    "regions": sorted(regions),
+                    "as_of": pipe["as_of"],
+                    "availability": _pipeline_availability(partner, want),
+                }
+            )
+    rows.sort(key=lambda r: (-order.get(r["stage"], -1), r["name"].lower()))
+    return rows
+
+
+def _network_conflicts() -> List[Dict[str, Any]]:
+    """The repository's ``network_conflicts``: boards a confirmed network group
+    names that the newer supply export marks with an explicit non-network
+    status (``{"name", "country", "export_status", "as_of", "_name_keys"}``; the
+    country is '' when it applies in every country)."""
+    global _conflict_cache
+    cached = _conflict_cache
+    if cached is not None:
+        return cached
+    raw: List[Dict[str, Any]] = []
+    try:
+        with open(_REPOSITORY_PATH, encoding="utf-8") as fh:
+            raw = [
+                i
+                for i in (json.load(fh).get("network_conflicts") or [])
+                if isinstance(i, dict) and i.get("name")
+            ]
+    except (OSError, ValueError, AttributeError) as exc:
+        logger.error("supply repository unreadable: %s", exc, exc_info=True)
+    # keys are computed outside the module lock (the matcher takes it too)
+    rows = [
+        {
+            "name": str(i["name"]),
+            "country": canonical_country(i.get("country")),
+            "export_status": str(i.get("export_status") or ""),
+            "as_of": str(i.get("as_of") or ""),
+            "_name_keys": set(_record_keys(i["name"])),
+        }
+        for i in raw
+    ]
+    with _lock:
+        _conflict_cache = rows
+    return rows
+
+
+def network_conflict(name: Any, country: Any = None) -> Optional[Dict[str, Any]]:
+    """The supply-export conflict for ``name`` in ``country`` (the newer export
+    gives it an explicit non-network status although a network group confirms
+    it), else None."""
+    want = canonical_country(country)
+    keys = set(_record_keys(name))
+    if not keys:
+        return None
+    for item in _network_conflicts():
+        if item["country"] and item["country"] != want:
+            continue
+        if item["country"] == "" and not want and not keys & item["_name_keys"]:
+            continue
+        if keys & item["_name_keys"]:
+            return item
+    return None
+
+
+def _conflict_key(key: str) -> str:
+    """Fold the StepStone sub-brand words (Pro / Germany) so the plan's
+    "StepStone Pro - Selected Customers Only" reads as the export's row."""
+    return re.sub(r"^stepstone(?:pro|germany)+", "stepstone", key)
+
+
+def network_conflicts_for(name: Any) -> List[Dict[str, Any]]:
+    """Every ``network_conflicts`` row naming ``name``, in any country (the
+    countryless counterpart of ``network_conflict``).  Rows are copies without
+    the matcher keys; [] when the repository names no conflict for the board.
+
+    A brand that is in network elsewhere ("StepStone": Germany, Austria ...)
+    matches a country-specific conflict row (STEPSTONE.be) only when the
+    query itself names that row or its country -- a bare "StepStone" is not
+    the Belgian board."""
+    keys = {_conflict_key(k) for k in _record_keys(name)}
+    if not keys:
+        return []
+    text = str(name or "").casefold()
+    out: List[Dict[str, Any]] = []
+    for item in _network_conflicts():
+        if not keys & {_conflict_key(k) for k in item["_name_keys"]}:
+            continue
+        elsewhere = [
+            c for c in confirmed_countries(item["name"]) if c != item["country"]
+        ]
+        if (
+            elsewhere
+            and item["country"]
+            and item["country"].casefold() not in text
+            and text.strip() != item["name"].casefold()
+        ):
+            continue
+        out.append({k: v for k, v in item.items() if k != "_name_keys"})
+    return out
+
+
+def confirmed_countries(name: Any) -> List[str]:
+    """Countries in which the supply repository lists ``name`` as "In Joveo
+    Network" (a "Global" row reads as 'Global'); sorted, [] when none."""
+    found: set = set()
+    for key in _record_keys(name):
+        for countries, status in _repo_index().get(key, ()):
+            if status == _IN_NETWORK_STATUS:
+                found |= set(countries) if countries else {"Global"}
+    return sorted(c for c in found if c)
+
+
 def board_supply_record(name: Any, country: Any = None) -> Dict[str, Any]:
     """What Joveo's own supply data says about ``name`` in ``country``.
 
@@ -1391,9 +1678,18 @@ def board_supply_record(name: Any, country: Any = None) -> Dict[str, Any]:
       board for the country (or as a global board) as "In Joveo Network";
     * ``not_in_network`` -- the repository lists it for the country, but not
       as "In Joveo Network" (``status`` carries the repository's own word,
-      e.g. "VONQ Only");
+      e.g. "Via Redwood");
+    * ``onboarding`` -- the onboarding pipeline
+      (data/publisher_onboarding_pipeline.json) has the board at any stage
+      other than "Live": reads "In onboarding (<stage>) - not yet available",
+      is never recommended as available and never counted as in network.  A
+      "Live" pipeline board with no repository row is ``in_network``; with a
+      contrary repository row the repository wins.  A Dropped status or a
+      Not pursued stage has no effect;
     * ``no_record`` -- the repository has no row for this board in this
-      country.  That is *unknown*, not "not available".
+      country.  That is *unknown*, not "not available".  Boards the supply
+      lead's 2026-10 export marks "VONQ Only" are not in the repository at
+      all, so they read this way.
 
     A combined entry ("Recruit (Rikunabi / Indeed Japan)", "VDAB / Forem") is
     ``in_network`` only if EVERY board it names is; otherwise it is as
@@ -1443,6 +1739,20 @@ def board_supply_record(name: Any, country: Any = None) -> Dict[str, Any]:
             in str(note.get("_verification_notes") or "").lower()
         )
         record["notes_as_of"] = str(note.get("_last_verified") or "")
+    conflict = network_conflict(text, want) if want else None
+    if conflict:
+        # the newer export has an explicit contrary row for this board and
+        # country: it wins over the network group's 2026-10-17 confirmation
+        record.update(
+            state=SUPPLY_NOT_IN_NETWORK,
+            status=(
+                f"{conflict['export_status']} in the {conflict['as_of']} supply "
+                "export (network group confirmation superseded)"
+            ),
+            as_of=conflict["as_of"],
+            source="supply export (newer than the network group confirmation)",
+        )
+        return record
     hit = network_member(text, want)
     if hit:
         record.update(
@@ -1458,8 +1768,37 @@ def board_supply_record(name: Any, country: Any = None) -> Dict[str, Any]:
         for countries, status in index.get(key, ()):
             if not want or "Global" in countries or want in countries:
                 statuses.append(status)
+    in_repo_network = _IN_NETWORK_STATUS in statuses
+    partner = None if in_repo_network else onboarding_entry(text, want)
+    if partner:
+        stage = str(partner.get("stage") or "")
+        if stage == _PIPELINE_LIVE_STAGE:
+            if not statuses:
+                # Live per the onboarding tracker and nothing in the repository
+                # says otherwise.  A repository row (Via Redwood, Deactivated,
+                # ...) is a contrary row: the repository wins and the board is
+                # not counted as in network.
+                record.update(
+                    state=SUPPLY_IN_NETWORK,
+                    status=_IN_NETWORK_STATUS,
+                    as_of=pipeline_date(),
+                    source="onboarding pipeline (Live)",
+                )
+                return record
+        else:
+            record.update(
+                state=SUPPLY_ONBOARDING,
+                status=onboarding_status_text(stage),
+                as_of=pipeline_date(),
+                source="onboarding pipeline",
+            )
+            if statuses:
+                record["repository_status"] = " / ".join(
+                    sorted({s for s in statuses if s})
+                )
+            return record
     if statuses:
-        if _IN_NETWORK_STATUS in statuses:
+        if in_repo_network:
             state, status = SUPPLY_IN_NETWORK, _IN_NETWORK_STATUS
         else:
             state = SUPPLY_NOT_IN_NETWORK
@@ -1511,10 +1850,10 @@ def _compound_record(
 
 def status_label(record: Dict[str, Any]) -> str:
     """The record's status with the date the data carries, e.g. 'In Joveo
-    Network, as of 2026-10-17', 'VONQ Only, as of 2026-03-31' or 'Not
+    Network, as of 2026-10-17', 'Via Redwood, as of 2026-10-20' or 'Not
     available through Joveo, as of 2026-10-16'.  '' for a board with no record
     (it has neither a status nor a date to show).  The date always follows the
-    status: a bare date on a VONQ-only board would read as 'available'."""
+    status: a bare date on a partner-route board would read as 'available'."""
     rec = record or {}
     if rec.get("state") == SUPPLY_NO_RECORD:
         return ""
@@ -1538,6 +1877,8 @@ def unverified_note(record: Dict[str, Any]) -> str:
     country = str(rec.get("country") or "") or "this country"
     if rec.get("parts"):
         base = f"not every board it names is confirmed for {country}"
+    elif state == SUPPLY_ONBOARDING:
+        return str(rec.get("status") or "in onboarding, not yet available")
     elif state == SUPPLY_NOT_IN_NETWORK:
         base = f"repository lists it as {rec.get('status') or 'not in network'}"
     else:
@@ -1548,14 +1889,14 @@ def unverified_note(record: Dict[str, Any]) -> str:
 
 def supply_status_phrase(record: Dict[str, Any]) -> str:
     """One plain clause for a board's supply record: 'VietnamWorks: In Joveo
-    Network, as of 2026-03-31', 'APEC: VONQ Only / Via Redwood, as of
-    2026-03-31 (relationship unverified)', 'OCC Mundial: Not available through
+    Network, as of 2026-03-31', 'APEC: Via Redwood / Via Handshake, as of
+    2026-10-20 (relationship unverified)', 'OCC Mundial: Not available through
     Joveo, as of 2026-10-16', or the relationship-unverified reason for a board
     the repository has no row for.  Dates are the ones the data carries."""
     name = str((record or {}).get("name") or "")
     state = (record or {}).get("state")
     label = status_label(record)
-    if state in (SUPPLY_IN_NETWORK, SUPPLY_UNAVAILABLE) and label:
+    if state in (SUPPLY_IN_NETWORK, SUPPLY_UNAVAILABLE, SUPPLY_ONBOARDING) and label:
         return f"{name}: {label}"
     if state == SUPPLY_NOT_IN_NETWORK and label:
         said = (
@@ -1961,6 +2302,106 @@ def _repo_network_boards(country: Any) -> Dict[str, str]:
     }
 
 
+def _repo_job_boards() -> List[Dict[str, Any]]:
+    """Every repository row that is a job board naming at least one country,
+    with the fields a funding split scores on: ``{"name", "countries",
+    "priority", "job_type", "category", "job_categories", "pricing", "xml"}``
+    (``priority`` is 'P0'..'P3' or '' when the repository records none;
+    ``job_type`` is 'Blue Collar', 'White Collar', 'General' or '';
+    ``job_categories`` is the tuple of job-category labels the row lists, ``()``
+    when none are recorded; ``pricing`` and ``xml`` are '' when not recorded)."""
+    global _repo_job_board_cache
+    with _lock:
+        if _repo_job_board_cache is not None:
+            return _repo_job_board_cache
+        rows: List[Dict[str, Any]] = []
+        try:
+            with open(_REPOSITORY_PATH, encoding="utf-8") as fh:
+                repo = json.load(fh)
+            for region in (repo.get("by_region") or {}).values():
+                for pub in region.get("publishers") or []:
+                    name = str(pub.get("name") or "").strip()
+                    raw = str(pub.get("countries") or "")
+                    category = str(pub.get("category") or "")
+                    if (
+                        not name
+                        or raw.strip().lower() in ("", "nan")
+                        or category not in _JOB_BOARD_CATEGORIES
+                    ):
+                        continue
+                    priority = str(pub.get("priority") or "").strip().upper()
+                    job_type = str(pub.get("job_type") or "").strip()
+                    pricing = str(pub.get("pricing") or "").strip()
+                    xml = str(pub.get("xml") or "").strip()
+                    rows.append(
+                        {
+                            "name": name,
+                            "countries": frozenset(
+                                canonical_country(c)
+                                for c in raw.split(",")
+                                if c.strip()
+                            ),
+                            "priority": (
+                                priority if priority in ("P0", "P1", "P2", "P3") else ""
+                            ),
+                            "job_type": job_type if job_type.lower() != "nan" else "",
+                            "category": category,
+                            "job_categories": tuple(
+                                c.strip()
+                                for c in str(pub.get("job_categories") or "").split(",")
+                                if c.strip() and c.strip().lower() != "nan"
+                            ),
+                            "pricing": pricing if pricing.lower() != "nan" else "",
+                            "xml": xml if xml.lower() != "nan" else "",
+                        }
+                    )
+        except (OSError, ValueError, AttributeError) as exc:
+            logger.error("supply repository unreadable: %s", exc, exc_info=True)
+        _repo_job_board_cache = rows
+        return rows
+
+
+def in_network_job_boards(country: Any) -> List[Dict[str, Any]]:
+    """The job boards the supply data confirms as in the Joveo network for
+    ``country``: repository rows that NAME the country (global ad platforms and
+    influencer tools are not job boards and are not listed), whose
+    ``board_supply_record`` state is ``in_network`` -- so never a partner-route
+    row, an onboarding board, a barred board or an unrecorded one.  One entry
+    per distinct board (the best-priority row wins), each
+    ``{"name", "priority", "job_type", "n_countries", "record", "category",
+    "job_categories", "pricing", "xml"}`` (``n_countries`` is how many
+    countries the row lists: a local board lists one or two)."""
+    want = canonical_country(country)
+    if not want:
+        return []
+    order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "": 4}
+    best: Dict[str, Dict[str, Any]] = {}
+    for row in _repo_job_boards():
+        if want not in row["countries"]:
+            continue
+        key = normalize(row["name"])
+        if not key:
+            continue
+        held = best.get(key)
+        if held is not None and order[held["priority"]] <= order[row["priority"]]:
+            continue
+        record = board_supply_record(row["name"], want)
+        if record["state"] != SUPPLY_IN_NETWORK:
+            continue
+        best[key] = {
+            "name": row["name"],
+            "priority": row["priority"],
+            "job_type": row["job_type"],
+            "n_countries": len(row["countries"]),
+            "record": record,
+            "category": row["category"],
+            "job_categories": row["job_categories"],
+            "pricing": row["pricing"],
+            "xml": row["xml"],
+        }
+    return list(best.values())
+
+
 def supply_depth(country: Any, shown: Sequence[Any]) -> Optional[Dict[str, Any]]:
     """``{"country", "boards", "confirmed", "total"}`` for a market's shown list.
 
@@ -1991,18 +2432,36 @@ def supply_depth(country: Any, shown: Sequence[Any]) -> Optional[Dict[str, Any]]
     }
 
 
-def supply_depth_line(groups: Sequence[Dict[str, Any]]) -> str:
+def supply_depth_line(
+    groups: Sequence[Dict[str, Any]], ranked: bool = False, count_shown: bool = True
+) -> str:
     """One plain line under the local boards.  It says how many of the boards
     shown are confirmed in network (the same states that put a dagger on the
     rest), how many in-network job boards the repository names for the market
     in total (only where it can count them exactly), and that the boards are
-    chosen by market share, not matched to the role.  '' when there are no
-    markets."""
+    chosen by market share, not matched to the role (or, with ``ranked=True``
+    -- the surface also shows the scored regional boards -- that they are
+    ranked by local relevance: :data:`RANKED_NOTE`).  With ``count_shown=False``
+    the shown-and-confirmed count is left out (the surface lists more boards
+    than ``groups`` covers).  '' when there are no markets."""
     if not groups:
         return ""
+    note = RANKED_NOTE if ranked else SELECTION_NOTE
     depths = [g["depth"] for g in groups if isinstance(g.get("depth"), dict)]
     if not depths:
-        return SELECTION_NOTE
+        return note
+    if not count_shown:
+        # The surface also lists boards this count does not cover (the funded
+        # boards), so "Of the N boards shown, M confirmed" would be false:
+        # say only how deep the repository's list runs.
+        totals = [d for d in depths if d["total"]]
+        if not totals:
+            return note
+        listed = "; ".join(f"{d['country']} {d['total']}" for d in totals)
+        return (
+            f"The repository lists these in-network job boards in total: {listed}. "
+            f"{note}"
+        )
     if len(depths) == 1:
         d = depths[0]
         noun = "board" if d["boards"] == 1 else "boards"
@@ -2012,12 +2471,17 @@ def supply_depth_line(groups: Sequence[Dict[str, Any]]) -> str:
             "confirmed in network (global boards included)."
         )
         if d["total"]:
+            listed = (
+                f"The repository lists {d['total']} in-network job boards "
+                f"for {d['country']} in total"
+            )
+            if ranked:
+                return f"{text} {listed}. {note}"
             return (
-                f"{text} The repository lists {d['total']} in-network job boards "
-                f"for {d['country']} in total; boards shown are chosen by market "
+                f"{text} {listed}; boards shown are chosen by market "
                 "share, not matched to the role."
             )
-        return f"{text} {SELECTION_NOTE}"
+        return f"{text} {note}"
     confirmed = "; ".join(
         f"{d['country']} {d['confirmed']} of {d['boards']}" for d in depths
     )
@@ -2027,9 +2491,9 @@ def supply_depth_line(groups: Sequence[Dict[str, Any]]) -> str:
         listed = "; ".join(f"{d['country']} {d['total']}" for d in totals)
         return (
             f"{text} In-network job boards the repository lists in total: {listed}. "
-            f"{SELECTION_NOTE}"
+            f"{note}"
         )
-    return f"{text} {SELECTION_NOTE}"
+    return f"{text} {note}"
 
 
 def plan_market_boards(
@@ -2297,7 +2761,11 @@ def reset_caches() -> None:
     """Test hook: drop the lazily-loaded data."""
     global _availability_cache, _repo_index_cache, _known_cache, _network_cache
     global _repo_date_cache, _supply_notes_cache, _repo_board_rows_cache
+    global _pipeline_cache, _repo_job_board_cache, _conflict_cache
     with _lock:
+        _conflict_cache = None
+        _pipeline_cache = None
+        _repo_job_board_cache = None
         _repo_date_cache = ""
         _supply_notes_cache = None
         _repo_board_rows_cache = None

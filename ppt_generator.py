@@ -23,6 +23,7 @@ import re
 import client_story
 import plan_projection
 import plan_trust
+import plan_validator
 import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -47,6 +48,7 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
 import geo_market as _geo_market
 import plan_geo as _plan_geo
 import publisher_filter as _pubfilter
+import channel_funding as _channel_funding
 import intl_benchmark_lookup as _intl_lookup
 import display_format as _fmt
 import company_blurb
@@ -2714,40 +2716,10 @@ def _add_multi_run_paragraph(
 
 
 def _kb_extract_range(node: Any) -> str:
-    """Pull a display-ready range/figure string out of one
-    recruitment_benchmarks.industry_benchmarks[industry][metric] node.
-
-    These KB nodes are free-form dicts (see data loaded via
-    kb_loader.load_knowledge_base()): a "range" sub-key when present,
-    otherwise the newest-looking numeric-year sub-key (e.g. "2025"), else
-    "median"/"total_cost_per_hire", else the first string-valued sub-key
-    found. Returns "" when nothing usable.
-
-    ``recruitment_marketing_only`` (media spend alone) is never returned --
-    not as a named key and not as the "first string" -- because a cost-per-
-    hire cell is the all-in total or nothing; the ``cph`` node itself is
-    read through ``budget_engine.kb_cph_node_text`` (the one shared
-    selector), this function serves cpa / cpc / apply_rate.
-    """
-    if isinstance(node, str):
-        return node
-    if not isinstance(node, dict):
-        return ""
-    for key in ("range", "total_cost_per_hire", "median"):
-        val = node.get(key)
-        if isinstance(val, str) and val.strip():
-            return val.strip()
-    year_keys = [k for k in node if isinstance(k, str) and re.fullmatch(r"20\d{2}", k)]
-    if year_keys:
-        val = node.get(max(year_keys))
-        if isinstance(val, str) and val.strip():
-            return val.strip()
-    for key, val in node.items():
-        if key == "recruitment_marketing_only":
-            continue
-        if isinstance(val, str) and val.strip():
-            return val.strip()
-    return ""
+    """Display-ready range/figure string of one industry_benchmarks metric node
+    (the one selector lives in ``plan_validator.kb_extract_range``, which the
+    CPA benchmark resolver also reads, so the CPA row cannot differ from it)."""
+    return plan_validator.kb_extract_range(node)
 
 
 def _classify_apply_rate_suffix(apply_rate_str: str) -> str:
@@ -3001,8 +2973,9 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
         except Exception:  # noqa: BLE001 -- never break benchmark resolution
             _mi_bm = None
         if _mi_bm:
-            if _mi_bm.get("cpa"):
-                result["cpa"] = _mi_bm["cpa"]
+            # The CPA row is NOT taken from this record here: it comes from
+            # plan_validator.us_cpa_candidate below, the one resolver the
+            # benchmark verdict also reads.
             if _mi_bm.get("cpc"):
                 result["cpc"] = _mi_bm["cpc"]
             if _mi_bm.get("cph"):
@@ -3044,7 +3017,6 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
     # industry (e.g. healthcare and retail both showing the same Google/
     # Meta/Indeed blend) while slide 8 then compared the plan against that
     # same wrong, non-industry-specific number.
-    _kb_has_cpa = bool(_mi_bm and _mi_bm.get("cpa")) if data else False
     _kb_has_cpc = bool(_mi_bm and _mi_bm.get("cpc")) if data else False
 
     # Layer 1: Synthesized ad_platform_analysis overrides (live API data)
@@ -3054,16 +3026,12 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
             ad_plat = synthesized.get("ad_platform_analysis", {})
             if isinstance(ad_plat, dict) and ad_plat:
                 live_cpcs = []
-                live_cpas = []
                 for plat_name, plat_data in ad_plat.items():
                     if not isinstance(plat_data, dict) or plat_name.startswith("_"):
                         continue
                     cpc = plat_data.get("avg_cpc") or plat_data.get("cpc")
-                    cpa = plat_data.get("avg_cpa") or plat_data.get("cpa")
                     if cpc and isinstance(cpc, (int, float)) and cpc > 0:
                         live_cpcs.append(cpc)
-                    if cpa and isinstance(cpa, (int, float)) and cpa > 0:
-                        live_cpas.append(cpa)
                 # C13: only fall back to the generic cross-industry
                 # ad-platform range when this industry has no KB
                 # recruitment benchmark of its own (Layer 1.5 above). An
@@ -3100,24 +3068,22 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     result["confidence"] = PLATFORM_BENCHMARK_CONFIDENCE
                     result["cpc_is_usd_benchmark"] = True
                     result["cpc_is_generic_platform_range"] = True
-                if live_cpas and not _kb_has_cpa:
-                    min_cpa = min(live_cpas)
-                    max_cpa = max(live_cpas)
-                    # NOTE: same static-USD-table provenance as cpc above --
-                    # not this plan's own localized projection. Force
-                    # currency="USD" for the same reason as cpc above (must
-                    # carry a literal "$" for _mark_usd() to act on), and
-                    # flagged USD so _mark_usd() applies the honest "US$"
-                    # marker instead of a bare non-USD symbol.
-                    result["cpa"] = (
-                        f"{_fmt_currency(round(min_cpa), currency='USD')} - "
-                        f"{_fmt_currency(round(max_cpa), currency='USD')}"
-                        if min_cpa != max_cpa
-                        else _fmt_currency(round(min_cpa), currency="USD")
-                    )
-                    result["confidence"] = PLATFORM_BENCHMARK_CONFIDENCE
-                    result["cpa_is_usd_benchmark"] = True
-                    result["cpa_is_generic_platform_range"] = True
+
+    # CPA row: the ONE resolver (plan_validator.us_cpa_candidate) -- the
+    # knowledge-base row for this industry, else the cross-industry
+    # ad-platform span -- is what this slide prints AND what the benchmark
+    # verdict (badge, legend note, workbook note) tests the plan against, so
+    # the two can never disagree. The span is a static USD table
+    # (_PLATFORM_BENCHMARKS), not this plan's own localized projection, hence
+    # the USD marker and the generic-range flag.
+    if data:
+        _cpa_bm = plan_validator.us_cpa_candidate(data, industry=industry)
+        if _cpa_bm:
+            result["cpa"] = _cpa_bm["text"]
+            result["cpa_is_usd_benchmark"] = True
+            if _cpa_bm["scope"] == "cross_industry_platforms":
+                result["confidence"] = PLATFORM_BENCHMARK_CONFIDENCE
+                result["cpa_is_generic_platform_range"] = True
 
     # Layer 0: Budget engine CPH and apply_rate overrides
     # These were NEVER overridden before (always hardcoded) -- fix v3.4.1
@@ -4841,6 +4807,46 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     )
     _add_filled_rect(slide, Inches(11.33), Inches(0.2), Inches(2.0), Inches(0.13), TEAL)
 
+    # Low data support: the cover says so before anyone reads on. A strip on
+    # the left content margin, full content width, under the wordmark and clear
+    # of the top-right bars; its height is measured from the wrapped text (a
+    # long stamp takes a second or third line, never overflows a fixed box).
+    _draft_stamp = plan_validator.internal_draft_stamp(data)
+    if _draft_stamp:
+        _strip_x_in, _strip_top_in = 0.62, 1.12
+        _strip_w_in = SLIDE_WIDTH / 914400 - 2 * _strip_x_in
+        _strip_pt, _strip_lines = 10.0, 1
+        for _strip_pt in (10.0, 9.0, 8.0):
+            # 0.2in of box insets and 7% slack: the ruler reads ~7% short of
+            # the rendered bold face
+            _strip_lines = _measure_lines(
+                _draft_stamp, (_strip_w_in - 0.2) * 0.93, _strip_pt, bold=True
+            )
+            if _strip_lines <= 3:
+                break
+        _strip_h_in = _strip_lines * (_strip_pt * 1.35) / 72.0 + 0.16
+        _add_rounded_rect(
+            slide,
+            Inches(_strip_x_in),
+            Inches(_strip_top_in),
+            Inches(_strip_w_in),
+            Inches(_strip_h_in),
+            RED_TEXT,
+        )
+        _add_textbox(
+            slide,
+            Inches(_strip_x_in),
+            Inches(_strip_top_in),
+            Inches(_strip_w_in),
+            Inches(_strip_h_in),
+            text=_draft_stamp,
+            font_size=_strip_pt,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.LEFT,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+
     # joveo wordmark, top-left
     _add_textbox(
         slide,
@@ -5411,12 +5417,14 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                         if _si_force_usd and _get_active_currency() != "USD":
                             salary_str = _mark_usd(salary_str)
                             range_str = _mark_usd(range_str)
+                        _si_word, _si_source = _salary_basis(data, _si_role)
                         sit_items.append(
                             (
                                 "Salary Range",
-                                f"{salary_str} median{range_str} - {_si_role}",
+                                f"{salary_str} {_si_word}{range_str} - {_si_role}",
                             )
                         )
+                        sit_items.append(("Salary Source", _si_source[len("Source: ") :]))
                         _salary_added = True
                         break
         except (AttributeError, TypeError):
@@ -5439,9 +5447,11 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             )
             if median > 0:
                 salary_str = _deck_salary_str(median, _fr_force_usd)
+                _fr_word, _fr_source = _salary_basis(data, first_role)
                 sit_items.append(
-                    ("Salary Benchmark", f"{salary_str} median ({first_role})")
+                    ("Salary Benchmark", f"{salary_str} {_fr_word} ({first_role})")
                 )
+                sit_items.append(("Salary Source", _fr_source[len("Source: ") :]))
         except (IndexError, KeyError, TypeError):
             pass
 
@@ -5962,7 +5972,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             )
             if median > 0:
                 salary_str = _deck_salary_str(median, _ms_force_usd)
-                secondary_metrics.append((salary_str, "Median Salary"))
+                secondary_metrics.append(
+                    (salary_str, f"{_salary_basis(data, first_role)[0].title()} Salary")
+                )
         except (IndexError, KeyError, TypeError):
             pass
 
@@ -8047,6 +8059,12 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         proj_hires = ba_total_proj.get("hires") or 0
     hires_display = f"{int(proj_hires):,}" if proj_hires and proj_hires > 0 else "--"
     _ba_hires_off = _hires_suppressed(data)
+    # funded channels that project no hires under a plan that projects hires
+    # (labelled "Awareness / test", never left to read as a failed buy)
+    _ba_zero_keys = {
+        r["key"]
+        for r in _channel_funding.zero_hire_channels(budget_alloc, _ba_hires_off)
+    }
     if _ba_hires_off and hires_display != "--":
         hires_display = "n/a"
     _ba_rng = _hires_range(budget_alloc)
@@ -8249,7 +8267,15 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             f"{int(ch['projected_apps']):,}" if ch["projected_apps"] > 0 else "--",
             "--"
             if _ba_hires_off
-            else (f"{int(ch['projected_hires']):,}" if ch["projected_hires"] > 0 else "--"),
+            else (
+                f"{int(ch['projected_hires']):,}"
+                if ch["projected_hires"] > 0
+                else (
+                    "Awareness / test"
+                    if not ch.get("_is_rollup") and str(ch.get("key")) in _ba_zero_keys
+                    else "--"
+                )
+            ),
             f"{_cur}{ch['cpa']:,.0f}" if ch["cpa"] > 0 else "--",
         ]
 
@@ -8367,6 +8393,43 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
                 alignment=PP_ALIGN.LEFT,
                 anchor=MSO_ANCHOR.MIDDLE,
             )
+            # Once per plan: how much budget funds channels that project no
+            # hires, right-aligned on the same strip (the funnel text keeps its
+            # own box and its "(engine scenario)" ending). The full sentence
+            # when both fit on the one line, else the short form, else none.
+            if _ba_zero_keys:
+                _zh_full = _channel_funding.zero_hire_summary(
+                    budget_alloc,
+                    _ba_hires_off,
+                    lambda v: _fmt_currency(v, compact=True),
+                )
+                _zh_short = _zh_full.split(" funds channels that project no hires")[0]
+                for _zh_text in (
+                    _zh_full,
+                    f"{_zh_short} is awareness / test spend (no hires projected).",
+                ):
+                    if (
+                        _measure_lines(
+                            f"{funnel_text}  {_zh_text}",
+                            (table_w / 914400) - 0.2,
+                            9.0,
+                        )
+                        <= 1
+                    ):
+                        _add_textbox(
+                            slide,
+                            table_left,
+                            strip_top,
+                            table_w,
+                            funnel_strip_h,
+                            text=_zh_text,
+                            font_size=9,
+                            italic=True,
+                            color=MUTED_TEXT,
+                            alignment=PP_ALIGN.RIGHT,
+                            anchor=MSO_ANCHOR.MIDDLE,
+                        )
+                        break
 
     # ---- ROI INSIGHT CALLOUT (reference-deck dark-indigo takeaway band) ----
     # Positioned dynamically below the totals row (and the funnel strip, if
@@ -8683,6 +8746,10 @@ _CMP_STATUS_STYLE = {
     "beating": (GREEN, "▲", "Ahead of Nova estimate"),
     "trailing": (AMBER_TEXT, "▼", "Behind Nova estimate"),
     "on_par": (MUTED_TEXT, "—", "On par / within range"),
+    # A plan CPA below the printed industry range is never a win: the one
+    # benchmark verdict (plan_validator.plan_cpa_gap) calls it optimistic
+    # until a test confirms it, in amber, with the note beside the legend.
+    "optimistic": (AMBER_TEXT, "!", "Below range: optimistic until tested"),
     "none": (MUTED_TEXT, "", ""),
 }
 
@@ -8878,31 +8945,21 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         # midpoint.
         bench = _get_benchmarks(industry, data)
         cpa_str = bench.get("cpa", "$25")
-        try:
-            cpa_nums = [
-                float(x) for x in re.findall(r"[\d.]+", cpa_str.replace(",", ""))
-            ]
-        except Exception:
-            cpa_nums = []
-        if len(cpa_nums) >= 2:
-            cpa_low, cpa_high = min(cpa_nums), max(cpa_nums)
-        elif len(cpa_nums) == 1:
-            cpa_low = cpa_high = cpa_nums[0]
-        else:
-            cpa_low = cpa_high = 25.0
-
-        _local_cpa_s8 = None
+        # THE yardstick (plan_validator.resolve_cpa_benchmark): the same range
+        # slide 5 prints, the legend note tests against and the workbook note
+        # quotes. None = no sourced range (no KB row, no platform span, no
+        # single-country market range).
+        _cpa_bm = plan_validator.resolve_cpa_benchmark(data, industry=industry)
         _no_us_s8 = not _pubfilter.plan_has_us_market(data)
+        _show_cpa_row = True
         if _no_us_s8:
             # No US market: the industry CPA row compares against this
             # market's own range, or is left out entirely.
-            _local_cpa_s8 = _intl_lookup.get_plan_local_cpa_range(data)
-            if _local_cpa_s8:
-                cpa_low = _local_cpa_s8["low_usd"]
-                cpa_high = _local_cpa_s8["high_usd"]
-                cpa_str = _intl_lookup.format_usd_range(cpa_low, cpa_high)
+            _show_cpa_row = bool(_cpa_bm and _cpa_bm["scope"] == "market_industry")
+            if _show_cpa_row:
+                cpa_str = _intl_lookup.format_usd_range(_cpa_bm["low"], _cpa_bm["high"])
                 bench = {**bench, "cpa_is_usd_benchmark": True}
-        if proj_cpa and proj_cpa > 0 and not (_no_us_s8 and not _local_cpa_s8):
+        if proj_cpa and proj_cpa > 0 and _show_cpa_row:
             # S3: cpa_str may still be a fixed US-benchmark constant (bare $)
             # while client_val is already in the plan's local currency -- never
             # show them side-by-side with no marker. Mark the industry-side
@@ -8918,13 +8975,17 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                 # "none" status the "Projected Hires" row uses (em-dash, no
                 # arrow/badge) rather than a fabricated beating/trailing claim.
                 _cpa_status = "none"
-            elif cpa_low == cpa_high:
-                # Point estimate (not a range): lower CPA is better.
-                _cpa_status = _cmp_status(proj_cpa, cpa_low, higher_is_better=False)
-            elif cpa_low <= proj_cpa <= cpa_high:
+            elif _cpa_bm is None:
+                _cpa_status = "none"  # no sourced range -> no verdict
+            elif proj_cpa < _cpa_bm["low"]:
+                # Under the printed range low is never a win: the one verdict
+                # (plan_validator.plan_cpa_gap) calls it optimistic until a
+                # test confirms it -- amber "!" plus the note, never green.
+                _cpa_status = "optimistic"
+            elif proj_cpa <= _cpa_bm["high"]:
                 _cpa_status = "on_par"  # within range -- never "beating"
             else:
-                _cpa_status = "beating" if proj_cpa < cpa_low else "trailing"
+                _cpa_status = "trailing"
             all_comparison_rows.append(
                 {
                     # Slide 2 prints this label over a RANGE; this row is the
@@ -8994,7 +9055,13 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # relabel trailing metrics as "(Target)" and flip them to a green
     # "beating" arrow -- that used to cosmetically launder every trailing
     # metric into a fabricated win whenever trailing rows were the majority.
-    _status_rank = {"beating": 0, "on_par": 1, "trailing": 2, "none": 3}
+    _status_rank = {
+        "beating": 0,
+        "on_par": 1,
+        "optimistic": 2,
+        "trailing": 2,
+        "none": 3,
+    }
     comparison_rows = sorted(
         all_comparison_rows, key=lambda r: _status_rank.get(r["status"], 3)
     )
@@ -9368,6 +9435,59 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # trailing-run/paragraph eviction is exactly the mechanism that dropped
     # the note before. Fit was decided above by direct measurement instead.
 
+    # A blended CPA below this market's own benchmark range is said on the page
+    # that sets the two side by side (one line, right of the legend; the number
+    # itself is never changed).
+    _gap = plan_validator.plan_cpa_gap(data)
+    _gap_line = plan_validator.benchmark_gap_message(_gap, short=True)
+    # Extra height the note takes when it wraps to a second line; the timeline
+    # header below moves down by the same amount so the two never collide.
+    _gap_extra_h_in = 0.0
+    if _gap_line:
+        # The note lives inside the right card's x-range: its box ends at the
+        # card's right edge (right_panel_x + panel_w), never past it. One line
+        # gets the wide box (right-aligned, so it can share the row with the
+        # legend); a note that needs a second line moves to a box that starts
+        # clear of the legend's own box and wraps there.
+        _gap_right_in = (right_panel_x + panel_w) / 914400
+        _gap_left_in = _gap_right_in - 6.6
+        _gap_w_in = 6.6
+        # Measured against the box minus its 0.1in L/R insets, with 7% slack: the
+        # generator's ruler reads ~7% short of the rendered bold face, so a line
+        # it calls full can overrun.
+        _gap_lines = _measure_lines(_gap_line, (_gap_w_in - 0.2) * 0.93, 8, True)
+        if _gap_lines > 1 and _gap.get("basis") in ("industry_us", "cross_industry_us"):
+            # An industry-range note takes the short legend wording rather
+            # than a second line: it must not push the timeline cards down
+            # on a dense slide (the figures are in the workbook note).
+            _gap_line = plan_validator.benchmark_gap_fallback(_gap) or _gap_line
+            _gap_lines = _measure_lines(_gap_line, (_gap_w_in - 0.2) * 0.93, 8, True)
+        if _gap_lines > 1:
+            _gap_left_in = 0.55 + legend_w_in + 0.1
+            _gap_w_in = _gap_right_in - _gap_left_in
+            _gap_inner_in = (_gap_w_in - 0.2) * 0.93
+            _gap_lines = _measure_lines(_gap_line, _gap_inner_in, 8, True)
+            if _gap_lines > 2:
+                # Fallback chosen by status: a channel-only gap never says the
+                # blended CPA is below.
+                _gap_line = plan_validator.benchmark_gap_fallback(_gap) or _gap_line
+                _gap_lines = _measure_lines(_gap_line, _gap_inner_in, 8, True)
+        _gap_lines = min(_gap_lines, 2)
+        _gap_box_h_in = 0.22 + 0.14 * (_gap_lines - 1)
+        _gap_extra_h_in = 0.14 * (_gap_lines - 1)
+        _add_textbox(
+            slide,
+            Inches(_gap_left_in),
+            legend_y,
+            Inches(_gap_w_in),
+            Inches(_gap_box_h_in),
+            text=_gap_line,
+            font_size=8,
+            bold=True,
+            color=AMBER_TEXT,
+            alignment=PP_ALIGN.RIGHT,
+        )
+
     # ==== IMPLEMENTATION TIMELINE (bottom) ====
     # fix/gate-confidence-layout: this used to be a flat Inches(4.98)
     # ("was 4.8 — header overlapped the legend above") -- a hardcoded patch
@@ -9383,7 +9503,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # declared height is 0.22in; 0.26in leaves a small real gap below it
     # (kept tight -- every inch spent here is an inch the phase cards below
     # don't get once the panel above has grown to its full row count).
-    timeline_top = legend_y + Inches(0.26)
+    timeline_top = legend_y + Inches(0.26 + _gap_extra_h_in)
 
     _add_textbox(
         slide,
@@ -9400,128 +9520,10 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         slide, Inches(0.55), timeline_top + Inches(0.3), Inches(2.2), Inches(0.03), TEAL
     )
 
-    # Build timeline phases based on actual campaign_weeks from input
-    cw = data.get("campaign_weeks", 12)
-    if cw <= 12:
-        p2_end = min(6, cw)
-        p3_start = min(7, cw)
-        p3_end = cw
-        phases = [
-            {
-                "phase": "PHASE 1",
-                "weeks": "Weeks 1-2",
-                "title": "Launch & Calibrate",
-                "bullets": [
-                    "Campaign setup & publisher activation",
-                    "Baseline measurement & tracking",
-                    "Attribution configuration",
-                ],
-                "color": BLUE,
-                "accent_bg": LIGHT_BLUE,
-            },
-            {
-                "phase": "PHASE 2",
-                "weeks": f"Weeks 3-{p2_end}",
-                "title": "Optimize & Scale",
-                "bullets": [
-                    "ML bid optimization active",
-                    "A/B test creative & targeting",
-                    "Scale top performers",
-                ],
-                "color": GREEN,
-                "accent_bg": LIGHT_GREEN,
-            },
-            {
-                "phase": "PHASE 3",
-                "weeks": f"Weeks {p3_start}-{p3_end}",
-                "title": "Maximize & Report",
-                "bullets": [
-                    "Full CPQA optimization",
-                    "ROI analysis & reallocation",
-                    "Performance review",
-                ],
-                "color": NAVY,
-                "accent_bg": BLUE_50,
-            },
-        ]
-    elif cw <= 26:
-        phases = [
-            {
-                "phase": "PHASE 1",
-                "weeks": "Weeks 1-3",
-                "title": "Launch & Calibrate",
-                "bullets": [
-                    "Campaign setup & publisher activation",
-                    "Baseline measurement & tracking",
-                    "Attribution configuration",
-                ],
-                "color": BLUE,
-                "accent_bg": LIGHT_BLUE,
-            },
-            {
-                "phase": "PHASE 2",
-                "weeks": f"Weeks 4-{cw // 2}",
-                "title": "Optimize & Scale",
-                "bullets": [
-                    "ML bid optimization active",
-                    "A/B test creative & targeting",
-                    "Scale top performers",
-                ],
-                "color": GREEN,
-                "accent_bg": LIGHT_GREEN,
-            },
-            {
-                "phase": "PHASE 3",
-                "weeks": f"Weeks {cw // 2 + 1}-{cw}",
-                "title": "Maximize & Report",
-                "bullets": [
-                    "Full CPQA optimization",
-                    "ROI analysis & reallocation",
-                    "Quarterly performance review",
-                ],
-                "color": NAVY,
-                "accent_bg": BLUE_50,
-            },
-        ]
-    else:
-        phases = [
-            {
-                "phase": "PHASE 1",
-                "weeks": "Weeks 1-4",
-                "title": "Launch & Calibrate",
-                "bullets": [
-                    "Campaign setup & publisher activation",
-                    "Baseline measurement & tracking",
-                    "Attribution configuration",
-                ],
-                "color": BLUE,
-                "accent_bg": LIGHT_BLUE,
-            },
-            {
-                "phase": "PHASE 2",
-                "weeks": f"Weeks 5-{cw // 3}",
-                "title": "Optimize & Scale",
-                "bullets": [
-                    "ML bid optimization active",
-                    "A/B test creative & targeting",
-                    "Scale top performers",
-                ],
-                "color": GREEN,
-                "accent_bg": LIGHT_GREEN,
-            },
-            {
-                "phase": "PHASE 3",
-                "weeks": f"Weeks {cw // 3 + 1}-{cw}",
-                "title": "Maximize & Report",
-                "bullets": [
-                    "Full CPQA optimization",
-                    "ROI analysis & reallocation",
-                    "Quarterly performance review",
-                ],
-                "color": NAVY,
-                "accent_bg": BLUE_50,
-            },
-        ]
+    # Build timeline phases based on actual campaign_weeks from input. The week
+    # ranges come from one helper so a phase can never run past the plan's
+    # length or backwards, and a 1-2 week plan collapses its phases.
+    phases = _timeline_phases(data.get("campaign_weeks"))
 
     # copy:both#2: interpolate this plan's own facts (client name, top
     # channels) into the otherwise-identical phase action items.
@@ -9529,11 +9531,17 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     phase_w = Inches(3.85)
     phase_gap = Inches(0.25)
+    phase_w_in = 3.85
+    # A 1- or 2-week plan has one or two phase cards: widen them evenly across
+    # the row the three-card layout (3 x 3.85in + 2 gaps) fills, so the row has
+    # no dead right third. The three-card layout is unchanged.
+    if 0 < len(phases) < 3:
+        phase_w_in = (3 * 3.85 + 2 * 0.25 - (len(phases) - 1) * 0.25) / len(phases)
+        phase_w = Inches(phase_w_in)
     # The "IMPLEMENTATION TIMELINE" header + its accent rule occupy ~0.33in
     # below timeline_top; 0.40 leaves a small real gap, kept tight for the
     # same reason as the paddings above.
     phase_top = timeline_top + Inches(0.40)
-    phase_w_in = 3.85
     phase_top_in = phase_top / 914400
 
     # fix/gate-confidence-layout: _interpolate_timeline_bullets (above)
@@ -9736,8 +9744,8 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             bt.text = bullet
             _set_font(bt, size=8, color=MUTED_TEXT)
 
-    # Arrow connectors between phases
-    for i in range(2):
+    # Arrow connectors between phases (one fewer than the phases shown)
+    for i in range(max(0, len(phases) - 1)):
         ax = (
             Inches(0.55) + (i + 1) * (phase_w + phase_gap) - phase_gap / 2 - Inches(0.1)
         )
@@ -10029,6 +10037,111 @@ def _render_named_competitor_group(
     return (top / 914400) + card_h_in
 
 
+def _board_key(name: str) -> str:
+    """A board's identity for de-duplication across the slide's board lines:
+    lower-cased, without a parenthetical or a supply-status dagger."""
+    return re.sub(r"[^a-z0-9]+", "", re.sub(r"\(.*?\)|[\u2020\u2021*]", "", str(name or "").lower()))
+
+
+def _employer_name_lines(names: List[str], width_in: float, pt: float) -> List[str]:
+    """Pack employer names onto lines separated by " \u00b7 ", breaking ONLY
+    between names (never inside one: "ZF / Friedrichshafen" stays whole). The
+    last separator of a line is dropped, so a line never ends on a dot."""
+    lines: List[str] = []
+    cur = ""
+    for name in names:
+        cand = f"{cur} \u00b7 {name}" if cur else name
+        if cur and _measure_lines(cand, width_in * 0.93, pt) > 1:
+            lines.append(cur)
+            cur = name
+        else:
+            cur = cand
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def _employer_sentence(label: str, names: List[str]) -> str:
+    """One sentence for a list of fewer than three employers: "Largest
+    employer on record for <country> (<industry>): <name>" -- a one-row list
+    under a heading would read as a ranking."""
+    rest = re.sub(r"^Largest employers in\s+", "", label).strip() or label
+    noun = "employer" if len(names) == 1 else "employers"
+    # non-breaking spaces inside each name: the sentence may wrap before a
+    # name, never inside one
+    joined = " and ".join(n.replace(" ", "\u00a0") for n in names)
+    return f"Largest {noun} on record for {rest}: {joined}"
+
+
+def _render_large_employers_card(
+    slide,
+    left,
+    top,
+    width,
+    group: Dict[str, Any],
+    match_h_in: float = 0.0,
+) -> float:
+    """ONE card for a non-US market's sourced large-employer list: the label
+    (which says it is a size list for this country and industry), up to eight
+    names (never broken mid-name), the note that this is not measured
+    competition, and the source line. Fewer than three names read as one
+    sentence instead of a one-row list. ``match_h_in`` is the height of the
+    card's left-hand neighbour: the card is at least that tall and no taller
+    than its own text needs. Returns the card's bottom edge in inches."""
+    label = str(group.get("label") or "")
+    names = [str(n).strip() for n in group.get("names") or [] if str(n).strip()]
+    note = str(group.get("note") or "")
+    source = str(group.get("source") or "")
+    body_w_in = (width / 914400) - 0.4 - 0.2
+    if 0 < len(names) < 3:
+        head_text = _employer_sentence(label, names)
+        name_lines: List[str] = []
+        head_lines = _measure_lines(
+            head_text.replace("\u00a0", " "), body_w_in * 0.93, 10.0, bold=True
+        )
+    else:
+        head_text = label
+        name_lines = _employer_name_lines(names, body_w_in, 10.0)
+        head_lines = _measure_lines(head_text, body_w_in * 0.93, 10.0, bold=True)
+    note_lines = _measure_lines(note, body_w_in * 0.93, 8.0) if note else 0
+    src_lines = _measure_lines(source, body_w_in * 0.93, 8.0) if source else 0
+    text_h_in = (
+        (head_lines + len(name_lines)) * (10.0 * 1.35) / 72.0
+        + (0.04 if name_lines else 0.0)
+        + (0.06 if (note_lines or src_lines) else 0.0)
+        + (note_lines + src_lines) * (8.0 * 1.35) / 72.0
+        + (0.04 if src_lines else 0.0)
+    )
+    card_h_in = max(0.62, match_h_in, text_h_in + 0.24)
+    _add_rounded_rect(slide, left, top, width, Inches(card_h_in), WHITE)
+    _add_filled_rect(slide, left, top, Inches(0.06), Inches(card_h_in), BLUE)
+    _box, tf = _add_textbox(
+        slide,
+        left + Inches(0.2),
+        top + Inches(0.12),
+        width - Inches(0.4),
+        Inches(card_h_in - 0.18),
+    )
+    p = tf.paragraphs[0]
+    r1 = p.add_run()
+    r1.text = head_text
+    _set_font(r1, size=10, bold=True, color=DARK_TEXT)
+    for _i, _ln in enumerate(name_lines):
+        pn = tf.add_paragraph()
+        pn.space_before = Pt(3 if _i == 0 else 0)
+        rn = pn.add_run()
+        rn.text = _ln
+        _set_font(rn, size=10, color=DARK_TEXT)
+    for text, gap in ((note, 4), (source, 2)):
+        if text:
+            pn = tf.add_paragraph()
+            pn.space_before = Pt(gap)
+            rn = pn.add_run()
+            rn.text = text
+            _set_font(rn, size=8, italic=True, color=MUTED_TEXT)
+    return (top / 914400) + card_h_in
+
+
 def _render_named_competitor_line(
     slide, left, top, width, names: List[str], inferred: bool
 ) -> float:
@@ -10059,7 +10172,9 @@ def _render_named_competitor_line(
     return (top / 914400) + h_in
 
 
-def _competitive_landscape_sources_line(comp_intel: Dict) -> str:
+def _competitive_landscape_sources_line(
+    comp_intel: Dict, employer_list_shown: bool = False
+) -> str:
     """Source footer for the Competitive Landscape slide, built from the
     sources the synthesis actually holds (audit 2026-10-11: a hard-coded
     "Public company filings, industry employment data, curated knowledge
@@ -10098,11 +10213,17 @@ def _competitive_landscape_sources_line(comp_intel: Dict) -> str:
         return ""
     meta = comp_intel.get("_meta")
     meta = meta if isinstance(meta, dict) else {}
-    suffix = (
-        " \u2014 client and industry context; no competitor-level sources"
-        if meta.get("competitor_evidence_count") == 0
-        else ""
-    )
+    suffix = ""
+    if meta.get("competitor_evidence_count") == 0:
+        # A shown large-employer list carries its own cited public sources
+        # (a size list); saying "no competitor-level sources" beside it would
+        # contradict the card.
+        suffix = (
+            " \u2014 client and industry context; the large-employer list "
+            "carries its own sources (a size list, not measured competition)"
+            if employer_list_shown
+            else " \u2014 client and industry context; no competitor-level sources"
+        )
     line = f"Sources: {', '.join(names)}{suffix}" if names else ""
     if kb_row_estimate:
         line = f"{line} {plan_trust.BENCHMARK_FOOTNOTE}".strip()
@@ -10718,19 +10839,46 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             )
             comp_card_top = comp_card_top + Inches(0.2)
 
+        _employer_list_shown = False
         if not competitors:
-            _comp_right_bottom_in = (comp_card_top / 914400) + 0.4
-            _add_textbox(
-                slide,
-                right_left,
-                comp_card_top,
-                right_w,
-                Inches(0.4),
-                text="No competitor data available. Add competitors to your request.",
-                font_size=10,
-                italic=True,
-                color=MUTED_TEXT,
-            )
+            # A non-US plan has no US competitor roster; when its country and
+            # industry have a sourced large-employer list, show that (labelled
+            # as a size list, never as measured competitors) instead of an
+            # empty box. No matching list -> the empty-state line, never
+            # another industry's or the US list.
+            _large_groups = _gold_standard.large_employer_groups(
+                (data.get("_gold_standard") or {}).get("competitor_mapping")
+            )[:2]
+            if _large_groups:
+                _employer_list_shown = True
+                _comp_right_bottom_in = comp_card_top / 914400
+                for _lg in _large_groups:
+                    _comp_right_bottom_in = _render_large_employers_card(
+                        slide,
+                        right_left,
+                        Inches(_comp_right_bottom_in),
+                        right_w,
+                        _lg,
+                        match_h_in=(
+                            profile_card_h / 914400
+                            if _lg is _large_groups[0]
+                            else 0.0
+                        ),
+                    )
+                    _comp_right_bottom_in += 0.12
+            else:
+                _comp_right_bottom_in = (comp_card_top / 914400) + 0.4
+                _add_textbox(
+                    slide,
+                    right_left,
+                    comp_card_top,
+                    right_w,
+                    Inches(0.4),
+                    text="No competitor data available. Add competitors to your request.",
+                    font_size=10,
+                    italic=True,
+                    color=MUTED_TEXT,
+                )
         elif not _ev_competitors:
             _comp_right_bottom_in = _render_named_competitor_group(
                 slide,
@@ -11089,7 +11237,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         _comp_source_top_in = min(
             _comp_source_top_in, 7.0
         )  # keep clear of the footer rule
-        _comp_sources_text = _competitive_landscape_sources_line(comp_intel)
+        _comp_sources_text = _competitive_landscape_sources_line(
+            comp_intel, employer_list_shown=_employer_list_shown
+        )
         if _comp_sources_text:
             _add_textbox(
                 slide,
@@ -11950,19 +12100,90 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     _boards_on = _pubfilter.local_boards_selected(data)
     _local_boards = _pubfilter.plan_market_boards(data) if _boards_on else []
     _board_gaps = _pubfilter.plan_market_board_gaps(data) if _boards_on else []
-    # One plain sentence on how deep the repository's in-network list runs
-    # for these markets ('' when it cannot be counted exactly).
-    _depth_line = _pubfilter.supply_depth_line(_local_boards)
+    # the regional & aggregator budget, named (see channel_funding): scored,
+    # so the "chosen by market share" note would be false beside it
+    _regional_split = _channel_funding.regional_budget_split(
+        data, data.get("_budget_allocation")
+    )
+    # The regional & aggregator budget, named: the boards it funds and what
+    # each gets (one line per plan country; a country with no in-network local
+    # boards says so). See channel_funding.regional_budget_split. A board named
+    # here is not repeated in the market-share line above it.
+    _funded_lines: List[str] = []
+    _funded_countries: Dict[str, set] = {}
+    for _entry in (_regional_split or {}).get("countries", [])[:3]:
+        if not _entry["boards"]:
+            _funded_lines.append(_entry["note"])
+            continue
+        _funded_countries[_pubfilter.canonical_country(_entry["country"])] = {
+            _board_key(b["name"]) for b in _entry["boards"]
+        }
+        _lead = f"Regional & aggregator budget funds ({_entry['country']}):  "
+        _pieces = []
+        for b in _entry["boards"]:
+            _short = re.sub(r"\s*\(.*?\)", "", b["name"]).strip() or b["name"]
+            _pieces.append(f"{_short} {_fmt_currency(b['amount'], compact=True)}")
+        # wrap onto continuation lines so a long board name never runs past
+        # the slide's right margin (7% slack: the ruler reads short of the
+        # rendered bold face)
+        _line = _lead
+        for _piece in _pieces:
+            _cand = _line + (" \u00b7 " if _line != _lead and _line.strip() else "") + _piece
+            if _line != _lead and _measure_lines(_cand, 11.9 * 0.93, 10.0, bold=True) > 1:
+                _funded_lines.append(_line)
+                _line = _piece
+            else:
+                _line = _cand
+        _funded_lines.append(_line)
+    _funded_h_in = [
+        0.27 + 0.17 * (_measure_lines(_fl, 11.9 * 0.93, 10.0, bold=True) - 1)
+        for _fl in _funded_lines
+    ]
+    # market-share lines: a board the funded line already prices is dropped
+    # from its country's line; a country whose boards are all funded loses it
+    _shown_local: List[Dict[str, Any]] = []
+    for _grp in _local_boards:
+        _named = _funded_countries.get(_pubfilter.canonical_country(_grp["country"]))
+        if _named is None:
+            _shown_local.append({**_grp, "_label": f"{_grp['country']}:  "})
+            continue
+        _rest = [bd for bd in _grp["boards"] if _board_key(bd) not in _named]
+        if _rest:
+            _shown_local.append(
+                {
+                    **_grp,
+                    "boards": _rest,
+                    "_label": f"{_grp['country']}, also named:  ",
+                }
+            )
+    # One plain sentence on how deep the repository's in-network list runs for
+    # these markets ('' when it cannot be counted exactly). With funded boards
+    # it is the basis line for every plan country, US included: how the boards
+    # are ranked and that shares follow the score (an even split is a result of
+    # equal scores, not a rule). The "Of the N boards shown" count is left out
+    # there: the band lists more boards than that count covers.
+    _has_funded = bool(_funded_countries)
+    if _has_funded:
+        _depth_line = (
+            _pubfilter.supply_depth_line(_local_boards, ranked=True, count_shown=False)
+            or _pubfilter.RANKED_NOTE
+        )
+        _depth_line = f"{_depth_line} {_pubfilter.FUNDED_SHARE_NOTE}"
+    else:
+        _depth_line = _pubfilter.supply_depth_line(_local_boards)
     # 8pt in the 12.2in band: a many-market line can wrap, so measure it
     _depth_extra_in = (
-        0.1 + 0.15 * _measure_lines(_depth_line, 12.0, 8.0) if _depth_line else 0.0
+        0.1 + 0.15 * _measure_lines(_depth_line, 12.0 * 0.93, 8.0) if _depth_line else 0.0
     )
     _band_h_in = 0.0
     _band_more = 0
-    if _local_boards or _board_gaps:
+    if _local_boards or _board_gaps or _funded_lines:
         _band_more = int(_local_boards[0].get("more") or 0) if _local_boards else 0
-        _band_h_in = 0.4 + 0.27 * (
-            len(_local_boards) + (1 if _band_more else 0) + (1 if _board_gaps else 0)
+        _band_h_in = (
+            0.4
+            + 0.27
+            * (len(_shown_local) + (1 if _band_more else 0) + (1 if _board_gaps else 0))
+            + sum(_funded_h_in)
         )
         if any(g["unverified"] for g in _local_boards):
             _band_h_in += 0.25
@@ -12158,7 +12379,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             )
             _set_body_font(_stf)
 
-    if _local_boards or _board_gaps:
+    if _local_boards or _board_gaps or _funded_lines:
         _band_top_in = card_top_in + card_h_in + 0.22
         _add_textbox(
             slide,
@@ -12172,19 +12393,33 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             color=TEAL_DEEP,
         )
         _line_top_in = _band_top_in + 0.3
-        for _grp in _local_boards:
+        for _grp in _shown_local:
             _bx, _btf = _add_textbox(
                 slide,
                 Inches(0.55),
                 Inches(_line_top_in),
                 Inches(12.2),
                 Inches(0.27),
-                text=f"{_grp['country']}:  " + ", ".join(_grp["boards"]),
+                text=_grp["_label"] + ", ".join(_grp["boards"]),
                 font_size=10,
                 color=DARK_TEXT,
             )
             _set_body_font(_btf)
             _line_top_in += 0.27
+        for _fl, _fh in zip(_funded_lines, _funded_h_in):
+            _fx, _ftf = _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(_line_top_in),
+                Inches(12.2),
+                Inches(_fh),
+                text=_fl,
+                font_size=10,
+                bold=True,
+                color=DARK_TEXT,
+            )
+            _set_body_font(_ftf)
+            _line_top_in += _fh
         if _band_more:
             _mx, _mtf = _add_textbox(
                 slide,
@@ -12306,6 +12541,31 @@ def _role_salary_rows(gold: Dict[str, Any], title: str) -> list:
     if len(currencies) > 1:
         rows = [r for r in rows if str(r.get("currency") or "").upper() == "USD"]
     return rows
+
+
+def _salary_basis(data: Dict[str, Any], role: str) -> "tuple[str, str]":
+    """``(statistic word, "Source: ...")`` for the salary figure the deck prints
+    for ``role``. A BLS OEWS wage names its reference period, SOC and statistic
+    (the national annual MEDIAN, series datatype 13; "mean" only when BLS
+    published no median for the occupation) and says it is adjusted to the
+    city's cost level; any other figure is a Nova estimate."""
+    rows = _role_salary_rows(data.get("_gold_standard") or {}, role)
+    raw = ((data.get("_enriched") or {}).get("salary_data") or {}).get(role)
+    raw = raw if isinstance(raw, dict) else {}
+    row_sources = {str(r.get("source") or "").upper() for r in rows}
+    is_bls = any(x.startswith("BLS") for x in row_sources) or (
+        not rows and str(raw.get("source") or "").upper().startswith("BLS")
+    )
+    if not is_bls:
+        return "median", "Source: Nova estimate"
+    word = "median" if raw.get("median") or not raw.get("mean") else "mean"
+    period = str(raw.get("reference_period") or raw.get("reference_year") or "").strip()
+    soc = str(raw.get("soc_code") or "").strip()
+    text = "BLS OEWS" + (f" {period}" if period else "")
+    text += (f", SOC {soc}" if soc else "") + f" national {word}"
+    if rows:
+        text += ", adjusted to the city's cost level"
+    return word, f"Source: {text}"
 
 
 def _deck_role_median(
@@ -12619,7 +12879,13 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
             Inches(1.7),
             Inches(3.8),
         ]
-        headers = ["Role", "Tier", "Difficulty", "Budget Weight", "Channel Emphasis"]
+        headers = [
+            "Role",
+            "Tier",
+            "Difficulty (modeled)",
+            "Budget Weight",
+            "Channel Emphasis",
+        ]
     else:
         col_widths = [
             Inches(3.1),
@@ -12639,7 +12905,7 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
                 if any(r["salary_local_band"] for r in rows)
                 else "Est. Median Salary"
             ),
-            "Difficulty",
+            "Difficulty (modeled)",
             "Budget Weight",
             "Channel Emphasis",
         ]
@@ -13261,6 +13527,102 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
             text = f"30-day review: CPA actuals, pipeline quality, {_fmt.possessive(client)} scale-up recommendation"
         out.append(text)
     return out
+
+
+def _timeline_phase_bounds(campaign_weeks: Any) -> List[Tuple[int, int]]:
+    """Inclusive (first_week, last_week) per timeline phase for a plan of
+    ``campaign_weeks`` weeks: 1-3 phases, never past the plan's last week, never
+    backwards, never overlapping. 1 week -> one phase; 2 weeks -> two; 3-6 weeks
+    -> three phases with a single closing week; longer plans keep the
+    launch / optimise / maximise split."""
+    try:
+        cw = int(campaign_weeks or 0)
+    except (TypeError, ValueError):
+        cw = 0
+    if cw <= 0:
+        cw = 12
+    if cw == 1:
+        return [(1, 1)]
+    if cw == 2:
+        return [(1, 1), (2, 2)]
+    if cw <= 6:
+        p1_end = min(2, cw - 2)
+        return [(1, p1_end), (p1_end + 1, cw - 1), (cw, cw)]
+    if cw <= 12:
+        return [(1, 2), (3, 6), (7, cw)]
+    if cw <= 26:
+        return [(1, 3), (4, cw // 2), (cw // 2 + 1, cw)]
+    return [(1, 4), (5, cw // 3), (cw // 3 + 1, cw)]
+
+
+def _week_range_label(first: int, last: int) -> str:
+    return f"Week {first}" if first == last else f"Weeks {first}-{last}"
+
+
+def _timeline_phases(campaign_weeks: Any) -> List[Dict[str, Any]]:
+    """The Implementation Timeline phase cards for a plan of ``campaign_weeks``
+    weeks. Cost per qualified application (CPQA) is tracked from Phase 1 and the
+    optimisation steers on it from Phase 2, so quality is a KPI from day one."""
+    bounds = _timeline_phase_bounds(campaign_weeks)
+    try:
+        cw = int(campaign_weeks or 0) or 12
+    except (TypeError, ValueError):
+        cw = 12
+    review = "Performance review" if cw <= 12 else "Quarterly performance review"
+    launch = {
+        "phase": "PHASE 1",
+        "title": "Launch & Calibrate",
+        "bullets": [
+            "Campaign setup & publisher activation",
+            "Baseline CPA and cost per qualified application (CPQA)",
+            "Attribution configuration",
+        ],
+        "color": BLUE,
+        "accent_bg": LIGHT_BLUE,
+    }
+    optimize = {
+        "phase": "PHASE 2",
+        "title": "Optimize & Scale",
+        "bullets": [
+            "Bid optimization steered by CPQA, not raw volume",
+            "A/B test creative & targeting",
+            "Scale top performers",
+        ],
+        "color": GREEN,
+        "accent_bg": LIGHT_GREEN,
+    }
+    maximize = {
+        "phase": "PHASE 3",
+        "title": "Maximize & Report",
+        "bullets": [
+            "Reallocate budget by CPQA",
+            "ROI analysis & reallocation",
+            review,
+        ],
+        "color": NAVY,
+        "accent_bg": BLUE_50,
+    }
+    if len(bounds) == 1:
+        # one week: launch, measure and report in the same card
+        launch = dict(launch, title="Launch & Report")
+        launch["bullets"] = [
+            "Campaign setup & publisher activation",
+            "Baseline CPA and cost per qualified application (CPQA)",
+            review,
+        ]
+        templates = [launch]
+    elif len(bounds) == 2:
+        merged = dict(
+            optimize,
+            title="Optimize & Report",
+            bullets=["Scale top performers", "Reallocate budget by CPQA", review],
+        )
+        templates = [launch, merged]
+    else:
+        templates = [launch, optimize, maximize]
+    for tpl, (first, last) in zip(templates, bounds):
+        tpl["weeks"] = _week_range_label(first, last)
+    return templates
 
 
 def _interpolate_timeline_bullets(

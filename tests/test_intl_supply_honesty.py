@@ -138,7 +138,6 @@ def test_board_nothing_covers_is_unverified_everywhere():
     "board,country,key",
     [
         ("TopCV.vn", "Vietnam", "topcv"),
-        ("GulfTalent", "United Arab Emirates", "gulftalent"),
         ("InfoJobs Brazil", "Brazil", "infojobs"),
         ("MyCareersFuture (MCF)", "Singapore", "mycareersfuture"),
     ],
@@ -156,6 +155,25 @@ def test_the_audits_unrecorded_boards_are_marked(board, country, key):
     assert pf.annotate([board], country)[1] is True
 
 
+def test_a_paused_board_reads_paused_not_unrecorded():
+    # GulfTalent has a repository row since the 2026-10 export: it is listed as
+    # Paused / Pending Revival, so it is unverified for a reason, not unknown.
+    record = pf.board_supply_record("GulfTalent", "United Arab Emirates")
+    assert record["state"] == pf.SUPPLY_NOT_IN_NETWORK
+    assert record["status"] == "Paused / Pending Revival"
+    assert pf.relationship_unverified("GulfTalent", "United Arab Emirates") is True
+
+
+def test_vonq_only_boards_are_absent_and_read_as_no_record():
+    # The 2026-10 export's "VONQ Only" rows are not in the repository: such a
+    # board is unknown to the plan, never "available" and never in network.
+    for board, country in (("Kleinanzeigen", "Germany"), ("Indeed - Test", "Germany")):
+        assert not [p for p in _repo_rows() if p["name"] == board]
+        record = pf.board_supply_record(board, country)
+        assert record["state"] == pf.SUPPLY_NO_RECORD
+        assert pf.relationship_unverified(board, country) is True
+
+
 def test_in_network_board_is_never_marked():
     assert pf.relationship_unverified("VietnamWorks", "Vietnam") is False
     assert pf.relationship_unverified("Totaljobs", "United Kingdom") is False
@@ -168,11 +186,11 @@ def test_combined_entry_is_confirmed_only_if_every_board_it_names_is():
     name = "Recruit (Rikunabi / Indeed Japan)"
     record = pf.board_supply_record(name, "Japan")
     parts = {p["name"].lower(): p["state"] for p in record["parts"]}
-    assert parts == {
-        "recruit": pf.SUPPLY_NO_RECORD,
-        "rikunabi": pf.SUPPLY_NO_RECORD,
-        "indeed japan": pf.SUPPLY_IN_NETWORK,
-    }
+    assert parts["indeed japan"] == pf.SUPPLY_IN_NETWORK
+    assert parts["rikunabi"] == pf.SUPPLY_NO_RECORD
+    # "Recruit" collides with the deactivated Recruit.net row (same matcher key):
+    # whatever it reads, it is NOT confirmed
+    assert parts["recruit"] != pf.SUPPLY_IN_NETWORK
     assert record["state"] == pf.SUPPLY_NO_RECORD
     assert record["as_of"] == ""
     assert pf.relationship_unverified(name, "Japan") is True
@@ -206,9 +224,16 @@ def test_a_lone_parenthetical_is_a_note_not_a_second_board():
 # ---------------------------------------------------------------------------
 
 
-def test_france_travail_and_pole_emploi_are_one_record():
-    row = _repo_row("France Travail France")
-    assert row["status"] != IN_NETWORK  # the data says so; the plan must too
+def test_france_travail_and_pole_emploi_are_one_record(monkeypatch):
+    # The 2026-10 export no longer carries a France Travail row (it was
+    # "VONQ Only"), so the rename guard runs against a synthetic non-network
+    # row: whichever spelling the row uses, every spelling must read it.
+    status = "Via Redwood"
+    monkeypatch.setitem(
+        pf._repo_index(),
+        pf.normalize("France Travail France"),
+        [(frozenset({"France"}), status)],
+    )
     spellings = [
         "Pole Emploi (France Travail)",
         "Pôle Emploi",
@@ -217,9 +242,16 @@ def test_france_travail_and_pole_emploi_are_one_record():
     ]
     records = [pf.board_supply_record(s, "France") for s in spellings]
     assert {r["state"] for r in records} == {pf.SUPPLY_NOT_IN_NETWORK}
-    assert {r["status"] for r in records} == {row["status"]}
+    assert {r["status"] for r in records} == {status}
     assert pf.names_match("Pole Emploi (France Travail)", "France Travail France")
     assert pf.relationship_unverified("Pole Emploi (France Travail)", "France") is True
+
+
+def test_france_travail_spellings_agree_on_the_real_data():
+    spellings = ["Pole Emploi (France Travail)", "Pôle Emploi", "France Travail"]
+    records = [pf.board_supply_record(s, "France") for s in spellings]
+    assert len({(r["state"], r["status"]) for r in records}) == 1
+    assert records[0]["state"] != pf.SUPPLY_IN_NETWORK
 
 
 @pytest.mark.parametrize(
@@ -265,19 +297,20 @@ def test_record_carries_only_dates_the_data_holds():
 
 
 def test_the_date_always_follows_the_status_it_belongs_to():
-    # a VONQ-only board must never read as "available as of <date>"
-    row = _repo_row("France Travail France")
-    vonq = pf.board_supply_record("Pole Emploi (France Travail)", "France")
+    # a partner-route board must never read as "available as of <date>"
+    row = _repo_row("APEC.fr")
+    vonq = pf.board_supply_record("APEC.fr", "France")
+    assert row["status"] != IN_NETWORK
     assert pf.status_label(vonq) == f"{row['status']}, as of {REPO['last_updated']}"
     # global_supply.json calls this board confirmed; the repository says
     # otherwise -- both are stated, neither is silently preferred
     assert vonq["notes_confirmed"] is True
     assert pf.supply_status_phrase(vonq) == (
-        f"Pole Emploi (France Travail): {row['status']}, as of "
+        f"APEC.fr: {row['status']}, as of "
         f"{REPO['last_updated']} (relationship unverified; supply notes list "
         "it as confirmed)"
     )
-    # a VONQ-only board the notes do NOT call confirmed has no such clause
+    # a partner-route board the notes do NOT call confirmed has no such clause
     plain = pf.board_supply_record("Glassdoor", "India")
     assert plain["state"] == pf.SUPPLY_NOT_IN_NETWORK and not plain["notes_confirmed"]
     assert pf.supply_status_phrase(plain).endswith("(relationship unverified)")
@@ -426,15 +459,16 @@ def test_ordering_never_adds_or_removes_a_board():
 
 
 # Hand-checked from data/joveo_global_supply_repository.json (last_updated
-# 2026-03-31): rows whose status is "In Joveo Network", whose countries column
+# 2026-10-20): rows whose status is "In Joveo Network", whose countries column
 # NAMES the market (no "Global" rows), and whose category is a job-board
 # category (Universal, University Job Board, DEI, Govt, Health, Tech,
 # Classifieds, Free, Veterinary).  Counted once per distinct name.
 #   Vietnam 13   13 rows spell "Vietnam"; 2 more in-network rows naming it are
 #                not boards (9cv9 = DSP, Athyna = Staffing Partner)
-#   France 102   102 distinct names ("Job Matrix" / "The Job Matrix" and
+#   France 106   106 distinct names ("Job Matrix" / "The Job Matrix" and
 #                "KelJob" / "The Network: Keljob (France)" are separate rows)
-#   United Kingdom 240   235 rows spell "United Kingdom" + 5 spell "UK"
+#   United Kingdom 244   rows spelling "United Kingdom" or "UK", counted by an
+#                independent pass over the JSON on 2026-10-20
 #   Mexico 36    36 rows spell "Mexico"; 9 more in-network rows naming it are
 #                staffing partners (LatamRecruit, Trio, Athyna ...)
 # Update these when the repository is refreshed.  Before the fix the line said
@@ -442,9 +476,9 @@ def test_ordering_never_adds_or_removes_a_board():
 # Amazon Ads, Uber Ads, Taboola, influencer tools ...).
 _HAND_COUNTED_BOARDS = {
     "Vietnam": 13,
-    "France": 102,
+    "France": 106,
     "Mexico": 36,
-    "United Kingdom": 240,
+    "United Kingdom": 244,
 }
 
 
@@ -517,7 +551,7 @@ _EXPECTED_LINES = {
     ),
     "Paris, France": (
         "Of the 3 boards shown, 2 are confirmed in network (global boards "
-        "included). The repository lists 102 in-network job boards for France in "
+        "included). The repository lists 106 in-network job boards for France in "
         "total; boards shown are chosen by market share, not matched to the role."
     ),
     "Monterrey, Mexico": (
@@ -527,7 +561,7 @@ _EXPECTED_LINES = {
     ),
     "Manchester, UK": (
         "Of the 3 boards shown, 3 are confirmed in network (global boards "
-        "included). The repository lists 240 in-network job boards for United "
+        "included). The repository lists 244 in-network job boards for United "
         "Kingdom in total; boards shown are chosen by market share, not matched "
         "to the role."
     ),
@@ -591,7 +625,15 @@ def test_deck_slide_five_marks_names_and_counts(vn_surfaces):
         "Vietnam",
         [b.rstrip(f" {pf.RELATIONSHIP_MARK}") for b in _vn_deck_boards(deck)],
     )
-    assert pf.supply_depth_line([{"depth": depth}]) in deck
+    # beside the scored regional boards the line says they are ranked by local
+    # relevance; with none funded it keeps the market-share wording
+    ranked = any(t.startswith("Regional & aggregator budget funds") for t in deck)
+    line = pf.supply_depth_line([{"depth": depth}], ranked=ranked)
+    assert line in deck
+    assert (pf.RANKED_NOTE in line) is ranked
+    assert (pf.SELECTION_NOTE in line or "chosen by market share" in line) is (
+        not ranked
+    )
 
 
 def _vn_deck_boards(deck: List[str]) -> List[str]:
@@ -646,7 +688,8 @@ def test_workbook_carries_the_key_to_the_statuses(vn_surfaces):
     assert pf.SUPPLY_STATUS_KEY in channels
     for phrase in (
         "In Joveo Network",
-        "VONQ Only",
+        "Via Redwood",
+        "In onboarding",
         "Relationship unverified",
         "Not available",
     ):
@@ -993,7 +1036,7 @@ def test_help_page_explains_the_statuses_and_the_selection_rule():
     text = re.sub(r"&[a-z]+;", " ", text)
     text = re.sub(r"\s+", " ", text)
     for phrase in (
-        "VONQ Only",
+        "Via Redwood",
         "has no row for it in that market",
         "Not available through Joveo",
         "is never shown in a plan",

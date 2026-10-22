@@ -289,10 +289,19 @@ SOC_CODES: Dict[str, str] = {
     "sap consultant": "15-1299",
     "operations manager": "11-1021",
     "branch manager": "11-3031",
-    "warehouse associate": "53-7065",
-    "warehouse worker": "53-7065",
+    # O*NET lists Warehouse Associate under 53-7062.00 (same as standardizer);
+    # stocker / order filler titles stay 53-7065.
+    "warehouse associate": "53-7062",
+    "warehouse worker": "53-7062",
     "forklift operator": "53-7051",
-    "delivery driver": "53-3031",
+    # Delivery without a CDL is Light Truck Drivers (53-3033). 53-3031 is
+    # Driver/Sales Workers (route SALES) and 53-3032 needs Class A.
+    "delivery driver": "53-3033",
+    "delivery driver (no cdl)": "53-3033",
+    "delivery driver (non-cdl)": "53-3033",
+    "gig delivery driver": "53-3033",
+    "package delivery driver": "53-3033",
+    "delivery associate": "53-3033",
     "truck driver": "53-3032",
     "cdl driver": "53-3032",
     "cdl-a driver": "53-3032",
@@ -366,6 +375,14 @@ SOC_CODES: Dict[str, str] = {
     "automotive technician": "49-3023",
     "diesel mechanic": "49-3031",
     "painter": "47-2141",
+    # A factory paint shop is Production, not Construction Laborers.
+    "industrial painter": "51-9124",
+    "paint shop technician": "51-9124",
+    "spray painter": "51-9124",
+    # First-line supervisors (not the occupation they supervise).
+    "production supervisor": "51-1011",
+    "manufacturing supervisor": "51-1011",
+    "maintenance supervisor": "49-1011",
     "roofer": "47-2181",
     "ironworker": "47-2171",
     "crane operator": "53-7021",
@@ -374,6 +391,8 @@ SOC_CODES: Dict[str, str] = {
     "pest control technician": "37-2021",
     "mover": "53-7064",
     "courier": "43-5021",
+    "messenger": "43-5021",
+    "bicycle courier": "43-5021",
     "package handler": "53-7064",
     "dock worker": "53-7062",
     "risk manager": "11-9199",
@@ -2401,6 +2420,14 @@ _SOC_EXTRA_MODIFIERS: Dict[str, frozenset] = {
     "11-9111": frozenset({"registered"}),
     "53-3032": _SOC_DRIVER_MODIFIERS,
     "53-3031": _SOC_DRIVER_MODIFIERS,
+    # Light truck / delivery: gig and last-mile are setting words. "cdl" is NOT
+    # allowed here: a CDL delivery title is the heavy-truck job.
+    "53-3033": frozenset({"gig", "last", "mile", "package", "parcel", "app"}),
+    # Plant supervisors: the line they run does not change the occupation.
+    "51-1011": frozenset(
+        {"battery", "assembly", "paint", "body", "plant", "line", "drive", "unit"}
+    ),
+    "49-1011": frozenset({"plant", "facilities"}),
     "53-3052": _SOC_DRIVER_MODIFIERS,
 }
 
@@ -2472,7 +2499,7 @@ def _soc_for_salary_role(role: str) -> Tuple[str, str]:
         # the fail-closed modifier allowlist above. Never the reverse
         # direction: a bare "Manager" or "Associate" is contained in many
         # titles and picked the first one (Product Manager 11-2021,
-        # Warehouse Associate 53-7065).
+        # Warehouse Associate 53-7062).
         soc = _soc_for_role_by_title_run(role_lower)
     # No word-overlap fallback: one shared word ("associate", "manager",
     # "service") used to pick the first matching SOC, which mapped Sales

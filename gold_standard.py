@@ -21,7 +21,9 @@ import datetime
 import logging
 import re
 import time as _time_mod
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from role_match import match_role_phrase
 
@@ -745,6 +747,38 @@ def _resolve_country(location_key: str) -> str | None:
     return None
 
 
+def _country_of_location(loc: Any) -> str | None:
+    """Country key (in _COUNTRY_SALARY_MULTIPLIERS) a non-US city sits in.
+
+    "Berlin, Germany" / "Grunheide, Germany" / a dict with a ``country`` used to
+    price at the flat generic default (5.5 hiring difficulty, COL 100) because
+    only the city part was looked up, while the bare country "Germany" got its
+    own 7.0 / COL 80: the same plan scored differently by how finely the
+    location was typed. The trailing country NAME (never a 2-letter code: "DE"
+    is Delaware) and plan_geo's bare-foreign-city country resolve it to the
+    same country row.
+    """
+    if isinstance(loc, dict):
+        parts = [str(loc.get("country") or "")]
+    elif isinstance(loc, str):
+        parts = [p for p in loc.split(",")[1:]]
+    else:
+        return None
+    for part in reversed(parts):
+        key = re.sub(r"\s+", " ", part.strip().lower().rstrip("."))
+        if key in _COUNTRY_SALARY_MULTIPLIERS and key in _COUNTRY_HIRING_DIFFICULTY:
+            return key
+    if _plan_geo_gs is not None:
+        try:
+            bare = _plan_geo_gs.bare_foreign_city_country(loc)
+        except Exception:  # noqa: BLE001 - best-effort country read
+            bare = None
+        key = str(bare or "").strip().lower()
+        if key in _COUNTRY_SALARY_MULTIPLIERS and key in _COUNTRY_HIRING_DIFFICULTY:
+            return key
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Per-role salary validation ranges (national, USD annual).
 # Used to clamp salary estimates when the enrichment source returns a salary
@@ -1162,8 +1196,19 @@ def _lookup_role_tier(role_title: str) -> tuple[str, str]:
     unmatched title.
     """
     profile = _lookup_role_difficulty(role_title)
+    is_supervisor = _detect_seniority_level(role_title.lower()) == "supervisor"
     if profile and profile.get("tier"):
-        return str(profile["tier"]), "role_profile_match"
+        tier = str(profile["tier"])
+        # A supervisor is never priced on the frontline band of the people
+        # supervised: one step up (a skilled-trade band is already above it).
+        if is_supervisor and tier == "frontline":
+            tier = "skilled_trade"
+        return tier, "role_profile_match"
+    if is_supervisor:
+        # A supervisory title is a classification, not an unknown title: the
+        # professional band (1.0x) sits above every frontline / skilled-trade
+        # band of the roles supervised.
+        return "professional", "seniority_keyword_match"
     return "professional", "unclassified_default"
 
 
@@ -1431,7 +1476,9 @@ def enrich_city_level_data(data: dict) -> dict:
         _resolved_country: str | None = None
         _country_col: float | None = None
         if multiplier is None and not _state_entry:
-            _resolved_country = _resolve_country(city_key)
+            _resolved_country = _resolve_country(city_key) or _country_of_location(
+                loc
+            )
             if _resolved_country is not None:
                 multiplier = _COUNTRY_SALARY_MULTIPLIERS[_resolved_country]
                 difficulty = _COUNTRY_HIRING_DIFFICULTY.get(_resolved_country, 5.5)
@@ -2911,6 +2958,25 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "channel_emphasis": "niche_heavy",
         "tier": "skilled_trade",
     },
+    # Industrial / paint-shop painters: a skilled-trade manufacturing profile
+    # (same tier and emphasis as welder), so these titles are classified rather
+    # than read as "unclassified" or caught by the generic "technician" row.
+    "industrial painter": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 40,
+        "supply_level": "moderate",
+        "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
+    },
+    "paint shop technician": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 40,
+        "supply_level": "moderate",
+        "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
+    },
     "electrician": {
         "seniority": "mid",
         "base_difficulty": 8,
@@ -3488,20 +3554,83 @@ def _frontline_head_noun_profile(title_lower: str) -> dict[str, Any] | None:
     return None
 
 
-def _get_location_modifier(locations: list[str]) -> tuple[float, str]:
+# A market's own hiring-difficulty score (the figure the plan prints for it) is
+# the anchor for every role in that market: the role modifier is the market
+# score's distance from the neutral 5.0, bounded so one market cannot swamp the
+# role's own base difficulty.
+_MARKET_MODIFIER_MIN = -1.5
+_MARKET_MODIFIER_MAX = 2.0
+_NEUTRAL_MARKET_SCORE = 5.0
+
+
+def _location_city_name(loc: Any) -> str:
+    """City part of a location exactly as enrich_city_level_data keys it."""
+    if isinstance(loc, str):
+        return loc.split(",")[0].strip()
+    if isinstance(loc, dict):
+        return str(loc.get("city") or loc.get("name") or "").strip()
+    return ""
+
+
+def _market_difficulty_scores(data: dict) -> dict[str, float]:
+    """``{lower-cased city name: hiring_difficulty}`` for the plan's markets,
+    from the SAME function that prints the market score (so a role's modifier
+    can never be derived from a different number than the one on the page).
+    Empty when the enrichment cannot run."""
+    try:
+        probe = dict(data)
+        probe["target_roles"] = []
+        probe["roles"] = []
+        rows = enrich_city_level_data(probe)
+    except Exception:  # noqa: BLE001 - modifier falls back to the US table
+        logger.error("market difficulty lookup failed", exc_info=True)
+        return {}
+    out: dict[str, float] = {}
+    for name, row in (rows or {}).items():
+        try:
+            out[str(name).lower()] = float(row["hiring_difficulty"])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def _get_location_modifier(
+    locations: list[Any], market_scores: dict[str, float] | None = None
+) -> tuple[float, str]:
     """Return (modifier, matched_location) for the highest-modifier location.
 
-    If no known location matches, returns (0.0, "").
+    A US city in _LOCATION_DIFFICULTY_MODIFIERS keeps its hand-set modifier.
+    A NON-US location that table does not know (it only lists US cities, so a
+    German plan always read 0.0 / "baseline") takes the modifier from its own
+    market score in ``market_scores`` (clamped), so a "Tight 7/10" market does
+    not print every role at a flat 5/10. If nothing matches, returns (0.0, "").
     """
     best_mod = 0.0
     best_loc = ""
     for loc in locations:
-        loc_lower = loc.lower().strip()
+        loc_lower = str(loc).lower().strip()
+        table_hit = False
         for city, mod in _LOCATION_DIFFICULTY_MODIFIERS.items():
             if city in loc_lower:
+                table_hit = True
                 if mod > best_mod or not best_loc:
                     best_mod = mod
                     best_loc = city
+        if table_hit or not market_scores:
+            continue
+        if _plan_geo_gs is None or _plan_geo_gs.location_is_us(loc) is not False:
+            continue
+        name = _location_city_name(loc)
+        score = market_scores.get(name.lower())
+        if score is None:
+            continue
+        mod = max(
+            _MARKET_MODIFIER_MIN,
+            min(_MARKET_MODIFIER_MAX, round(score - _NEUTRAL_MARKET_SCORE, 1)),
+        )
+        if mod > best_mod or not best_loc:
+            best_mod = mod
+            best_loc = f"{name} market {score:.1f}/10"
     return best_mod, best_loc
 
 
@@ -3515,6 +3644,229 @@ def _get_role_difficulty_modifier(role_title: str) -> tuple[float, int]:
     if profile:
         return (profile["base_difficulty"] - 5.0, profile["avg_ttf_days"] - 35)
     return (0.0, 0)
+
+
+# ---------------------------------------------------------------------------
+# Large employers by country (non-US plans)
+#
+# The US rosters in _INDUSTRY_TOP_EMPLOYERS are US companies, so a plan with no
+# US market shows none of them. data/major_employers_by_country.json holds the
+# LARGEST EMPLOYERS per country and broad industry, every row with the public
+# source it came from. It is a size list, not a measurement of who is bidding
+# for this exact role: callers must label it that way (see
+# LARGE_EMPLOYERS_NOTE) and must never present it as measured competition.
+# ---------------------------------------------------------------------------
+
+_MAJOR_EMPLOYERS_PATH = Path(__file__).parent / "data" / "major_employers_by_country.json"
+
+LARGE_EMPLOYERS_NOTE = (
+    "Largest employers in this country and industry from public sources; a "
+    "size-based list, not measured competition for this exact role."
+)
+
+# Display names of the broad employer industries in the data file.
+LARGE_EMPLOYER_INDUSTRY_LABELS: dict[str, str] = {
+    "automotive_manufacturing": "Automotive & Manufacturing",
+    "logistics_warehousing": "Logistics & Warehousing",
+    "retail": "Retail",
+    "healthcare": "Healthcare",
+    "technology": "Technology",
+    "financial_services": "Financial Services",
+    "energy_utilities": "Energy & Utilities",
+    "aviation_transport": "Aviation & Transport",
+}
+
+# _resolve_industry_key result -> broad employer industry. Keys that name no
+# broad industry in the file (staffing, hospitality, education, construction,
+# aerospace_defense, general) are absent on purpose: no row beats a wrong row.
+_EMPLOYER_INDUSTRY_BY_KEY: dict[str, str] = {
+    "manufacturing": "automotive_manufacturing",
+    "logistics": "logistics_warehousing",
+    "trucking": "logistics_warehousing",
+    "transportation": "logistics_warehousing",
+    "retail_consumer": "retail",
+    "healthcare_medical": "healthcare",
+    "technology": "technology",
+    "finance_banking": "financial_services",
+    "energy": "energy_utilities",
+}
+_AVIATION_TRANSPORT_RE = re.compile(r"aviation|airline|airport|airways|\brail")
+
+# Country spellings the plan resolvers produce -> the file's country keys.
+_EMPLOYER_COUNTRY_ALIASES: dict[str, str] = {
+    "uk": "united kingdom",
+    "great britain": "united kingdom",
+    "england": "united kingdom",
+    "uae": "united arab emirates",
+}
+
+_MAJOR_EMPLOYERS_CACHE: dict[str, list[dict[str, str]]] | None = None
+
+
+def _load_major_employers() -> dict[str, list[dict[str, str]]]:
+    """``{lower-cased country: [valid employer rows]}``; cached.
+
+    A row without a name, an industry in the broad list, an http(s) source_url
+    or an as_of is dropped here (fail closed): an unsourced employer is never
+    shown. A missing or unreadable file yields no rows, not an error.
+    """
+    global _MAJOR_EMPLOYERS_CACHE
+    if _MAJOR_EMPLOYERS_CACHE is not None:
+        return _MAJOR_EMPLOYERS_CACHE
+    import json as _json_mod
+
+    out: dict[str, list[dict[str, str]]] = {}
+    try:
+        with open(_MAJOR_EMPLOYERS_PATH, encoding="utf-8") as f:
+            raw = _json_mod.load(f)
+        for country, rows in (raw.get("countries") or {}).items():
+            valid: list[dict[str, str]] = []
+            for row in rows or []:
+                if not isinstance(row, dict):
+                    continue
+                name = str(row.get("name") or "").strip()
+                industry = str(row.get("industry") or "").strip()
+                url = str(row.get("source_url") or "").strip()
+                as_of = str(row.get("as_of") or "").strip()
+                if (
+                    name
+                    and industry in LARGE_EMPLOYER_INDUSTRY_LABELS
+                    and url.startswith(("http://", "https://"))
+                    and as_of
+                ):
+                    valid.append(
+                        {
+                            "name": name,
+                            "industry": industry,
+                            "source_url": url,
+                            "as_of": as_of,
+                        }
+                    )
+            out[str(country).strip().lower()] = valid
+    except (OSError, ValueError, AttributeError):
+        logger.error("major employers data unreadable", exc_info=True)
+        out = {}
+    _MAJOR_EMPLOYERS_CACHE = out
+    return out
+
+
+def employer_industry_for(raw_industry: Any) -> str:
+    """Broad employer industry (a key of LARGE_EMPLOYER_INDUSTRY_LABELS) for a
+    plan industry string, or "" when it names none."""
+    text = str(raw_industry or "").strip().lower()
+    if not text:
+        return ""
+    if text in LARGE_EMPLOYER_INDUSTRY_LABELS:
+        return text
+    if _AVIATION_TRANSPORT_RE.search(text):
+        return "aviation_transport"
+    key = _resolve_industry_key(text)
+    return _EMPLOYER_INDUSTRY_BY_KEY.get(key, "")
+
+
+def large_employers_for(
+    country: Any, raw_industry: Any, limit: int = 8, client_name: Any = None
+) -> dict[str, Any]:
+    """Sourced large employers for ``country`` x plan industry.
+
+    Returns ``{}`` when the country or industry has no rows. Otherwise
+    ``{"employers": [...], "label": "Largest employers in <country>
+    (<industry>)", "note": LARGE_EMPLOYERS_NOTE, "country": ..., "industry":
+    ...}``; each employer carries its own source_url and as_of. The plan's own
+    client (``client_name``, matched with company_blurb's name normalizer) is
+    never listed: a client is not an employer "to compete with".
+    """
+    ckey = str(country or "").strip().lower()
+    ckey = _EMPLOYER_COUNTRY_ALIASES.get(ckey, ckey)
+    ind = employer_industry_for(raw_industry)
+    if not ckey or not ind:
+        return {}
+    rows = [r for r in _load_major_employers().get(ckey, []) if r["industry"] == ind]
+    if isinstance(client_name, str) and client_name.strip():
+        import company_blurb
+
+        rows = [r for r in rows if not company_blurb.name_agrees(client_name, r["name"])]
+    if not rows:
+        return {}
+    display = " ".join(w.capitalize() if w != "of" else w for w in ckey.split())
+    if ckey == "united arab emirates":
+        display = "United Arab Emirates"
+    return {
+        "employers": [dict(r) for r in rows[: max(1, int(limit))]],
+        "label": (
+            f"Largest employers in {display} "
+            f"({LARGE_EMPLOYER_INDUSTRY_LABELS[ind]})"
+        ),
+        "note": LARGE_EMPLOYERS_NOTE,
+        "country": display,
+        "industry": ind,
+    }
+
+
+def _employer_source_host(url: str) -> str:
+    """Registrable-ish domain of a source URL ("annualreport2025.volkswagen-
+    group.com" -> "volkswagen-group.com"); '' when it has none."""
+    host = (urlparse(str(url or "")).hostname or "").lower()
+    parts = [p for p in host.split(".") if p]
+    if len(parts) <= 2:
+        return ".".join(parts)
+    if parts[-2] in ("co", "com", "org", "gov", "ac") and len(parts[-1]) == 2:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
+
+
+def large_employer_groups(competitor_mapping: Any) -> list[dict[str, Any]]:
+    """Large-employer lists a plan's non-US markets carry, ready to render.
+
+    One entry per distinct market label, in plan order: ``{"label", "names",
+    "note", "source"}`` where ``source`` reads "Source: <publishers>, as of
+    <date>" from the rows' own source URLs and as-of dates. [] when no market
+    has a list (a US plan, or a country/industry with no sourced row): the
+    caller then shows nothing, never another industry's or the US list."""
+    groups: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    if not isinstance(competitor_mapping, dict):
+        return groups
+    for key, info in competitor_mapping.items():
+        if str(key).startswith("_") or not isinstance(info, dict):
+            continue
+        label = str(info.get("large_employers_label") or "").strip()
+        rows = [
+            r
+            for r in (info.get("large_employers") or [])
+            if isinstance(r, dict) and str(r.get("name") or "").strip()
+        ]
+        if not label or not rows or label in seen:
+            continue
+        seen.add(label)
+        hosts: list[str] = []
+        for r in rows:
+            host = _employer_source_host(r.get("source_url"))
+            if host and host not in hosts:
+                hosts.append(host)
+        dates = sorted({str(r.get("as_of") or "").strip() for r in rows} - {""})
+        shown = ", ".join(hosts[:3]) + (
+            f", +{len(hosts) - 3} more in the workbook's Sources sheet"
+            if len(hosts) > 3
+            else ""
+        )
+        when = (
+            dates[0]
+            if len(dates) == 1
+            else f"{dates[0]} to {dates[-1]}" if dates else "date not recorded"
+        )
+        groups.append(
+            {
+                "label": label,
+                "names": [str(r["name"]).strip() for r in rows[:8]],
+                "note": str(info.get("large_employers_note") or "").strip(),
+                "source_hosts": hosts,
+                "source": f"Source: public company reports and pages ({shown}), as of {when}"
+                if hosts
+                else f"Source: public company reports, as of {when}",
+            }
+        )
+    return groups
 
 
 def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
@@ -3579,6 +3931,11 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
                 role_titles.append(t)
 
     competitor_map: dict[str, Any] = {}
+    _plan_locations_by_city: dict[str, Any] = {}
+    for _lk in ("locations", "location", "cities"):
+        _lv = data.get(_lk)
+        for _loc in _lv if isinstance(_lv, list) else ([_lv] if _lv else []):
+            _plan_locations_by_city.setdefault(_location_city_name(_loc).lower(), _loc)
     for city_name in city_data:
         city_key = city_name.lower()
         local_competitors = industry_employers.get(city_key, [])
@@ -3638,6 +3995,28 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
         ) or _no_us_market:
             all_competitors = list(brief_competitors)[:8]
 
+        # Non-US market: no US roster, so show the sourced large-employer list
+        # for its country and industry instead, in its OWN fields (never in
+        # top_employers, which renderers present as competitors). The label and
+        # note say it is a size list, not measured competition for this role.
+        _large: dict[str, Any] = {}
+        if (
+            _plan_geo_gs is not None and _plan_geo_gs.location_is_us(city_name) is False
+        ) or _no_us_market:
+            _city_row = city_data[city_name] if isinstance(city_data, dict) else {}
+            _country_key = ""
+            if isinstance(_city_row, dict) and _city_row.get("geo_basis") == "country":
+                _country_key = str(_city_row.get("geo_basis_area") or "")
+            if not _country_key:
+                _country_key = _country_of_location(
+                    _plan_locations_by_city.get(city_key, city_name)
+                ) or ""
+            _large = large_employers_for(
+                _country_key,
+                raw_industry,
+                client_name=data.get("client_name") or data.get("company_name"),
+            )
+
         base_difficulty = city_data[city_name].get("hiring_difficulty", 5.5)
 
         # ── Per-role difficulty within this city ──
@@ -3679,6 +4058,10 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
                 avg_difficulty, len(roles_raw)
             ),
         }
+        if _large:
+            competitor_map[city_name]["large_employers"] = _large["employers"]
+            competitor_map[city_name]["large_employers_label"] = _large["label"]
+            competitor_map[city_name]["large_employers_note"] = _large["note"]
 
     # Also add a national-level entry -- brief competitors first, same
     # precedence order as the per-city entries above (consistency:atria#4).
@@ -3749,6 +4132,30 @@ _SENIORITY_KEYWORDS: dict[str, list[str]] = {
     "intern": ["intern", "trainee", "apprentice", "co-op", "student"],
     "junior": ["junior", "jr", "entry", "associate", "assistant", "i"],
     "mid": ["mid", "intermediate", "ii", "specialist"],
+    # First-line supervision: above the individual contributors supervised,
+    # below a manager. "lead" alone stays senior (a lead engineer is not a
+    # supervisor); only the supervisory phrases count here.
+    "supervisor": [
+        "supervisor",
+        "supervisors",
+        "foreman",
+        "forewoman",
+        "team lead",
+        "team leader",
+        "shift lead",
+        "shift leader",
+        "line lead",
+        "line leader",
+        "crew leader",
+        "group leader",
+        "meister",
+        "industriemeister",
+        "werkmeister",
+        "vorarbeiter",
+        "schichtleiter",
+        "teamleiter",
+        "gruppenleiter",
+    ],
     "senior": ["senior", "sr", "lead", "principal", "iii", "staff"],
     "director": ["director", "head of", "vp", "vice president"],
     "executive": ["chief", "cto", "cfo", "coo", "cio", "ceo", "partner", "evp", "svp"],
@@ -3763,6 +4170,7 @@ _SENIORITY_KEYWORDS: dict[str, list[str]] = {
 _SENIORITY_PRECEDENCE: tuple[str, ...] = (
     "executive",
     "director",
+    "supervisor",
     "senior",
     "mid",
     "intern",
@@ -3798,6 +4206,16 @@ _DIFFICULTY_PROFILES: dict[str, dict[str, Any]] = {
         "budget_weight": 1.0,
         "channel_emphasis": "balanced",
         "description": "Mid-level -- balanced sourcing across channels",
+    },
+    "supervisor": {
+        "complexity_score": 6,
+        "avg_time_to_fill_days": 45,
+        "budget_weight": 1.3,
+        "channel_emphasis": "balanced",
+        "description": (
+            "Supervisor / team lead -- first-line leadership hired from "
+            "experienced individual contributors"
+        ),
     },
     "senior": {
         "complexity_score": 6,
@@ -3936,7 +4354,12 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
             else:
                 locations.append(str(loc_val))
 
-    loc_modifier, loc_matched = _get_location_modifier(locations)
+    loc_modifier, loc_matched = _get_location_modifier(
+        locations, _market_difficulty_scores(data) if locations else None
+    )
+    # Market-derived modifiers say so in the role description (the US city
+    # table's hand-set modifiers keep their existing wording).
+    market_derived = bool(re.search(r" market \d+\.\d/10$", loc_matched))
 
     results: list[dict[str, Any]] = []
 
@@ -3955,10 +4378,30 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
         if role_profile:
             # Role-type profile found -- use its values directly
             base_diff = float(role_profile["base_difficulty"])
-            adjusted_difficulty = max(1.0, min(10.0, base_diff + loc_modifier))
             seniority = str(role_profile["seniority"])
             ttf = int(role_profile["avg_ttf_days"])
             supply = str(role_profile["supply_level"])
+            supervisor_reason = ""
+            if _detect_seniority_level(title.lower()) == "supervisor":
+                # A supervisor title that only matched a frontline head-noun
+                # profile ("Warehouse Supervisor" -> the warehouse profile, base
+                # 2) must not score as the people it supervises, nor below an
+                # unclassified sibling. Score = max(frontline profile + 1, the
+                # supervisor tier, which a title with no role profile gets), then
+                # the same market adjustment as every other role.
+                frontline_base = base_diff
+                tier = _DIFFICULTY_PROFILES["supervisor"]
+                base_diff = min(
+                    10.0, max(frontline_base + 1.0, float(tier["complexity_score"]))
+                )
+                ttf = max(ttf, int(tier["avg_time_to_fill_days"]))
+                supervisor_reason = (
+                    f"supervisor tier: matched profile base {frontline_base:.0f} "
+                    f"+1, floored at the supervisor tier {tier['complexity_score']}"
+                )
+                if seniority not in ("senior", "director", "executive"):
+                    seniority = "supervisor"
+            adjusted_difficulty = max(1.0, min(10.0, base_diff + loc_modifier))
 
             # Derive budget weight and channel emphasis from difficulty
             if adjusted_difficulty >= 9:
@@ -3987,6 +4430,13 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
                 f"difficulty {adjusted_difficulty:.1f}/10, "
                 f"~{ttf} day fill time"
             )
+            if supervisor_reason:
+                description += f" ({supervisor_reason})"
+            if market_derived and loc_modifier:
+                description += (
+                    f" (role base {base_diff:.1f} {loc_modifier:+.1f} market "
+                    f"adjustment: {loc_matched})"
+                )
 
             results.append(
                 {
@@ -4043,6 +4493,11 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
                 )
 
             adjusted_complexity = max(1.0, min(10.0, base_complexity + loc_modifier))
+            if market_derived and loc_modifier and detected_level != "mid":
+                description += (
+                    f" (role base {base_complexity:.1f} {loc_modifier:+.1f} "
+                    f"market adjustment: {loc_matched})"
+                )
 
             # Same channel-selection gate as the role-profile branch; the
             # senior profile's description names niche channels outright.
@@ -4626,6 +5081,11 @@ def build_channel_strategy(
             seniority_levels.append("senior")
         elif raw == "entry":
             seniority_levels.append("junior")
+        elif raw == "supervisor":
+            # The channel tables have no supervisor column; a first-line
+            # supervisor is sourced from the same pool as the mid-level roles
+            # (which is where they landed before they had a level of their own).
+            seniority_levels.append("mid")
         else:
             seniority_levels.append(raw)
     seniority_levels = list(set(seniority_levels))  # dedup

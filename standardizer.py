@@ -765,28 +765,82 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
             "cdl driver",
             "cdl-a driver",
             "long haul driver",
-            "delivery driver",
             "bus driver",
-            "courier",
             "dispatcher",
         ],
         "soc": "53-3032",
         "tier": "skilled",
         "category": "transportation_logistics",
     },
+    # Delivery work that needs no CDL (app / gig / last-mile / package delivery in
+    # a van or car) is Light Truck Drivers, never Heavy and Tractor-Trailer
+    # (53-3032, which needs Class A) and never Driver/Sales Workers (53-3031,
+    # which is route SALES). normalize_role sends a delivery title that names a
+    # CDL / tractor-trailer back to truck_driver.
+    "delivery_driver": {
+        "aliases": [
+            "delivery driver",
+            "gig delivery driver",
+            "gig driver",
+            "app delivery driver",
+            "last mile delivery driver",
+            "last-mile delivery driver",
+            "package delivery driver",
+            "parcel delivery driver",
+            "courier driver",
+            "van driver",
+            "delivery associate",
+            "delivery partner",
+            "delivery person",
+        ],
+        "soc": "53-3033",
+        "tier": "entry",
+        "category": "transportation_logistics",
+    },
+    # Bike / foot couriers and messengers: Couriers and Messengers.
+    "courier": {
+        "aliases": [
+            "messenger",
+            "bike courier",
+            "bicycle courier",
+            "foot courier",
+            "courier messenger",
+        ],
+        "soc": "43-5021",
+        "tier": "entry",
+        "category": "transportation_logistics",
+    },
+    # Hand-moving freight / picking / packing: Laborers and Freight, Stock, and
+    # Material Movers, Hand. Stockers and order fillers are 53-7065 below.
     "warehouse_worker": {
         "aliases": [
             "warehouse associate",
+            "warehouse worker",
+            "warehouse operative",
             "warehouse manager",
             "forklift operator",
             "picker packer",
+            "warehouse picker",
+            "fulfillment associate",
+            "fulfilment associate",
+            "fulfillment center associate",
             "material handler",
             "package handler",
             "dock worker",
             "mover",
-            "stocker",
             "shipping clerk",
             "receiving clerk",
+        ],
+        "soc": "53-7062",
+        "tier": "entry",
+        "category": "transportation_logistics",
+    },
+    "order_filler": {
+        "aliases": [
+            "stocker",
+            "stock clerk",
+            "order picker",
+            "order selector",
         ],
         "soc": "53-7065",
         "tier": "entry",
@@ -803,7 +857,6 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
             "hvac technician",
             "welder",
             "machinist",
-            "painter",
             "roofer",
             "ironworker",
             "crane operator",
@@ -811,6 +864,56 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
             "concrete worker",
         ],
         "soc": "47-2061",
+        "tier": "skilled",
+        "category": "skilled_trades",
+    },
+    # Painting. A factory paint shop (spray / coating line) is Production
+    # (51-9124); painting a building is Construction (47-2141). Neither is
+    # Construction Laborers (47-2061).
+    "industrial_painter": {
+        "aliases": [
+            "industrial painter",
+            "paint shop technician",
+            "paint shop operator",
+            "paint shop worker",
+            "paint line operator",
+            "paint technician",
+            "spray painter",
+            "spray booth operator",
+            "coating operator",
+            "powder coater",
+        ],
+        "soc": "51-9124",
+        "tier": "skilled",
+        "category": "engineering_manufacturing",
+    },
+    "construction_painter": {
+        "aliases": [
+            "painter",
+            "house painter",
+            "commercial painter",
+            "residential painter",
+            "construction painter",
+            "building painter",
+            "drywall painter",
+            "painting contractor",
+        ],
+        "soc": "47-2141",
+        "tier": "skilled",
+        "category": "skilled_trades",
+    },
+    # First-line supervisors. Assigned by normalize_role's supervisor rule (a
+    # supervisory word plus a production or maintenance word anywhere in the
+    # title), not by alias substrings.
+    "production_supervisor": {
+        "aliases": ["production supervisor", "manufacturing supervisor"],
+        "soc": "51-1011",
+        "tier": "skilled",
+        "category": "engineering_manufacturing",
+    },
+    "maintenance_supervisor": {
+        "aliases": ["maintenance supervisor"],
+        "soc": "49-1011",
         "tier": "skilled",
         "category": "skilled_trades",
     },
@@ -825,6 +928,8 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
             "auto mechanic",
             "automotive technician",
             "diesel mechanic",
+            "industrial mechanic",
+            "maintenance mechanic",
         ],
         "soc": "49-9071",
         "tier": "skilled",
@@ -895,7 +1000,81 @@ for _rkey, _rmeta in CANONICAL_ROLES.items():
 _EXACT_ONLY_ROLE_ALIASES: Dict[str, str] = {
     "sales associate": "retail_associate",
     "retail sales associate": "retail_associate",
+    # "picker" / "packer" inside a longer word or title ("Meat Packer",
+    # "Backpacker") is another occupation; alone they are warehouse hand work.
+    "picker": "warehouse_worker",
+    "packer": "warehouse_worker",
 }
+
+# --- First-line supervisor rule -------------------------------------------
+# A title is a first-line supervisor when it carries a supervisory word AND a
+# production or maintenance word ANYWHERE in it ("Supervisor Maintenance -
+# Drive Unit", "Battery Production Supervisor"). Alias substrings cannot
+# express that, and without it these titles matched nothing and fell to a
+# default tier. A bare "Shift Supervisor" / "Team Lead" names no industry (a
+# retail shift supervisor is 41-1011, not Production), so it stays unmatched.
+_SUPERVISOR_RE = re.compile(
+    r"\b(?:supervisors?|foremen|foreman|forewoman|team leads?|team leaders?|"
+    r"shift leads?|shift leaders?|line leads?|line leaders?|crew leaders?|"
+    r"group leaders?|vorarbeiter|meister|schichtleiter|teamleiter)\b"
+)
+_MAINTENANCE_RE = re.compile(
+    r"\b(?:maintenance|mechanics?|repair|millwright|instandhaltung)\b"
+)
+# A production context for 51-1011 is a word that names making things. Bare
+# "line", "press" and "cell" are not: "Help Line", "Fire Line", "Press Office"
+# and "Line Cook" are other occupations, so only the compound forms count.
+_PRODUCTION_RE = re.compile(
+    r"\b(?:production|manufacturing|assembly|plant|factory|fabrication|"
+    r"machining|cnc|battery|drive unit|powertrain|paint|paint shop|"
+    r"press shop|press line|stamping|casting|molding|moulding|welding|"
+    r"packaging line|body shop|produktion|fertigung)\b"
+)
+# Words that name a different occupation family: a supervisory title with one
+# of these is not a plant supervisor ("Retail Production Supervisor" is rare;
+# "Customer Service Team Lead" and "Kitchen Supervisor" must not be 51-1011,
+# nor "Landscape Maintenance Supervisor" 49-1011).
+_NON_PLANT_SUPERVISOR_RE = re.compile(
+    r"\b(?:retail|store|sales|customer|call center|kitchen|restaurant|food|"
+    r"cook|cooks|chef|nursing|nurse|clinical|software|engineering|it|marketing|"
+    r"hr|finance|warehouse|delivery|driver|security|housekeeping|cleaning|"
+    r"janitorial|office|fire|landscape|landscaping|grounds|groundskeeping|"
+    r"lawn|garden|gardening)\b"
+)
+
+# Canonical keys only the supervisor rule (or an exact alias) may assign: the
+# substring scan must never hand 51-1011 / 49-1011 to a title that failed the
+# rule's context test ("Landscape Maintenance Supervisor" contains the alias
+# "maintenance supervisor").
+_RULE_ONLY_SUPERVISOR_KEYS: frozenset[str] = frozenset(
+    {"production_supervisor", "maintenance_supervisor"}
+)
+
+# A delivery title that names a CDL / tractor-trailer is the heavy-truck job.
+_CDL_RE = re.compile(r"\b(?:cdl|class\s*a|tractor[\s-]*trailer|semi|18[\s-]*wheeler)\b")
+_NO_CDL_RE = re.compile(r"\b(?:no|non|without)[\s-]+cdl\b")
+
+
+def _supervisor_role(cleaned: str) -> str:
+    """Canonical supervisor key for a lower-cased title, or "" when it is not a
+    plant / maintenance first-line supervisor (see _SUPERVISOR_RE)."""
+    if not _SUPERVISOR_RE.search(cleaned) or _NON_PLANT_SUPERVISOR_RE.search(cleaned):
+        return ""
+    if _MAINTENANCE_RE.search(cleaned):
+        return "maintenance_supervisor"
+    if _PRODUCTION_RE.search(cleaned):
+        return "production_supervisor"
+    return ""
+
+
+def _apply_cdl_guard(canon: str, cleaned: str) -> str:
+    """A delivery title that names a CDL / tractor-trailer ("Delivery Driver
+    CDL-A") is the heavy-truck job (53-3032); "no CDL" / "non-CDL" is not."""
+    if canon != "delivery_driver":
+        return canon
+    if _CDL_RE.search(_NO_CDL_RE.sub(" ", cleaned)):
+        return "truck_driver"
+    return canon
 
 
 def normalize_role(raw: str | None) -> str:
@@ -931,11 +1110,16 @@ def normalize_role(raw: str | None) -> str:
 
     # 1 + 2: direct lookup
     if cleaned in _ROLE_ALIAS_MAP:
-        return _ROLE_ALIAS_MAP[cleaned]
+        return _apply_cdl_guard(_ROLE_ALIAS_MAP[cleaned], cleaned)
 
     underscored = cleaned.replace(" ", "_").replace("-", "_")
     if underscored in _ROLE_ALIAS_MAP:
-        return _ROLE_ALIAS_MAP[underscored]
+        return _apply_cdl_guard(_ROLE_ALIAS_MAP[underscored], cleaned)
+
+    # 2b: first-line supervisor (production / maintenance)
+    sup = _supervisor_role(cleaned)
+    if sup:
+        return sup
 
     # 3: substring scan — prefer longest matching alias
     best_match: str = ""
@@ -943,6 +1127,8 @@ def normalize_role(raw: str | None) -> str:
     for alias, canon in _ROLE_ALIAS_MAP.items():
         if len(alias) < 3:
             continue  # skip very short aliases to avoid false positives
+        if canon in _RULE_ONLY_SUPERVISOR_KEYS:
+            continue
         if alias in cleaned and len(alias) > best_len:
             best_match = canon
             best_len = len(alias)
@@ -951,7 +1137,7 @@ def normalize_role(raw: str | None) -> str:
             best_len = len(cleaned)
 
     if best_match:
-        return best_match
+        return _apply_cdl_guard(best_match, cleaned)
 
     # 4: no match — return cleaned form
     return re.sub(r"\s+", "_", underscored)

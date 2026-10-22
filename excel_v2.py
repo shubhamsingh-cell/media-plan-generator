@@ -83,6 +83,7 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
 import geo_market
 import plan_geo
 import plan_trust
+import plan_validator
 import publisher_filter
 import client_story
 import plan_projection
@@ -99,6 +100,7 @@ from market_evidence import market_metric_is_observed, observed_market_provider_
 # ``data["_gold_standard"]`` dict from apply_all_quality_gates), which would
 # shadow a bare `import gold_standard` inside those functions' scopes.
 import gold_standard as gs_lib
+import channel_funding
 
 logger = logging.getLogger(__name__)
 
@@ -592,6 +594,78 @@ def _seasonal_monthly_phasing(
     return _seasonal_monthly_phasing_detail(
         industry, campaign_start_month, activation_timeline
     )["pcts"]
+
+
+#: Cost-per-application multiplier for a month the plan's own Activation
+#: Calendar rates "high" / "very_high" when the calendar entry carries no
+#: numeric multiplier. A Nova estimate, not a measured figure -- the single place
+#: this number lives; the forecast labels it as such.
+_PEAK_CPA_MULTIPLIER_ESTIMATE: Dict[str, float] = {"high": 1.10, "very_high": 1.20}
+
+
+def _calendar_cpa_multipliers(
+    months: List[int], activation_timeline: Optional[list]
+) -> Tuple[List[float], List[str]]:
+    """Per-month cost-per-application multiplier and where it came from.
+
+    A month the plan's Activation Calendar rates High / Very high costs more per
+    application, so the forecast's month-by-month CPA must not stay flat through
+    it. The multiplier is the calendar's own ``budget_weight`` when that is a
+    real figure above 1.0; with only the word, the labelled
+    ``_PEAK_CPA_MULTIPLIER_ESTIMATE``. Months not rated high keep 1.0 (no saving
+    is claimed for a quiet month). Basis per month: "calendar", "Nova estimate"
+    or "".
+    """
+    by_month: Dict[int, dict] = {}
+    for entry in activation_timeline or []:
+        if isinstance(entry, dict) and not isinstance(entry.get("month"), bool):
+            try:
+                by_month[int(entry.get("month"))] = entry
+            except (TypeError, ValueError):
+                continue
+    mults: List[float] = []
+    basis: List[str] = []
+    for m in months:
+        entry = by_month.get(m) or {}
+        word = str(entry.get("hiring_intensity") or "").lower().replace(" ", "_")
+        weight = entry.get("budget_weight")
+        if word not in _PEAK_CPA_MULTIPLIER_ESTIMATE:
+            mults.append(1.0)
+            basis.append("")
+        elif (
+            isinstance(weight, (int, float))
+            and not isinstance(weight, bool)
+            and math.isfinite(weight)
+            and weight > 1.0
+        ):
+            mults.append(float(weight))
+            basis.append("calendar")
+        else:
+            mults.append(_PEAK_CPA_MULTIPLIER_ESTIMATE[word])
+            basis.append("Nova estimate")
+    return mults, basis
+
+
+def _weighted_period_shares(pcts: List[float], mults: List[float]) -> List[float]:
+    """Application shares per period: spend share divided by the period's cost
+    multiplier (a dearer month buys fewer applications per dollar), renormalised
+    so the total is unchanged."""
+    raw = [p / m if m > 0 else p for p, m in zip(pcts, mults)]
+    total = sum(raw)
+    return [r / total for r in raw] if total > 0 else list(pcts)
+
+
+def _forecast_period_months(
+    split: dict, forecast_start: datetime.date, weekly_frame: bool, n_periods: int
+) -> List[int]:
+    """Calendar month (1-12) each forecast column falls in: the column's month,
+    or for a weekly column the month holding its middle day."""
+    if weekly_frame:
+        return [
+            (forecast_start + datetime.timedelta(days=7 * k + 3)).month
+            for k in range(n_periods)
+        ]
+    return [m for _, m in (split.get("months") or [])][:n_periods]
 
 
 def _short_plan_forecast_split(
@@ -2248,6 +2322,182 @@ def _is_us_labelled_entry(key: Any, value: Any) -> bool:
     return isinstance(value, str) and bool(_US_LABELLED_RE.search(value))
 
 
+#: Which market each Workforce Trends block describes. Explicit on purpose --
+#: a block with no entry here is NOT assumed to be global: on a plan with no US
+#: market it is hidden (the knowledge base behind these blocks is US-built).
+#: "Global" = a cross-market statistic set whose entries state a worldwide scope
+#: (shown, labelled "Global"); a country name = that country's data (shown when
+#: the plan is in that country).
+_WORKFORCE_BLOCK_GEOGRAPHY: Dict[str, str] = {
+    "gen_z_insights": "United States",  # Gen Z / TikTok job-search survey stats
+    "appcast_2026_benchmarks": "United States",  # Appcast US medians
+    "google_ads_2025_benchmarks": "United States",  # US ad-platform benchmarks
+    "relevant_research": "United States",  # US-published benchmark reports
+    "employer_branding": "Global",  # worldwide platform reach, EVP ROI
+    "supply_partner_trends": "Global",  # worldwide platform / programmatic trends
+    "job_type_trends": "Global",  # worldwide role / gig / remote trends
+}
+
+
+def _workforce_block_geography(key: str) -> Optional[str]:
+    """The market a Workforce Trends block describes, or None when untagged."""
+    return _WORKFORCE_BLOCK_GEOGRAPHY.get(str(key))
+
+
+def _workforce_block_shown(key: str, data: dict) -> bool:
+    """Whether a Workforce Trends block belongs on a plan that has NO US market:
+    only a block tagged "Global", or tagged with a country the plan is in.
+    Untagged blocks and US-tagged blocks stay out."""
+    geography = _workforce_block_geography(key)
+    if geography is None:
+        return False
+    if geography.lower() == "global":
+        return True
+    try:
+        countries = {str(c).lower() for c in publisher_filter.plan_countries(data)}
+    except (KeyError, TypeError, ValueError, AttributeError):
+        countries = set()
+    return geography.lower() in countries
+
+
+#: Item-level market tags for the "Global" Workforce Trends blocks. A block tag
+#: alone is not evidence -- these KB blocks mix worldwide figures with US
+#: surveys (Gen Z platform shares, US federal RTO, US employers, US job boards).
+#: On a plan with no US market an item is shown ONLY when it is listed here
+#: (reviewed as stating no single country, and sourced from no US-labelled
+#: study); an untagged item is dropped, and a block left with no item is hidden.
+_WORKFORCE_GLOBAL_ITEMS: frozenset = frozenset(
+    {
+        "supply_partner_trends.job_board_evolution.indeed",
+        "supply_partner_trends.job_board_evolution.linkedin",
+        "supply_partner_trends.social_recruiting.tiktok",
+        "supply_partner_trends.social_recruiting.instagram",
+        "supply_partner_trends.social_recruiting.reddit",
+        "job_type_trends.growing_demand.ai_ml_engineers",
+        "job_type_trends.growing_demand.cybersecurity",
+        "job_type_trends.growing_demand.renewable_energy",
+        "employer_branding.roi_data.quality_of_hire_impact",
+        "employer_branding.roi_data.roi_timeline",
+        "employer_branding.channel_effectiveness.linkedin",
+        "employer_branding.channel_effectiveness.careers_page",
+        "supply_partner_trends.job_board_evolution.ziprecruiter",
+        "supply_partner_trends.job_board_evolution.google_for_jobs",
+        "supply_partner_trends.job_board_evolution.niche_vs_generalist",
+        "supply_partner_trends.job_board_evolution.consolidation_and_acquisitions",
+        "supply_partner_trends.programmatic_trends.market_growth",
+        "supply_partner_trends.programmatic_trends.click_fraud_and_ad_fraud",
+        "supply_partner_trends.programmatic_trends.publisher_quality",
+        "supply_partner_trends.programmatic_trends.pricing_model_evolution",
+        "supply_partner_trends.programmatic_trends.one_click_apply",
+        "supply_partner_trends.programmatic_trends.programmatic_adoption_2026",
+        "supply_partner_trends.social_recruiting.emerging_platforms",
+        "supply_partner_trends.social_recruiting.employee_advocacy",
+        "supply_partner_trends.emerging_channels.voice_advertising",
+        "supply_partner_trends.emerging_channels.metaverse_recruiting",
+        "supply_partner_trends.emerging_channels.ai_chatbot_recruiting",
+        "job_type_trends.growing_demand.financial_compliance_risk",
+        "job_type_trends.declining_roles.data_entry",
+        "job_type_trends.declining_roles.customer_service",
+        "job_type_trends.declining_roles.traditional_media",
+        "job_type_trends.declining_roles.basic_accounting",
+        "job_type_trends.gig_economy.market_size",
+        "job_type_trends.gig_economy.global_scale",
+        "job_type_trends.gig_economy.platform_trends",
+        "job_type_trends.gig_economy.upwork_stats",
+        "job_type_trends.remote_work.job_postings_breakdown",
+        "job_type_trends.remote_work.employer_plans",
+        "job_type_trends.remote_work.remote_work_by_industry",
+        "job_type_trends.remote_work.geographic_pay_adjustments",
+    }
+)
+
+#: Sub-items of a tagged item that are US case studies / US-company examples.
+#: The item itself is global (platform facts), but these leaves are not, and no
+#: acronym or source name in their text says so -- they are tagged here, at the
+#: source, and dropped (with everything beneath them) on a plan with no US market.
+_WORKFORCE_US_EXAMPLE_ITEMS: frozenset = frozenset(
+    {
+        "supply_partner_trends.social_recruiting.tiktok.case_studies",
+    }
+)
+
+#: A tagged item is pruned of its US-sourced or single-country leaves: a KB edit
+#: (or a mixed item such as the AI/ML block, which carries one "US positions" line)
+#: never lets one reach a non-US plan. Acronyms are case-sensitive ("us" is a word).
+_WORKFORCE_US_ACRONYM_RE = re.compile(
+    r"(?<![\w$])(?<!non-)(?<!Non-)US(?![\w$])|U\.S\.|(?<![\w$])U\.?K\.?(?![\w$])|"
+    r"\bIRA\b|\bNACE\b|\bBLS\b"
+)
+_WORKFORCE_US_SOURCED_RE = re.compile(
+    r"\bAmericans?\b|\bUnited (?:States|Kingdom)\b|\bCensus\b|\bfederal\b|"
+    r"\bnationwide\b|\bGen Z\b|Truist|Robert Half|FlexJobs|Wonolo|Instawork|"
+    r"BlueCrew|Walmart|Sam'?s Club|California|Proposition|Big Beautiful",
+    re.IGNORECASE,
+)
+
+
+def _without_us_examples(path: str, value: Any) -> Any:
+    """``value`` (the item at dotted ``path``) minus the sub-items tagged as
+    US case studies / US-company examples."""
+    if not isinstance(value, dict):
+        return value
+    return {
+        k: _without_us_examples(f"{path}.{k}", v)
+        for k, v in value.items()
+        if f"{path}.{k}" not in _WORKFORCE_US_EXAMPLE_ITEMS
+    }
+
+
+def _workforce_leaf_is_us_sourced(key: Any, value: Any) -> bool:
+    text = f"{str(key).replace('_', ' ')} {_flatten_value(value)}"
+    return bool(
+        _WORKFORCE_US_ACRONYM_RE.search(text) or _WORKFORCE_US_SOURCED_RE.search(text)
+    )
+
+
+def _prune_us_sourced(key: Any, value: Any) -> Any:
+    """``value`` without its US-sourced leaves; ``None`` when nothing is left."""
+    if isinstance(value, dict):
+        kept = {}
+        for k, v in value.items():
+            pruned = _prune_us_sourced(k, v)
+            if pruned is not None:
+                kept[k] = pruned
+        return kept or None
+    if isinstance(value, list):
+        items = [
+            pruned
+            for pruned in (_prune_us_sourced(key, v) for v in value)
+            if pruned is not None
+        ]
+        return items or None
+    if value in (None, ""):
+        return None
+    return None if _workforce_leaf_is_us_sourced(key, value) else value
+
+
+def _workforce_global_row(block_key: str, row_key: str, value: Any) -> Any:
+    """The part of a "Global" Workforce Trends row (``value``) that is tagged
+    non-US at item level, with each item's US-sourced leaves pruned; ``{}`` when
+    none is."""
+    prefix = f"{block_key}.{row_key}"
+    if isinstance(value, dict):
+        kept: dict = {}
+        for sub_key, sub_val in value.items():
+            if f"{prefix}.{sub_key}" not in _WORKFORCE_GLOBAL_ITEMS:
+                continue
+            sub_val = _without_us_examples(f"{prefix}.{sub_key}", sub_val)
+            pruned = _prune_us_sourced(sub_key, sub_val)
+            if pruned is not None:
+                kept[sub_key] = pruned
+        return kept
+    if prefix in _WORKFORCE_GLOBAL_ITEMS:
+        pruned = _prune_us_sourced(row_key, value)
+        if pruned is not None:
+            return pruned
+    return {}
+
+
 def _drop_us_labelled_groups(obj: Any) -> Any:
     """Remove US-labelled statistics from a workforce-trends KB value
     BEFORE it is flattened, for a plan with no US market.
@@ -3866,91 +4116,23 @@ def _parse_numeric_range(text: Any) -> Optional[Tuple[float, float]]:
 
 
 def _model_vs_benchmark_note(data: dict, ind_bench: Dict[str, Any]) -> Optional[str]:
-    """ONE 'Model vs. benchmark' reconciliation note, shared verbatim by the
-    Executive Summary benchmark block and ROI Projections (findings
-    data:manpower#3/#4, visual:manpower#3, strategy:manpower#3).
-
-    Computes the plan's own blended CPA LIVE from ``_budget_allocation`` and
-    compares it with the industry CPA the benchmark table above prints as its
-    headline -- the cited MEDIAN (the range midpoint when a row carries no
-    median). Returns a one-line disclosure ONLY when the plan's CPA sits below
-    that figure; ``None`` otherwise, or when either side cannot be computed --
-    never fabricates a note.
-
-    It used to compare against the row's CPA FLOOR and its apply-rate CEILING.
-    Those are the two least-sourced numbers in the row (2026-10-17 audit: 14 of
-    22 rows carry an apply-rate ceiling above the highest rate Appcast
-    reports, 7.14%; the CPA floor is a hand-typed range end), and the note's
-    old second sentence asserted what the benchmark ranges "reflect" -- a
-    provenance claim no data file backs. The apply-rate comparison is gone (no
-    median exists to compare against) and the CPA one now reads against the
-    value the table shows, in words that state only how the two figures were
-    produced.
+    """The 'Model vs. benchmark' note, shared by the Executive Summary benchmark
+    block and ROI Projections. The verdict and the sentence come from
+    ``plan_validator`` (:func:`plan_cpa_gap` / :func:`benchmark_gap_message`),
+    which reads the ONE range the deck's benchmark slides print
+    (:func:`plan_validator.resolve_cpa_benchmark`): it fires when the plan's
+    blended CPA is below that range's low end (or, with only a median, below
+    half of it), never for a CPA inside it, never for a plan with no US market
+    (its own market range is noted once, under the summary title), and never
+    on a non-USD plan (the cited figure is US$; declare, never convert).
+    ``ind_bench`` is the knowledge-base record the benchmark table reads, when
+    the caller holds one. ``None`` when there is nothing to say.
     """
-    if not isinstance(ind_bench, dict) or not ind_bench:
+    cpa_field = ind_bench.get("cpa") if isinstance(ind_bench, dict) else None
+    gap = plan_validator.plan_cpa_gap(data, cpa_field)
+    if not gap or gap.get("scope") in ("market_industry", "market_platforms"):
         return None
-
-    budget_alloc = data.get("_budget_allocation", {})
-    channel_allocs = (
-        budget_alloc.get("channel_allocations", {})
-        if isinstance(budget_alloc, dict)
-        else {}
-    )
-    if not isinstance(channel_allocs, dict) or not channel_allocs:
-        return None
-
-    total_dollars = 0.0
-    total_apps = 0.0
-    for ch_data in channel_allocs.values():
-        if not isinstance(ch_data, dict):
-            continue
-        total_dollars += _safe_num(
-            ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
-        )
-        total_apps += _safe_num(ch_data.get("projected_applications") or 0)
-
-    if total_dollars <= 0 or total_apps <= 0:
-        return None
-
-    blended_cpa = total_dollars / total_apps
-
-    # The industry CPA the table prints: its cited median, else the midpoint
-    # of its cited range.
-    cpa_field = ind_bench.get("cpa")
-    reference: Optional[float] = None
-    reference_word = "median"
-    if isinstance(cpa_field, dict):
-        _med = re.search(r"\d[\d,]*(?:\.\d+)?", str(cpa_field.get("median") or ""))
-        if _med:
-            reference = float(_med.group(0).replace(",", ""))
-        else:
-            _rng = _parse_numeric_range(cpa_field.get("range"))
-            if _rng:
-                reference = (_rng[0] + _rng[1]) / 2.0
-                reference_word = "range midpoint"
-    else:
-        _rng = _parse_numeric_range(cpa_field)
-        if _rng:
-            reference = (_rng[0] + _rng[1]) / 2.0
-            reference_word = "range midpoint"
-
-    # The cited CPA is a US-dollar KB constant; the plan's blended CPA is in
-    # the plan's own currency (declare-not-convert: no FX is applied). On a
-    # non-USD plan, comparing the two -- and printing the USD figure with the
-    # plan's symbol, e.g. "(£11.14) sits below ... (£35)" -- asserts a
-    # relationship that only exists because no conversion happened. Skip it.
-    if _get_active_currency() != "USD":
-        return None
-    if reference is None or reference <= 0 or blended_cpa >= reference:
-        return None
-
-    return (
-        "Model vs. benchmark: this plan's blended CPA "
-        f"({_fmt_currency(blended_cpa, show_cents=True)}) sits below the "
-        f"indicative industry {reference_word} ({_fmt_currency(reference, show_cents=True)}). "
-        "The industry figure is an unaudited Nova working estimate; this "
-        "plan's CPA is computed from its own channel mix and pricing."
-    )
+    return plan_validator.benchmark_gap_message(gap) or None
 
 
 def _fit_score_fill(score: float) -> PatternFill:
@@ -6241,6 +6423,23 @@ def _numberish(value: Any) -> bool:
     return False
 
 
+def _total_row_cell_below_gap(ws: Any, row: int, column: int, max_gap: int = 3) -> Any:
+    """The numeric cell in ``column`` of the first non-blank row at or after
+    ``row`` (skipping up to ``max_gap`` blank spacer rows) when that row is
+    labelled TOTAL in an earlier column; else None."""
+    for r in range(row, min(row + max_gap + 1, ws.max_row + 1)):
+        cell = ws.cell(row=r, column=column)
+        if cell.value is None:
+            continue
+        labels = [ws.cell(row=r, column=k).value for k in range(1, column)]
+        if _numberish(cell.value) and any(
+            isinstance(v, str) and v.strip().lower().startswith("total") for v in labels
+        ):
+            return cell
+        return None
+    return None
+
+
 def _strip_hires_from_workbook(wb: Any) -> None:
     """Remove every projected hire count and cost per hire from a workbook whose
     market has no local cost-per-hire benchmark (declare, never convert): the
@@ -6267,6 +6466,11 @@ def _strip_hires_from_workbook(wb: Any) -> None:
                     for b in below:
                         if _numberish(b.value):
                             b.value = na
+                    # a TOTAL row sits below a blank spacer row: the walk above
+                    # stopped at the blank, so reach it explicitly
+                    total_cell = _total_row_cell_below_gap(ws, r, c.column)
+                    if total_cell is not None:
+                        total_cell.value = na
                     continue
                 # along the row (forecast / interval tables label the ROW)
                 right = [
@@ -10247,12 +10451,26 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 continue
 
             section_label = section_key.replace("_", " ").title()
+            if _wf_no_us_market:
+                # Market-data blocks carry the country they describe; one that
+                # does not match this plan's markets is not shown.
+                if not _workforce_block_shown(section_key, data):
+                    continue
+                section_label = (
+                    f"{section_label} ({_workforce_block_geography(section_key)})"
+                )
 
             if isinstance(section_val, dict):
                 _wf_kv_rows = []
                 for k, v in section_val.items():
                     if k in ("metadata", "source"):
                         continue
+                    if _wf_no_us_market and _workforce_block_geography(
+                        section_key
+                    ) == "Global":
+                        # Item-level market tags: untagged / US-sourced items
+                        # of a "Global" block do not reach a non-US plan.
+                        v = _workforce_global_row(section_key, k, v)
                     val_str = _wf_text(_wf_source(v))
                     if not val_str:
                         continue
@@ -11281,6 +11499,23 @@ def _build_sheet_sources(ws, data: dict):
                 fills=fills_list,
                 fonts=fonts_list,
             )
+
+    # Large-employer lists shown on the deck's competitive-landscape slide: the
+    # slide names three source hosts and points here for the rest.
+    try:
+        import gold_standard as _gs_lib
+
+        _le_groups = _gs_lib.large_employer_groups(
+            (data.get("_gold_standard") or {}).get("competitor_mapping")
+        )
+        for _le in _le_groups:
+            if not _le.get("source_hosts"):
+                continue
+            row += 1
+            row = _write_section_header(ws, row, f"Sources: {_le['label']}")
+            row = _write_kv_row(ws, row, "Source sites", ", ".join(_le["source_hosts"]))
+    except Exception as exc:  # noqa: BLE001 -- never fail the sheet over a list
+        logger.error("Sources sheet: large-employer sources failed: %s", exc, exc_info=True)
 
     row += 2
 
@@ -13176,6 +13411,19 @@ def _build_sheet_quality_intelligence(
                         _FONT_BODY,
                     ],
                 )
+            # Non-US markets: the sourced large-employer list for the market's
+            # country and industry, under its own heading. It is a size list,
+            # never presented as measured competitors, and a market without a
+            # matching list shows nothing here (no US roster, no other industry).
+            for _qi_grp in gs_lib.large_employer_groups(competitor_map):
+                row += 1
+                row = _write_subsection_header(ws, row, _qi_grp["label"])
+                row = _write_kv_row(
+                    ws, row, "Employers", ", ".join(_qi_grp["names"])
+                )
+                if _qi_grp["note"]:
+                    row = _write_footnote(ws, row, _qi_grp["note"])
+                row = _write_footnote(ws, row, _qi_grp["source"])
             row += 1
     except Exception as exc:
         logger.error(
@@ -14075,11 +14323,27 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     # S89: reconcile_monthly_to_total guarantees the printed monthly ints
     # foot EXACTLY to the printed total (largest-remainder rounding) --
     # plain int() truncation per month can under-count the total by 1-2.
+    # A month the plan's own Activation Calendar rates High costs more per
+    # application: weight applications (and the hires that follow them) by
+    # spend share / cost multiplier, total unchanged, so the month-by-month CPA
+    # agrees with the calendar instead of staying flat through the peak.
+    if _short_plan and _short_split:
+        _period_months = _forecast_period_months(
+            _short_split, _forecast_start, _weekly_frame, _n_periods
+        )
+    else:
+        _period_months = [
+            ((_campaign_start_month - 1 + i) % 12) + 1 for i in range(_n_periods)
+        ]
+    _cpa_mults, _cpa_basis = _calendar_cpa_multipliers(
+        _period_months, _activation_timeline
+    )
+    _app_shares = _weighted_period_shares(period_pcts, _cpa_mults)
     monthly_apps = display_format.reconcile_monthly_to_total(
-        [_apps_90d * p for p in period_pcts], _apps_90d
+        [_apps_90d * p for p in _app_shares], _apps_90d
     )
     monthly_hires = display_format.reconcile_monthly_to_total(
-        [_hires_90d * p for p in period_pcts], _hires_90d
+        [_hires_90d * p for p in _app_shares], _hires_90d
     )
     total_apps_90d = sum(monthly_apps)
     total_hires_90d = sum(monthly_hires)
@@ -14150,6 +14414,21 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
             alternate=(idx % 2 == 0),
             fonts=fonts_list,
             number_formats=number_formats,
+        )
+
+    _peak_labels = [
+        f"{period_labels[i]} x{_cpa_mults[i]:.2f} ({_cpa_basis[i]})"
+        for i in range(_n_periods)
+        if _cpa_basis[i]
+    ]
+    if _peak_labels:
+        row = _write_footnote(
+            ws,
+            row,
+            "Cost per application rises in months the Activation Calendar rates "
+            "High: " + "; ".join(_peak_labels) + ". 'Nova estimate' marks a "
+            "multiplier assumed from the High rating alone. Applications are "
+            "re-weighted by month; the campaign total is unchanged.",
         )
 
     row += 1
@@ -14765,6 +15044,103 @@ def _recommended_platform_for_channel(channel_name: str, data: Any = None) -> st
     return default
 
 
+def _write_regional_budget_split(ws, row: int, split: Dict[str, Any]) -> int:
+    """Sub-tables under Channel Recommendations: where the regional &
+    aggregator budget goes, one per plan country. Funded boards carry
+    their share (proportional to their local-relevance
+    score), the supply status label, an amount (summing exactly to the
+    country's amount) and the reasons they were chosen; standby boards carry
+    no budget; boards bought by posting or subscription are listed apart as
+    "post directly". A country with fewer than two in-network boards keeps one
+    line. The amount sits in column G, the reasons in H:L. The repository's internal
+    priority tier (P0/P1/P2) is not shown: the "why" carries the basis."""
+    fmts = [None, FMT_PCT1, None, None, None, _usd2_fmt()] + [None] * 5
+
+    def _merge_status(r: int) -> None:
+        ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=6)
+        ws.merge_cells(start_row=r, start_column=8, end_row=r, end_column=12)
+        ws.cell(row=r, column=8).alignment = _ALIGN_WRAP
+        # merged cells do not auto-fit: size the row to its longer text
+        _status_len = len(str(ws.cell(row=r, column=4).value or ""))
+        _why_len = len(str(ws.cell(row=r, column=8).value or ""))
+        _lines = max(1, -(-_status_len // 36), -(-_why_len // 90))
+        if _lines > 1:
+            ws.row_dimensions[r].height = 14 * _lines
+
+    for entry in split.get("countries") or []:
+        row = _write_subsection_header(
+            ws,
+            row,
+            f"Where the regional & aggregator budget goes \u2014 {entry['country']}",
+        )
+        if not entry["boards"]:
+            row = _write_footnote(ws, row, entry["note"] + ".")
+            row += 1
+            continue
+        row = _write_table_header(
+            ws,
+            row,
+            ["Board", "Share", "Supply status", "", "", "Amount", "Why"]
+            + [""] * 4,
+        )
+        _merge_status(row - 1)
+        for board in entry["boards"]:
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    board["name"],
+                    board["share"],
+                    board["status"],
+                    "",
+                    "",
+                    board["amount"],
+                    board["why"],
+                ]
+                + [""] * 4,
+                number_formats=fmts,
+            )
+            _merge_status(row - 1)
+        row = _write_table_row(
+            ws,
+            row,
+            ["Total", 1.0, "", "", "", entry["amount"]] + [""] * 5,
+            fonts=[_FONT_BODY_BOLD] * 12,
+            fills=[_FILL_BLUE_PALE] * 12,
+            number_formats=fmts,
+        )
+        for label, boards in (
+            (channel_funding.STANDBY_LABEL, entry["standby"]),
+            (channel_funding.POST_DIRECTLY_LABEL, entry.get("post_directly") or []),
+        ):
+            if not boards:
+                continue
+            ws.cell(row=row, column=2, value=label).font = _FONT_BODY_BOLD
+            row += 1
+            for board in boards:
+                row = _write_table_row(
+                    ws,
+                    row,
+                    [
+                        board["name"],
+                        "",
+                        board["status"],
+                        "",
+                        "",
+                        "",
+                        board["why"],
+                    ]
+                    + [""] * 4,
+                )
+                _merge_status(row - 1)
+        row += 1
+    if split.get("countries"):
+        row = _write_footnote(ws, row, publisher_filter.RANKED_NOTE)
+        row = _write_footnote(ws, row, publisher_filter.FUNDED_SHARE_NOTE)
+        row += 1
+    return row
+
+
 def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     """Build Sheet 10: Channel Recommendations (S48; reconciled in O2).
 
@@ -14836,6 +15212,19 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         int(_safe_num(ch.get("projected_clicks") or 0)) for _, ch in funded
     )
     avg_cpa = round(total_spend / total_apps, 2) if total_apps > 0 else 0.0
+    # Cost per qualified application (CPQA): spend / the plan's own qualified
+    # applications (metadata.funnel, the same App->Qualified rates the ROI
+    # Projections sheet prints) -- never a second, invented qualified rate.
+    _cr_funnel = (budget_alloc.get("metadata") or {}).get("funnel")
+    _cr_funnel_ch = (_cr_funnel or {}).get("per_channel") if isinstance(_cr_funnel, dict) else {}
+    _cr_funnel_ch = _cr_funnel_ch if isinstance(_cr_funnel_ch, dict) else {}
+
+    def _channel_qualified(name: str) -> float:
+        row_ = _cr_funnel_ch.get(name)
+        return _safe_num(row_.get("qualified_apps")) if isinstance(row_, dict) else 0.0
+
+    total_qualified = sum(_channel_qualified(n) for n, _ in funded)
+    avg_cpqa = round(total_spend / total_qualified, 2) if total_qualified > 0 else 0.0
 
     industry = data.get("industry") or "general_entry_level"
     industry_label = _get_industry_label(industry)
@@ -14852,7 +15241,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     c = ws.cell(row=row, column=2, value="Channel Recommendations")
     c.font = _FONT_SECTION
     c.fill = _FILL_SAPPHIRE
-    for col in range(2, 13):
+    for col in range(2, 14):
         ws.cell(row=row, column=col).fill = _FILL_SAPPHIRE
     row += 1
 
@@ -14864,7 +15253,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         "Hires, and CPA figure below is identical to those sheets, and the Spend "
         "column foots to the total budget. It is not an alternative scenario."
     )
-    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=12)
+    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=13)
     _nc = ws.cell(row=row, column=2, value=_rec_note)
     _nc.font = _FONT_FOOTNOTE
     _nc.alignment = _ALIGN_WRAP
@@ -14924,6 +15313,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         "Spend",
         "CPC",
         "CPA",
+        "CPQA",
         "Clicks",
         "Apps",
         "Hires",
@@ -14938,12 +15328,22 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         _usd0_fmt(),
         _usd2_fmt(),
         _usd2_fmt(),
+        _usd2_fmt(),
         FMT_INT,
         FMT_INT,
         FMT_INT,
         None,
         None,
     ]
+
+    _hires_off = _hires_not_projected(
+        budget_alloc, _safe_num(total_spend), data
+    )
+    _regional_split = channel_funding.regional_budget_split(data, budget_alloc)
+    _regional_boards = channel_funding.funded_board_names(_regional_split)
+    _zero_hire_keys = {
+        r["key"] for r in channel_funding.zero_hire_channels(budget_alloc, _hires_off)
+    }
 
     for tier_title, tier_channels, fill in [
         ("MUST HAVE", must_have, _FILL_GREEN_BG),
@@ -14956,7 +15356,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         c = ws.cell(row=row, column=2, value=tier_title)
         c.font = _FONT_SUBSECTION
         c.fill = fill
-        for col in range(2, 13):
+        for col in range(2, 14):
             ws.cell(row=row, column=col).fill = fill
         row += 1
 
@@ -14983,17 +15383,25 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             # S89 (findings data:manpower#3/atria#3, strategy:atria#8):
             # single-sourced confidence tier -- see _derive_channel_confidence.
             _conf = _derive_channel_confidence(data, ch)
+            _platform = _recommended_platform_for_channel(name, data)
+            if _regional_boards and channel_funding.is_regional_channel(name, ch):
+                # name the boards this budget funds (split below), not the
+                # unnamed category
+                _platform = ", ".join(_regional_boards)
             _rationale = (
-                f"Buy via {_recommended_platform_for_channel(name, data)}. "
+                f"Buy via {_platform}. "
                 f"{_pct:.1f}% of budget; part of the plan's core channel mix."
             )
+            if str(name) in _zero_hire_keys:
+                _rationale = f"{channel_funding.AWARENESS_TEST_LABEL}. " + _rationale
             values = [
                 _display,
-                _recommended_platform_for_channel(name, data),
+                _platform,
                 _pct / 100.0,
                 _dollars,
                 _cpc,
                 _channel_cpa_cell(ch, _dollars),
+                (_dollars / _channel_qualified(name)) if _channel_qualified(name) > 0 else "n/a",
                 int(_safe_num(ch.get("projected_clicks") or 0)),
                 int(_safe_num(ch.get("projected_applications") or 0)),
                 int(_safe_num(ch.get("projected_hires") or 0)),
@@ -15009,6 +15417,8 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             # otherwise. Every other column keeps the shared _row_formats.
             _row_formats_for_row = list(_row_formats)
             _row_formats_for_row[4] = _cpc_number_format(ch)
+            if isinstance(values[6], str):  # CPQA "n/a" is text, not a number
+                _row_formats_for_row[6] = None
             row = _write_table_row(
                 ws,
                 row,
@@ -15016,8 +15426,10 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
                 fonts=_fonts,
                 number_formats=_row_formats_for_row,
             )
-            if len(_rationale) > 70:
-                ws.row_dimensions[row - 1].height = 34
+            if len(_rationale) > 70 or len(_platform) > 26:
+                ws.row_dimensions[row - 1].height = max(
+                    34, 15 * (1 + len(_rationale) // 60), 15 * (1 + len(_platform) // 24)
+                )
         row += 1
 
     # ── Total row — proves the sheet foots to the budget ──
@@ -15028,6 +15440,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         total_spend,
         "",
         avg_cpa,
+        avg_cpqa if total_qualified > 0 else "n/a",
         total_clicks,
         total_apps,
         total_hires,
@@ -15048,6 +15461,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             _usd0_fmt(),
             None,
             _usd2_fmt(),
+            None if isinstance(total_values[6], str) else _usd2_fmt(),
             FMT_INT,
             FMT_INT,
             FMT_INT,
@@ -15056,6 +15470,27 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         ],
     )
     row += 1
+    if total_qualified > 0:
+        _q_share = total_qualified / total_apps if total_apps > 0 else 0.0
+        row = _write_footnote(
+            ws,
+            row,
+            "CPQA = cost per qualified application: spend divided by the plan's "
+            "qualified applications, which use the same application-to-qualified "
+            f"rates as the Recruitment Funnel (blended {_q_share:.0%} of "
+            "applications qualify). Track it from week 1 alongside CPA.",
+        )
+        row += 1
+
+    _zero_hire_note = channel_funding.zero_hire_summary(
+        budget_alloc, _hires_off, _fmt_currency
+    )
+    if _zero_hire_note:
+        row = _write_footnote(ws, row, _zero_hire_note)
+        row += 1
+
+    if _regional_split:
+        row = _write_regional_budget_split(ws, row, _regional_split)
 
     # ── Zero-budget / consider channels (surfaced, not projected) ──
     _unfunded = [
@@ -15075,7 +15510,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         row += 1
 
     # ── Source line ──
-    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=12)
+    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=13)
     ws.cell(
         row=row,
         column=2,
@@ -15099,8 +15534,9 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         8: 10,
         9: 10,
         10: 10,
-        11: 12,
-        12: 46,
+        11: 10,
+        12: 12,
+        13: 46,
     }
     for col, w in widths.items():
         ws.column_dimensions[get_column_letter(col)].width = w
@@ -15728,6 +16164,48 @@ def _build_sheet_review_before_sending(ws, items: List[str]) -> None:
     _write_attribution_footer(ws, row)
 
 
+def _plan_integrity_notes(data: dict) -> Tuple[str, str]:
+    """(internal-draft stamp, benchmark-gap warning), each "" when not due --
+    the same two sentences the deck prints (plan_validator)."""
+    try:
+        return (
+            plan_validator.internal_draft_stamp(data),
+            plan_validator.benchmark_gap_message(plan_validator.plan_cpa_gap(data)),
+        )
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        logger.error("plan-integrity notes failed (non-fatal): %s", exc, exc_info=True)
+        return "", ""
+
+
+def _write_flag_line(ws, row: int, text: str, color: str) -> None:
+    """One bold, wrapped warning line across the sheet's content width."""
+    ws.merge_cells(start_row=row, start_column=COL_START, end_row=row, end_column=COL_END)
+    cell = ws.cell(row=row, column=COL_START, value=text)
+    cell.font = Font(name=FONT_BODY_NAME, size=11, bold=True, color=color)
+    cell.alignment = _ALIGN_WRAP
+    ws.row_dimensions[row].height = 32
+
+
+def _apply_integrity_notes(wb, data: dict) -> None:
+    """Stamp a low-confidence plan as an internal draft (summary + Sources &
+    Confidence) and print the benchmark-gap warning under the summary title.
+    Never blocks the save."""
+    stamp, gap_note = _plan_integrity_notes(data)
+    try:
+        if stamp:
+            for title in ("Executive Summary", "Sources & Confidence"):
+                if title in wb.sheetnames and wb[title].cell(row=1, column=COL_START).value is None:
+                    _write_flag_line(wb[title], 1, stamp, RED)
+        if gap_note and "Executive Summary" in wb.sheetnames:
+            ws = wb["Executive Summary"]
+            if ws.cell(row=4, column=COL_START).value is None:
+                _write_flag_line(ws, 4, gap_note, AMBER)
+            else:
+                _write_footnote(ws, ws.max_row + 1, gap_note)
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        logger.error("integrity stamp failed (non-fatal): %s", exc, exc_info=True)
+
+
 def _apply_trust_pack(wb, data: dict) -> None:
     """Data-as-of lines, file-property stamp and the final review sheet.
 
@@ -15761,6 +16239,8 @@ def _apply_trust_pack(wb, data: dict) -> None:
             unverified_boards=_workbook_unverified_board_count(wb),
             asof=info,
         )
+        _stamp, _gap_note = _plan_integrity_notes(data)
+        items = list(items) + [t for t in (_stamp, _gap_note) if t]
         _build_sheet_review_before_sending(wb.create_sheet(), items)
     except Exception as exc:  # noqa: BLE001
         logger.error("Review sheet failed (non-fatal): %s", exc, exc_info=True)
@@ -16150,6 +16630,7 @@ def _generate_excel_v2_inner(
 
     # Trust pack: "data as of" lines, generation stamp, final review sheet.
     _apply_trust_pack(wb, data)
+    _apply_integrity_notes(wb, data)
 
     # ── S89: cross-cutting polish (freeze panes + brand tab colors) ──
     try:

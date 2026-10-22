@@ -103,8 +103,8 @@ def _channel_rec_total_row(ws):
         if ws.cell(row=r, column=2).value == "TOTAL":
             return (
                 float(ws.cell(row=r, column=5).value or 0),  # Spend
-                int(ws.cell(row=r, column=9).value or 0),  # Apps
-                int(ws.cell(row=r, column=10).value or 0),  # Hires
+                int(ws.cell(row=r, column=10).value or 0),  # Apps
+                int(ws.cell(row=r, column=11).value or 0),  # Hires
             )
     raise AssertionError("Channel Recommendations TOTAL row not found")
 
@@ -129,12 +129,12 @@ def test_channel_recommendations_spend_foots_to_budget():
     cr = wb["Channel Recommendations"]
     cr_spend_total, _, _ = _channel_rec_total_row(cr)
     # Sum the per-channel Spend cells (column E = 5), excluding the TOTAL row.
-    # A data row is one whose Hires cell (column J = 10) holds a number.
+    # A data row is one whose Hires cell (column K = 11) holds a number.
     per_channel = 0.0
     for r in range(1, cr.max_row + 1):
         label = cr.cell(row=r, column=2).value
         spend = cr.cell(row=r, column=5).value
-        hires = cr.cell(row=r, column=10).value
+        hires = cr.cell(row=r, column=11).value
         if (
             label not in (None, "", "TOTAL")
             and isinstance(spend, (int, float))

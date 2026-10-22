@@ -1,0 +1,13 @@
+{
+  "_description": "Boards the Joveo supply team reports performing well in a market. Each entry carries a source and an as_of date. A note never makes an unavailable or non-network board fundable.",
+  "entries": [
+    {
+      "name": "StudySmarter",
+      "aliases": ["Study Smarter"],
+      "countries": ["Germany"],
+      "note": "performs well in Germany",
+      "source": "Joveo supply team feedback",
+      "as_of": "2026-10-21"
+    }
+  ]
+}

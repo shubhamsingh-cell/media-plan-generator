@@ -1,0 +1,2341 @@
+{
+ "countries": {
+  "Germany": [
+   {
+    "name": "Volkswagen Group",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://annualreport2025.volkswagen-group.com/group-management-report/business-development/total-workforce.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Robert Bosch GmbH",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://assets.bosch.com/media/global/bosch_group/our_figures/pdf/bosch-annual-report-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Mercedes-Benz Group",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://group.mercedes-benz.com/documents/investors/reports/annual-report/mercedes-benz/mercedes-benz-annual-report-2025-incl-combined-management-report-mbg-ag.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "BMW Group",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.bmwgroup.com/content/dam/grpw/websites/bmwgroup_com/ir/downloads/en/2026/bericht/BMW-Group-Report-2025-en.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Siemens",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.siemens.com/siemensreport",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "ZF Friedrichshafen",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://press.zf.com/press/en/releases/release_100672.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Daimler Truck",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.daimlertruck.com/fileadmin/user_upload/documents/investors/reports/annual-reports/2024/daimler-truck-ir-annual-report-2024-incl-combined-management-report-dth-ag.pdf",
+    "as_of": "FY2024",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Continental",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.continental.com/fileadmin/__imported/sites/corporate/_international/english/hubpages/30_20investors/30_20reports/annual_20reports/downloads/annual-report-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "BASF (Ludwigshafen site)",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.basf.com/global/en/who-we-are/organization/locations/europe/german-sites/ludwigshafen/the-site",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Rolls-Royce Germany (incl. Rolls-Royce Power Systems / mtu)",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://careers.rolls-royce.com/en/our-locations/germany",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "DHL Group (Deutsche Post, Post & Parcel Germany)",
+    "industry": "logistics_warehousing",
+    "source_url": "https://group.dhl.com/en/about-us/corporate-divisions/post-parcel-germany.html",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Edeka Group",
+    "industry": "retail",
+    "source_url": "https://verbund.edeka/presse/pressemeldungen/gesch%C3%A4ftsjahr-2024-edeka-verbund-setzt-wachstumskurs-in-dynamischem-marktumfeld-fort.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "REWE Group",
+    "industry": "retail",
+    "source_url": "https://www.rewe-group.com/en/annual-report-rewe-group-2024/foreword-to-the-rewe-group-2024-annual-report",
+    "as_of": "FY2024",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Schwarz Gruppe (Lidl, Kaufland)",
+    "industry": "retail",
+    "source_url": "https://gruppe.schwarz/wer-wir-sind",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ALDI SUED",
+    "industry": "retail",
+    "source_url": "https://karriere.aldi-sued.de/gehalt",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Fresenius (Helios hospitals)",
+    "industry": "healthcare",
+    "source_url": "https://report.fresenius.com/2025/annual-report/management-report/fundamental-information-about-the-group/employees.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Asklepios Kliniken",
+    "industry": "healthcare",
+    "source_url": "https://www.asklepios.com/karriere/asklepios-als-arbeitgeber/unternehmen-in-zahlen",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Deutsche Telekom",
+    "industry": "technology",
+    "source_url": "https://report.telekom.com/hr-factbook/2025/our-employees/employees-by-country.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "SAP",
+    "industry": "technology",
+    "source_url": "https://www.sap.com/docs/download/investors/2025/sap-2025-integrated-report.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Sparkassen-Finanzgruppe (savings banks)",
+    "industry": "financial_services",
+    "source_url": "https://vka.de/sparten/sparkassen",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Allianz",
+    "industry": "financial_services",
+    "source_url": "https://www.allianz.com/content/dam/onemarketing/azcom/Allianz_com/investor-relations/en/results-reports/annual-report/ar-2025/en-allianz-group-annual-report-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Deutsche Bank",
+    "industry": "financial_services",
+    "source_url": "https://investor-relations.db.com/files/documents/other-presentations-and-events/2025/Annual-Report-2025.pdf?language_id=1",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Commerzbank",
+    "industry": "financial_services",
+    "source_url": "https://www.commerzbank.de/konzern/wer-wir-sind/zahlen-fakten",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "E.ON",
+    "industry": "energy_utilities",
+    "source_url": "https://annualreport.eon.com/content/dam/eon-annualreport/documents/en/GB25-gesamt-EN_final.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "EnBW",
+    "industry": "energy_utilities",
+    "source_url": "https://www.enbw.com/media/report/report-2025/downloads/enbw-annual-report-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "RWE",
+    "industry": "energy_utilities",
+    "source_url": "https://www.rwe.com/-/media/RWE/documents/05-investor-relations/finanzkalendar-und-veroeffentlichungen/2025-GJ/RWE-Annual-Report-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "LEAG",
+    "industry": "energy_utilities",
+    "source_url": "https://www.leag.de/de/unternehmen",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Uniper",
+    "industry": "energy_utilities",
+    "source_url": "https://www.uniper.energy/system/files/2026-10/2026_03_11_FY_2025_Uniper_Annual%20Report%202025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Vattenfall (Germany)",
+    "industry": "energy_utilities",
+    "source_url": "https://group.vattenfall.com/globalassets/com/sustainability/vattenfall-annual-and-sustainability-report-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Deutsche Bahn",
+    "industry": "aviation_transport",
+    "source_url": "https://ibir.deutschebahn.com/2024/fileadmin/downloads/DB_IB24_e_web_01.pdf",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Lufthansa Group",
+    "industry": "aviation_transport",
+    "source_url": "https://report.lufthansagroup.com/2025/annual-report/en/combined-management-report/principles-of-the-group/employees",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   }
+  ],
+  "United Kingdom": [
+   {
+    "name": "BAE Systems",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://annualreport.baesystems.com/2025",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Rolls-Royce",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.rolls-royce.com/~/media/Files/R/Rolls-Royce/documents/annual-report/2026/2025-annual-report-interactive.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Royal Mail Group",
+    "industry": "logistics_warehousing",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "FY2024/25",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Tesco",
+    "industry": "retail",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "FY2025/26",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Sainsbury's",
+    "industry": "retail",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "FY2025/26",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Asda",
+    "industry": "retail",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Morrisons",
+    "industry": "retail",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "FY2024/25",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "John Lewis Partnership",
+    "industry": "retail",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "FY2024/25",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Marks & Spencer",
+    "industry": "retail",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "FY2025/26",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Aldi UK",
+    "industry": "retail",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "2026-02",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "NHS",
+    "industry": "healthcare",
+    "source_url": "https://www.economicsonline.co.uk/labour_markets/biggest-employers-in-the-uk-who-tops-the-list-2.html",
+    "as_of": "2026-06",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "BT Group",
+    "industry": "technology",
+    "source_url": "https://www.bt.com/bt-plc/assets/documents/investors/financial-reporting-and-news/annual-reports/2025/2025-bt-group-plc-annual-report.pdf",
+    "as_of": "FY2024/25",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Lloyds Banking Group",
+    "industry": "financial_services",
+    "source_url": "https://www.lloydsbankinggroup.com/investors/annual-report.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "HSBC UK",
+    "industry": "financial_services",
+    "source_url": "https://www.hsbc.com/-/files/hsbc/investors/hsbc-results/2025/annual/pdfs/hsbc-uk-bank-plc/260225-annual-report-and-accounts-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Centrica",
+    "industry": "energy_utilities",
+    "source_url": "https://www.centrica.com/media/ckfb0qxj/annual-report-and-accounts-2025-untagged.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "ScottishPower",
+    "industry": "energy_utilities",
+    "source_url": "https://www.scottishpower.com/documents/d/guest/SPUK_2025_Annual_Accounts",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "International Airlines Group (British Airways)",
+    "industry": "aviation_transport",
+    "source_url": "https://www.iairgroup.com/media/ktnlp1jx/iag-annual-report-and-accounts-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   }
+  ],
+  "France": [
+   {
+    "name": "Renault SAS",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Stellantis Auto SAS",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Michelin (Manufacture Francaise des Pneumatiques Michelin)",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Safran Aircraft Engines",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Alstom Transport SA",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Naval Group",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Framatome",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Airbus Atlantic",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "La Poste",
+    "industry": "logistics_warehousing",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Meubles IKEA France",
+    "industry": "retail",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Leroy Merlin France",
+    "industry": "retail",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Carrefour Hypermarches",
+    "industry": "retail",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Lidl",
+    "industry": "retail",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Cora",
+    "industry": "retail",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Action France",
+    "industry": "retail",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "AP-HP Assistance Publique - Hopitaux de Paris",
+    "industry": "healthcare",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "CHU Lille",
+    "industry": "healthcare",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Hospices Civils de Lyon",
+    "industry": "healthcare",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "HUS Hopitaux Universitaires de Strasbourg",
+    "industry": "healthcare",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Sopra Steria Group",
+    "industry": "technology",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "CGI France",
+    "industry": "technology",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "BNP Paribas",
+    "industry": "financial_services",
+    "source_url": "https://cdn-group.bnpparibas.com/uploads/file/universal-registration-document-annual-financial-report-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Societe Generale",
+    "industry": "financial_services",
+    "source_url": "https://www.societegenerale.com/sites/default/files/documents/2026-03/document-enregistrement-universel-2026.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "LCL Credit Lyonnais",
+    "industry": "financial_services",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "AXA France IARD",
+    "industry": "financial_services",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Macif",
+    "industry": "financial_services",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Engie Energie Services",
+    "industry": "energy_utilities",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "Dalkia",
+    "industry": "energy_utilities",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "RTE Reseau de Transport d'Electricite",
+    "industry": "energy_utilities",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "SNCF Group",
+    "industry": "aviation_transport",
+    "source_url": "https://www.groupe-sncf.com/fr/groupe/finances/essentiel-groupe",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Air France",
+    "industry": "aviation_transport",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "RATP",
+    "industry": "aviation_transport",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "SNCF Voyageurs",
+    "industry": "aviation_transport",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "SNCF Reseau",
+    "industry": "aviation_transport",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   },
+   {
+    "name": "SNCF (Societe Nationale SNCF)",
+    "industry": "aviation_transport",
+    "source_url": "https://www.pappers.fr/classements/entreprises-salaries",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page (register ranking, band: more than 10,000 employees)"
+   }
+  ],
+  "Poland": [
+   {
+    "name": "Poczta Polska",
+    "industry": "logistics_warehousing",
+    "source_url": "https://bankbiznes.pl/najwieksi-pracodawcy-w-polsce-ranking-top-10-2025",
+    "as_of": "2024-12",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Jeronimo Martins Polska (Biedronka)",
+    "industry": "retail",
+    "source_url": "https://www.rp.pl/gospodarka/art44451751-przetasowania-wsrod-czolowych-pracodawcow",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Dino Polska",
+    "industry": "retail",
+    "source_url": "https://www.rp.pl/gospodarka/art44451751-przetasowania-wsrod-czolowych-pracodawcow",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Grupa Lux Med",
+    "industry": "healthcare",
+    "source_url": "https://bankbiznes.pl/najwieksi-pracodawcy-w-polsce-ranking-top-10-2025",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Asseco Poland",
+    "industry": "technology",
+    "source_url": "https://bankbiznes.pl/najwieksi-pracodawcy-w-polsce-ranking-top-10-2025",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "PZU",
+    "industry": "financial_services",
+    "source_url": "https://bankbiznes.pl/najwieksi-pracodawcy-w-polsce-ranking-top-10-2025",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ORLEN",
+    "industry": "energy_utilities",
+    "source_url": "https://bankbiznes.pl/najwieksi-pracodawcy-w-polsce-ranking-top-10-2025",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "PGE Polska Grupa Energetyczna",
+    "industry": "energy_utilities",
+    "source_url": "https://bankbiznes.pl/najwieksi-pracodawcy-w-polsce-ranking-top-10-2025",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "PKP Polskie Linie Kolejowe (PKP PLK)",
+    "industry": "aviation_transport",
+    "source_url": "https://kolejowyportal.pl/jak-zmienilo-sie-zatrudnienie-w-pkp-plk-w-2025-roku",
+    "as_of": "2025-12-31",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Grupa PKP (Polskie Koleje Panstwowe)",
+    "industry": "aviation_transport",
+    "source_url": "https://bankbiznes.pl/najwieksi-pracodawcy-w-polsce-ranking-top-10-2025",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   }
+  ],
+  "India": [
+   {
+    "name": "Mahindra & Mahindra",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://en.wikipedia.org/wiki/Mahindra_%26_Mahindra",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Maruti Suzuki India",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://en.wikipedia.org/wiki/Maruti_Suzuki",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Tata Motors",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://en.wikipedia.org/wiki/Tata_Motors",
+    "as_of": "FY2026",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Samvardhana Motherson",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Bosch Limited",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Ashok Leyland",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://en.wikipedia.org/wiki/Ashok_Leyland",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Hero MotoCorp",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://en.wikipedia.org/wiki/Hero_MotoCorp",
+    "as_of": "2020",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "India Post",
+    "industry": "logistics_warehousing",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2021",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Delhivery",
+    "industry": "logistics_warehousing",
+    "source_url": "https://en.wikipedia.org/wiki/Delhivery",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "VRL Logistics",
+    "industry": "logistics_warehousing",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Reliance Retail",
+    "industry": "retail",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2023",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Avenue Supermarts (DMart)",
+    "industry": "retail",
+    "source_url": "https://en.wikipedia.org/wiki/Avenue_Supermarts",
+    "as_of": "2024-03",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Flipkart",
+    "industry": "retail",
+    "source_url": "https://en.wikipedia.org/wiki/Flipkart",
+    "as_of": "2024-01",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Trent",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Apollo Hospitals",
+    "industry": "healthcare",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Max Healthcare",
+    "industry": "healthcare",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Tata Consultancy Services",
+    "industry": "technology",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Infosys",
+    "industry": "technology",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Accenture",
+    "industry": "technology",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2022",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Wipro",
+    "industry": "technology",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2021",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "HCLTech",
+    "industry": "technology",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2022",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Capgemini",
+    "industry": "technology",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Tech Mahindra",
+    "industry": "technology",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2021",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "LTIMindtree",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "State Bank of India",
+    "industry": "financial_services",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "HDFC Bank",
+    "industry": "financial_services",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ICICI Bank",
+    "industry": "financial_services",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2023",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Axis Bank",
+    "industry": "financial_services",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Punjab National Bank",
+    "industry": "financial_services",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Life Insurance Corporation of India",
+    "industry": "financial_services",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2021",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Kotak Mahindra Bank",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Canara Bank",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Coal India",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2026",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Indian Oil Corporation",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/Indian_Oil_Corporation",
+    "as_of": "2026",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Oil and Natural Gas Corporation",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/Oil_and_Natural_Gas_Corporation",
+    "as_of": "2025-06",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "NTPC",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/NTPC_Limited",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Tata Power",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/india/largest-indian-companies-by-number-of-employees/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Bharat Petroleum",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/Bharat_Petroleum",
+    "as_of": "2026-03-31",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Power Grid Corporation of India",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/Power_Grid_Corporation_of_India",
+    "as_of": "2024-03",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Indian Railways",
+    "industry": "aviation_transport",
+    "source_url": "https://en.wikipedia.org/wiki/List_of_largest_employers_in_India",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "IndiGo (InterGlobe Aviation)",
+    "industry": "aviation_transport",
+    "source_url": "https://en.wikipedia.org/wiki/IndiGo",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Airports Authority of India",
+    "industry": "aviation_transport",
+    "source_url": "https://en.wikipedia.org/wiki/Airports_Authority_of_India",
+    "as_of": "2020-03-31",
+    "source_check": "name found on source page"
+   }
+  ],
+  "Netherlands": [
+   {
+    "name": "Tata Steel Nederland",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "2026-04",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "VDL Groep",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.vdlgroep.com",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "PostNL",
+    "industry": "logistics_warehousing",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "2026-04",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Ahold Delhaize",
+    "industry": "retail",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "2026-04",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Jumbo",
+    "industry": "retail",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "2026-04",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Amsterdam UMC",
+    "industry": "healthcare",
+    "source_url": "https://www.amsterdamumc.org/nl/over/amsterdam-umc",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Erasmus MC",
+    "industry": "healthcare",
+    "source_url": "https://en.wikipedia.org/wiki/Erasmus_MC",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "UMC Utrecht",
+    "industry": "healthcare",
+    "source_url": "https://www.umcutrecht.nl/nl/organisatie-umc-utrecht",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "LUMC (Leiden University Medical Center)",
+    "industry": "healthcare",
+    "source_url": "https://www.lumc.nl/siteassets/over-het-lumc/het-lumc/strategie-en-verantwoording/bestanden/jaarverslagen/62-1483-lumc-jaarverslag_a4_def.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Radboudumc",
+    "industry": "healthcare",
+    "source_url": "https://en.wikipedia.org/wiki/Radboud_University_Medical_Center",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ASML",
+    "industry": "technology",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "2026-04",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "KPN",
+    "industry": "technology",
+    "source_url": "https://s202.q4cdn.com/886546970/files/doc_financials/2025/ar/KPN-Integrated-Annual-Report-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Rabobank",
+    "industry": "financial_services",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "2026-04",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ABN AMRO",
+    "industry": "financial_services",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ING",
+    "industry": "financial_services",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "2026-04",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Achmea",
+    "industry": "financial_services",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Alliander",
+    "industry": "energy_utilities",
+    "source_url": "https://www.alliander.com/-/media/files/corporate/financiering/financial-publications/alliander-annual-report-2025.pdf?v=1&d=20260615T153714Z",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "KLM",
+    "industry": "aviation_transport",
+    "source_url": "https://werktijden.nl/blog/de-20-grootste-werkgevers-van-nederland",
+    "as_of": "2026-04",
+    "source_check": "name found on source page"
+   }
+  ],
+  "Spain": [
+   {
+    "name": "SEAT",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.seat.es/content/dam/countries/es/seat-website/sobre-seat/reporte-anual/pdf/informe-anual-2024.pdf",
+    "as_of": "2024-12-31",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Grupo Correos",
+    "industry": "logistics_warehousing",
+    "source_url": "https://cswetwebcorsta01.blob.core.windows.net/uploads/2026/07/Informe_Anual_Integrado_2025_GRUPO-CORREOS.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Mercadona",
+    "industry": "retail",
+    "source_url": "https://info.mercadona.es/document/es/memoria-anual-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "El Corte Inglés",
+    "industry": "retail",
+    "source_url": "https://www.elcorteingles.es/informacioncorporativa/es",
+    "as_of": "2026-10-20",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Inditex",
+    "industry": "retail",
+    "source_url": "https://www.inditex.com/itxcomweb/api/media/8cf81b3e-3409-4006-819c-3d89d016b567/CCAAeIGGrupo2025.pdf?t=1785169823716",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Quirónsalud",
+    "industry": "healthcare",
+    "source_url": "https://international.quironsalud.com/es",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Vithas",
+    "industry": "healthcare",
+    "source_url": "https://vithas.es/quienes-somos",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Telefónica",
+    "industry": "technology",
+    "source_url": "https://www.telefonica.com/es/wp-content/uploads/sites/4/2025/03/informe-anual-gestion-consolidado.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "CaixaBank",
+    "industry": "financial_services",
+    "source_url": "https://www.caixabank.com/deployedfiles/caixabank_com/Estaticos/PDFs/Personas/Memoria_de_Personas_2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Banco Santander",
+    "industry": "financial_services",
+    "source_url": "https://www.economiadigital.es/empresas/santander-caixabank-bbva-plantillas.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "BBVA",
+    "industry": "financial_services",
+    "source_url": "https://www.economiadigital.es/empresas/santander-caixabank-bbva-plantillas.html",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Iberdrola",
+    "industry": "energy_utilities",
+    "source_url": "https://www.iberdrola.com/conocenos/iberdrola-espana",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Endesa",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/Endesa",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Renfe",
+    "industry": "aviation_transport",
+    "source_url": "https://en.wikipedia.org/wiki/Renfe_Operadora",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Iberia",
+    "industry": "aviation_transport",
+    "source_url": "https://en.wikipedia.org/wiki/Iberia_(airline)",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   }
+  ],
+  "Italy": [
+   {
+    "name": "Stellantis",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.key4biz.it/le-grandi-aziende-italiane-con-piu-dipendenti-poste-e-in-testa/427839",
+    "as_of": "2020",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Leonardo",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.businesspeople.it/lavoro/poste-ferrovie-leonardo-i-colossi-delloccupazione-in-italia",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Poste Italiane",
+    "industry": "logistics_warehousing",
+    "source_url": "https://www.businesspeople.it/lavoro/poste-ferrovie-leonardo-i-colossi-delloccupazione-in-italia",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Conad",
+    "industry": "retail",
+    "source_url": "https://en.wikipedia.org/wiki/Conad",
+    "as_of": "2022",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Oniverse (Calzedonia group)",
+    "industry": "retail",
+    "source_url": "https://www.businesspeople.it/lavoro/poste-ferrovie-leonardo-i-colossi-delloccupazione-in-italia",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Esselunga",
+    "industry": "retail",
+    "source_url": "https://en.wikipedia.org/wiki/Esselunga",
+    "as_of": "2023",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Gruppo San Donato",
+    "industry": "healthcare",
+    "source_url": "https://www.milanofinanza.it/news/sanita-privata-in-italia-chi-guadagna-tra-san-donato-humanitas-gemelli-ieo-gvm-e-kos-202605300926533527",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Almaviva",
+    "industry": "technology",
+    "source_url": "https://www.businesspeople.it/lavoro/poste-ferrovie-leonardo-i-colossi-delloccupazione-in-italia",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "TIM (Telecom Italia)",
+    "industry": "technology",
+    "source_url": "https://www.key4biz.it/le-grandi-aziende-italiane-con-piu-dipendenti-poste-e-in-testa/427839",
+    "as_of": "2020",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Intesa Sanpaolo",
+    "industry": "financial_services",
+    "source_url": "https://group.intesasanpaolo.com/content/dam/portalgroup/repository-documenti/investor-relations/Contenuti/RISORSE/Documenti%20PDF/assemblea_2026/Bilanci_2025.pdf",
+    "as_of": "2025-12-31",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "UniCredit",
+    "industry": "financial_services",
+    "source_url": "https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/it/investors/bilanci-e-relazioni/2025/4q25/Bilanci-e-Relazioni-2025.pdf",
+    "as_of": "2024-12-31",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Enel",
+    "industry": "energy_utilities",
+    "source_url": "https://www.businesspeople.it/lavoro/poste-ferrovie-leonardo-i-colossi-delloccupazione-in-italia",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Eni",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/Eni",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "A2A",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/A2A",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Terna",
+    "industry": "energy_utilities",
+    "source_url": "https://en.wikipedia.org/wiki/Terna_(company)",
+    "as_of": "2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Ferrovie dello Stato Italiane",
+    "industry": "aviation_transport",
+    "source_url": "https://www.businesspeople.it/lavoro/poste-ferrovie-leonardo-i-colossi-delloccupazione-in-italia",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ATM (Azienda Trasporti Milanesi)",
+    "industry": "aviation_transport",
+    "source_url": "https://www.atm.it/it/IlGruppo/Financial_information/Documents/Relazione%20Annuale%20Integrata%20Gruppo%20ATM%2012_2025.pdf",
+    "as_of": "2025-12-31",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "ATAC",
+    "industry": "aviation_transport",
+    "source_url": "https://www.pysae.com/it/content/article/confronto-reti-tpl-roma-milano-napoli",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ITA Airways",
+    "industry": "aviation_transport",
+    "source_url": "https://en.wikipedia.org/wiki/ITA_Airways",
+    "as_of": "2024",
+    "source_check": "name found on source page"
+   }
+  ],
+  "Canada": [
+   {
+    "name": "Magna International",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Linamar",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Martinrea International",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Bombardier",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "BRP (Bombardier Recreational Products)",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "NFI Group",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ATS Corporation",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "TFI International",
+    "industry": "logistics_warehousing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Mullen Group",
+    "industry": "logistics_warehousing",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Loblaw Companies",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Walmart Canada",
+    "industry": "retail",
+    "source_url": "https://corporate.walmart.com/news/2024/03/18/walmart-canada-celebrates-30-years-of-bringing-every-day-low-prices-to-canadians",
+    "as_of": "2024-03",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Empire Company",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Metro Inc.",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Canadian Tire",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Leon's Furniture",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Alberta Health Services",
+    "industry": "healthcare",
+    "source_url": "https://www.albertahealthservices.ca/assets/about/publications/ahs-pub-pr-2024-25-q4.pdf",
+    "as_of": "FY2024-25",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Chartwell Retirement Residences",
+    "industry": "healthcare",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "CGI",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Telus",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "BCE Inc.",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Rogers Communications",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "OpenText",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Shopify",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Royal Bank of Canada",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Toronto-Dominion Bank",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Scotiabank",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Bank of Montreal",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "CIBC",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "National Bank of Canada",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Manulife Financial",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Sun Life Financial",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Great-West Lifeco",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Intact Financial",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ATCO",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Suncor Energy",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Enbridge",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Canadian Natural Resources",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Hydro One",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Emera",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Cenovus Energy",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "TC Energy",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Air Canada",
+    "industry": "aviation_transport",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Canadian National Railway",
+    "industry": "aviation_transport",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "CPKC (Canadian Pacific Kansas City)",
+    "industry": "aviation_transport",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Chorus Aviation",
+    "industry": "aviation_transport",
+    "source_url": "https://companiesmarketcap.com/canada/largest-canadian-companies-by-number-of-employees",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   }
+  ],
+  "Mexico": [
+   {
+    "name": "Nemak",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Grupo Industrial Saltillo",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Cemex",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Grupo Traxion",
+    "industry": "logistics_warehousing",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "FEMSA",
+    "industry": "retail",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Walmart de México y Centroamérica",
+    "industry": "retail",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Grupo Coppel",
+    "industry": "retail",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Organización Soriana",
+    "industry": "retail",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "El Puerto de Liverpool",
+    "industry": "retail",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Chedraui",
+    "industry": "retail",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Corporativo Fragua (Farmacias Guadalajara)",
+    "industry": "retail",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "La Comer",
+    "industry": "retail",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "América Móvil",
+    "industry": "technology",
+    "source_url": "https://expansion.mx/empresas/2026/02/17/femsa-a-walamrt-20-empresas-con-mas-empleados-en-mexico",
+    "as_of": "FY2024",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Megacable Holdings",
+    "industry": "technology",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "BBVA México",
+    "industry": "financial_services",
+    "source_url": "https://investors.bbva.mx/wp-content/uploads/2026/03/Informe-Anual-BBVA-2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Grupo Financiero Banorte",
+    "industry": "financial_services",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Gentera",
+    "industry": "financial_services",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Grupo Financiero Inbursa",
+    "industry": "financial_services",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Qualitas Compañía de Seguros",
+    "industry": "financial_services",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Petróleos Mexicanos (Pemex)",
+    "industry": "energy_utilities",
+    "source_url": "https://gaceta.diputados.gob.mx/PDF/65/2024/may/Pemex-20240514.pdf",
+    "as_of": "2023-12",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Comisión Federal de Electricidad (CFE)",
+    "industry": "energy_utilities",
+    "source_url": "https://www.cfe.gob.mx/finanzas/reportes-financieros/Reportes%20Anuales%20Documentos/Informe%20Anual%202024.pdf",
+    "as_of": "FY2024",
+    "source_check": "official company report; automated re-check could not read the file"
+   },
+   {
+    "name": "Grupo Aeroméxico",
+    "industry": "aviation_transport",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Controladora Vuela Compañía de Aviación (Volaris)",
+    "industry": "aviation_transport",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Grupo Aeroportuario del Pacífico",
+    "industry": "aviation_transport",
+    "source_url": "https://es.tradingview.com/markets/stocks-mexico/market-movers-largest-employers",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   }
+  ],
+  "Brazil": [
+   {
+    "name": "WEG",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Gerdau",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Embraer",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Marcopolo",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Mahle Metal Leve",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Simpar",
+    "industry": "logistics_warehousing",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Correios",
+    "industry": "logistics_warehousing",
+    "source_url": "https://trendings.com.br/negocios/conheca-os-maiores-empregadores-do-brasil-e-do-mundo",
+    "as_of": "2022",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Rumo",
+    "industry": "logistics_warehousing",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Sendas Distribuidora (Assaí)",
+    "industry": "retail",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Raia Drogasil",
+    "industry": "retail",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Magazine Luiza",
+    "industry": "retail",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Grupo Casas Bahia",
+    "industry": "retail",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Riachuelo",
+    "industry": "retail",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Empreendimentos Pague Menos",
+    "industry": "retail",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Lojas Renner",
+    "industry": "retail",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Americanas",
+    "industry": "retail",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Rede D'Or São Luiz",
+    "industry": "healthcare",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Hapvida",
+    "industry": "healthcare",
+    "source_url": "https://www2.hapvida.com.br/institucional/sobre-o-grupo",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Fleury",
+    "industry": "healthcare",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Telefônica Brasil (Vivo)",
+    "industry": "technology",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Positivo Tecnologia",
+    "industry": "technology",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Itaú Unibanco",
+    "industry": "financial_services",
+    "source_url": "https://trendings.com.br/negocios/conheca-os-maiores-empregadores-do-brasil-e-do-mundo",
+    "as_of": "2022",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Caixa Econômica Federal",
+    "industry": "financial_services",
+    "source_url": "https://trendings.com.br/negocios/conheca-os-maiores-empregadores-do-brasil-e-do-mundo",
+    "as_of": "2022",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Bradesco",
+    "industry": "financial_services",
+    "source_url": "https://trendings.com.br/negocios/conheca-os-maiores-empregadores-do-brasil-e-do-mundo",
+    "as_of": "2022",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Banco do Brasil",
+    "industry": "financial_services",
+    "source_url": "https://trendings.com.br/negocios/conheca-os-maiores-empregadores-do-brasil-e-do-mundo",
+    "as_of": "2022",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Banco Santander (Brasil)",
+    "industry": "financial_services",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Porto Seguro",
+    "industry": "financial_services",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Banco BTG Pactual",
+    "industry": "financial_services",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Petrobras",
+    "industry": "energy_utilities",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Energisa",
+    "industry": "energy_utilities",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Companhia Energética do Ceará (Coelce)",
+    "industry": "energy_utilities",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Companhia de Saneamento de Minas Gerais (Copasa)",
+    "industry": "energy_utilities",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Sabesp",
+    "industry": "energy_utilities",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Azul",
+    "industry": "aviation_transport",
+    "source_url": "https://www.tradingview.com/markets/stocks-brazil/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   }
+  ],
+  "Australia": [
+   {
+    "name": "BlueScope Steel",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Orica",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Orora",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Austal",
+    "industry": "automotive_manufacturing",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Australia Post",
+    "industry": "logistics_warehousing",
+    "source_url": "https://auspost.com.au/about-us/news-media/fast-facts-about-australia-post",
+    "as_of": "2025-06",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Aurizon Holdings",
+    "industry": "logistics_warehousing",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Woolworths Group",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Wesfarmers",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Coles Group",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Endeavour Group",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Super Retail Group",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Metcash",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Harvey Norman",
+    "industry": "retail",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Ramsay Health Care",
+    "industry": "healthcare",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Sonic Healthcare",
+    "industry": "healthcare",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Healius",
+    "industry": "healthcare",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Australian Clinical Labs",
+    "industry": "healthcare",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Telstra",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Atlassian",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "TPG Telecom",
+    "industry": "technology",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Commonwealth Bank",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "ANZ Bank",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "National Australia Bank",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Westpac Banking",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Macquarie Group",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Suncorp",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Bendigo and Adelaide Bank",
+    "industry": "financial_services",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Viva Energy",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Origin Energy",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Woodside Energy",
+    "industry": "energy_utilities",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Qantas Airways",
+    "industry": "aviation_transport",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Virgin Australia",
+    "industry": "aviation_transport",
+    "source_url": "https://companiesmarketcap.com/australia/largest-companies-by-number-of-employees-in-australia",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   }
+  ],
+  "United Arab Emirates": [
+   {
+    "name": "ADNOC Logistics & Services",
+    "industry": "logistics_warehousing",
+    "source_url": "https://www.tradingview.com/markets/stocks-uae/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Lulu Group (Lulu Retail)",
+    "industry": "retail",
+    "source_url": "https://finance.yahoo.com/news/lulu-retail-group-strategic-expansion-114139693.html",
+    "as_of": "2024-06",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Burjeel Holdings",
+    "industry": "healthcare",
+    "source_url": "https://www.tradingview.com/markets/stocks-uae/market-movers-largest-employers/",
+    "as_of": "2026-10-20",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "Emirates NBD",
+    "industry": "financial_services",
+    "source_url": "https://cdn.emiratesnbd.com/en/assets/file/ir/annual_report_2025.pdf",
+    "as_of": "FY2025",
+    "source_check": "name found on source page"
+   },
+   {
+    "name": "The Emirates Group",
+    "industry": "aviation_transport",
+    "source_url": "https://www.emirates.com/media-centre/emirates-group-achieves-record-profit-of-aed-244-bn-us-66-bn-in-2025-26/",
+    "as_of": "FY2025-26",
+    "source_check": "name found on source page"
+   }
+  ]
+ },
+ "_meta": {
+  "description": "Largest employers per country and broad industry, each row with the public page it came from. A SIZE list for orientation: it is not a measurement of who competes for a given role, and some headcounts on the cited pages are group-wide rather than country-only.",
+  "industries": [
+   "automotive_manufacturing",
+   "logistics_warehousing",
+   "retail",
+   "healthcare",
+   "technology",
+   "financial_services",
+   "energy_utilities",
+   "aviation_transport"
+  ],
+  "row_fields": {
+   "name": "employer",
+   "industry": "broad industry key",
+   "source_url": "page that names the employer and its size or ranking",
+   "as_of": "fiscal year / date of the figure on that page, else the retrieval date",
+   "source_check": "how the row was checked on 2026-10-20"
+  },
+  "policy": "A cell is left empty rather than filled without a source. Companies that are customers of this product are not listed.",
+  "compiled": "2026-10-20"
+ }
+}

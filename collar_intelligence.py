@@ -88,6 +88,10 @@ SOC_COLLAR_MAP: Dict[str, str] = {
 SOC_MINOR_COLLAR_OVERRIDES: Dict[str, str] = {
     "413": "white_collar",  # 41-3000 Sales Representatives, Services
     "414": "white_collar",  # 41-4000 Sales Representatives, Wholesale and Manufacturing
+    # 43-5000 Material Recording, Scheduling, Dispatching, and Distributing
+    # Workers (Couriers and Messengers 43-5021) is moving freight, not office
+    # work: the courier title used to resolve to a driver SOC (53, blue collar).
+    "435": "blue_collar",
 }
 
 

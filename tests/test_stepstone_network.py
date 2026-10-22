@@ -139,14 +139,24 @@ def test_supply_repository_states_the_status_and_keeps_history():
         open(os.path.join(ROOT, "data", "joveo_global_supply_repository.json"))
     )
     rows = {p["name"]: p for rd in repo["by_region"].values() for p in rd["publishers"]}
-    pro = rows["StepStone Germany (Pro - Media Buy) - Selected Customers Only"]
-    assert pro["status"] == "In Joveo Network" and pro["status_previous"] == "VONQ Only"
-    assert pro["name_previous"].startswith("Stepstone Germa-ny")
-    assert "Selected customers only" in pro["restriction"]
-    assert (
-        pro["network_as_of"] == "2026-10-17"
-        and pro["network_source"] == "owner confirmation"
-    )
+    # The 2026-10-20 export marks the Pro - Media Buy entry and JustEngineers.net
+    # "VONQ Only", so the repository no longer lists them (the 2026-10-17 stamps
+    # that kept them in network lived in the old repository file).  The group
+    # file still records the JustEngineers confirmation, but the owner decided
+    # the newer export wins where it has an explicit contrary row: both boards
+    # are listed in the repository's ``network_conflicts`` and read as not in
+    # network for their country.
+    pro = "StepStone Germany (Pro - Media Buy) - Selected Customers Only"
+    assert pro not in rows
+    assert "JustEngineers.net" not in rows
+    hit = pf.network_member("JustEngineers.net")
+    assert hit and hit["status"] == "In Joveo Network"
+    assert hit["as_of"] == "2026-10-17" and hit["status_source"] == "owner confirmation"
+    conflicted = {(c["name"], c["country"]) for c in repo["network_conflicts"]}
+    assert (pro, "Germany") in conflicted
+    assert ("JustEngineers.net", "United Kingdom") in conflicted
+    for name, country in ((pro, "Germany"), ("JustEngineers.net", "United Kingdom")):
+        assert pf.board_supply_record(name, country)["state"] == pf.SUPPLY_NOT_IN_NETWORK
     assert "United Kingdom" in rows["Totaljobs"]["countries"]
     assert rows["Totaljobs"]["countries_previous"] == "Ireland"
     for name in ("StepStone Germany", "CWJobs", "Milkround", "Pnet", "IrishJobs"):

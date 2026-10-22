@@ -141,7 +141,7 @@ def test_validate_plan_runs_all_checks_and_reports():
     data = _make_plan({"Indeed": 90_000, "LinkedIn": 60_000}, 100_000)
     summary = validate_plan(data)
 
-    assert summary["checks_run"] == 7
+    assert summary["checks_run"] == 8
     assert summary["checks_failed"] == 0
     assert summary["auto_corrections"] >= 1
     assert any(f["check"] == "budget_allocation_sum" for f in summary["findings"])

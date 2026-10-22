@@ -42,6 +42,10 @@ LIVE_2025: Dict[str, tuple] = {
     "41-4012": (82530, 72080, 39090, 137550),  # Sales Reps, Wholesale/Mfg, Non-Tech
     "53-3032": (59710, 58640, 40140, 79380),  # Heavy and Tractor-Trailer Truck Drivers
     "53-7065": (39540, 37330, 30110, 49260),  # Stockers and Order Fillers
+    # Laborers and Freight, Stock, and Material Movers, Hand: FIXTURE values for
+    # the mocked API only (not a published BLS figure); O*NET lists Warehouse
+    # Associate under 53-7062.00.
+    "53-7062": (38000, 36000, 29000, 48000),
     "43-4051": (46590, 44770, 31750, 63590),  # Customer Service Representatives
     "13-2011": (94750, 83680, 56020, 144090),  # Accountants and Auditors
     "13-2051": (116800, 102740, None, None),  # Financial and Investment Analysts
@@ -291,7 +295,9 @@ def test_the_ten_refresh_roles_resolve_to_the_right_occupations(
         "Marketing Manager": "11-2021",
         "Sales Representative": "41-4012",
         "Truck Driver": "53-3032",
-        "Warehouse Associate": "53-7065",
+        # O*NET lists Warehouse Associate under 53-7062.00 (Laborers and Freight,
+        # Stock, and Material Movers, Hand); 53-7065 is order filler / stocker.
+        "Warehouse Associate": "53-7062",
         "Customer Service Rep": "43-4051",
         "Accountant": "13-2011",
     }

@@ -1,0 +1,105 @@
+{
+  "source": "Joveo publisher onboarding tracker (sanitized)",
+  "as_of": "2026-10-20",
+  "scope": "partners at Contract signed or later; earlier-stage prospects are kept out of this public file",
+  "stages": [
+    {
+      "name": "Sourced",
+      "exit_criteria": "Publisher identified and logged with source channel and region."
+    },
+    {
+      "name": "Outreach - contacting",
+      "exit_criteria": "First outreach sent; keep chasing (log each touch in Follow-ups #, update Last Contacted & Next Action)."
+    },
+    {
+      "name": "Responded",
+      "exit_criteria": "They replied / showed interest; set up the scoping call."
+    },
+    {
+      "name": "Scoping call scheduled",
+      "exit_criteria": "Intro/scoping call booked on the calendar."
+    },
+    {
+      "name": "Scoping call done",
+      "exit_criteria": "Capabilities scoped (inventory, regions, formats, pricing model)."
+    },
+    {
+      "name": "Qualified (programmatic)",
+      "exit_criteria": "Confirmed programmatic-capable -> proceed to contract. If not, mark 'Not pursued'."
+    },
+    {
+      "name": "Contract sent",
+      "exit_criteria": null
+    },
+    {
+      "name": "In redlines",
+      "exit_criteria": "Redlines under discussion with both legal teams."
+    },
+    {
+      "name": "Contract signed",
+      "exit_criteria": "Signed by both parties."
+    },
+    {
+      "name": "Dashboard access granted",
+      "exit_criteria": "Vendor/account set up; dashboard access provided."
+    },
+    {
+      "name": "Test campaign allocated",
+      "exit_criteria": "Test campaign(s) assigned to validate delivery & CPA."
+    },
+    {
+      "name": "Live",
+      "exit_criteria": "Campaign live on them \u2014 loop closed. Add to performance tracking."
+    },
+    {
+      "name": "Not pursued",
+      "exit_criteria": "Dropped at any stage (no fit / no response / not programmatic). Record why in Notes."
+    }
+  ],
+  "partners": [
+    {
+      "name": "jobbol.br",
+      "regions": [
+        "Brazil"
+      ],
+      "type": "CPC + CPA",
+      "job_category": "White collar",
+      "stage": "Contract signed",
+      "status": "Done",
+      "test_campaign_allocated": null
+    },
+    {
+      "name": "QuickApply US",
+      "regions": [
+        "United States"
+      ],
+      "type": "CPC + tCPA",
+      "job_category": "White collar",
+      "stage": "Test campaign allocated",
+      "status": "In progress",
+      "test_campaign_allocated": true
+    },
+    {
+      "name": "Freshersworld",
+      "regions": [
+        "India"
+      ],
+      "type": null,
+      "job_category": null,
+      "stage": "Live",
+      "status": "Done",
+      "test_campaign_allocated": null
+    },
+    {
+      "name": "MyNimo",
+      "regions": [
+        "United States"
+      ],
+      "type": "Posting",
+      "job_category": "Both",
+      "stage": "Live",
+      "status": "Done",
+      "test_campaign_allocated": true
+    }
+  ]
+}

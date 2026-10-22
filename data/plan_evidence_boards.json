@@ -1,0 +1,221 @@
+{
+  "_description": "Boards that appear in Joveo-built media plans, by country: 'funded' = given budget in a plan for that market, 'standby' = listed as a reserve there. Board names only. This is one local-relevance signal for ranking (channel_funding.py); it never makes an unavailable, onboarding, not-in-network or client-excluded board fundable.",
+  "source": "Joveo-built media plans (internal), 2026-10",
+  "as_of": "2026-10",
+  "countries": {
+    "Germany": {
+      "funded": [
+        "XING",
+        "Indeed",
+        "StepStone",
+        "Jooble",
+        "Careerjet",
+        "LinkedIn",
+        "AllTheTopBananas",
+        "Jobsora",
+        "Jobflow",
+        "StudySmarter",
+        "Hokify",
+        "Joblift",
+        "Talent.com",
+        "Jvers"
+      ],
+      "standby": [
+        "Jobrapido",
+        "Jobtome",
+        "Jobtraffic",
+        "Jobcheck",
+        "Yada Jobs",
+        "Jobmesh",
+        "Jobswipe",
+        "Sercanto",
+        "Bundesagentur fuer Arbeit"
+      ]
+    },
+    "Oman": {
+      "funded": [
+        "Bayt",
+        "NaukriGulf",
+        "Opensooq",
+        "GulfTalent.com",
+        "Qureos",
+        "OmanJobs",
+        "Drjobpro",
+        "Indeed",
+        "LinkedIn"
+      ],
+      "standby": [
+        "Pilot Career Center",
+        "JSfirm",
+        "Aurawoo"
+      ]
+    },
+    "Egypt": {
+      "funded": [
+        "Wuzzuf",
+        "Forasna",
+        "Tanqeeb",
+        "Shaghalnii",
+        "Bayt",
+        "NaukriGulf",
+        "GulfTalent",
+        "Opensooq",
+        "Talent.com",
+        "Indeed",
+        "CareerJet",
+        "WhatJobs"
+      ],
+      "standby": [
+        "OLX Egypt",
+        "Dubizzle Egypt",
+        "Shoghlana",
+        "Jobzella",
+        "Wazfni"
+      ]
+    },
+    "United States": {
+      "funded": [
+        "Indeed",
+        "ZipRecruiter",
+        "Local Staffing",
+        "Banya",
+        "SoJobs",
+        "Instawork",
+        "VerJobs",
+        "Propel",
+        "AllJobs",
+        "OfferUp",
+        "Craigslist",
+        "Talent.com",
+        "Jvers",
+        "iMatchSkills",
+        "USAJobs.gov",
+        "CareerOneStop",
+        "WorkSource Oregon",
+        "Mac's List"
+      ],
+      "standby": []
+    },
+    "United Kingdom": {
+      "funded": [
+        "Reed",
+        "Totaljobs",
+        "CV-Library",
+        "CW Jobs",
+        "Technojobs",
+        "Fish4jobs",
+        "JobTeaser",
+        "Nurses.co.uk",
+        "Dwp.gov.uk"
+      ],
+      "standby": []
+    },
+    "France": {
+      "funded": [
+        "JobTeaser",
+        "Welcome to the Jungle",
+        "Optioncarriere",
+        "Leboncoin",
+        "Cadremploi",
+        "Figaro Emploi",
+        "Jobijoba",
+        "MeteoJobs",
+        "LesJeudis",
+        "Agefiph",
+        "Connexion Emploi"
+      ],
+      "standby": []
+    },
+    "Italy": {
+      "funded": [
+        "Bakeca.it",
+        "CercoJobs",
+        "The Local Italy",
+        "Lavoro Corriere IT",
+        "Lavoratorio",
+        "Reteinformaticalavoro",
+        "Monet"
+      ],
+      "standby": []
+    },
+    "Sweden": {
+      "funded": [
+        "Jobbsafari.se",
+        "Jobbland",
+        "Blocket Jobb",
+        "StudentJob"
+      ],
+      "standby": []
+    },
+    "Norway": {
+      "funded": [
+        "QuickToJobs",
+        "StudentTorget"
+      ],
+      "standby": []
+    },
+    "Finland": {
+      "funded": [
+        "Jobly",
+        "Jobs Europe AB"
+      ],
+      "standby": []
+    },
+    "Brazil": {
+      "funded": [
+        "Vagas",
+        "Catho",
+        "Curriculum",
+        "Trabalha Brasil",
+        "Vagas Rio",
+        "Vagas Floripa",
+        "Net Empregos",
+        "JF Empregos",
+        "Empregos",
+        "Infojobs Brasil",
+        "BNE",
+        "Nova Talent Network"
+      ],
+      "standby": []
+    },
+    "Colombia": {
+      "funded": [
+        "Bumeran",
+        "Buscojobs",
+        "ZonaJobs",
+        "ElEmpleo",
+        "Magneto",
+        "Facil Trabajo",
+        "TuTrabajo",
+        "Trabajo",
+        "Un Mejor Empleo",
+        "Trabajos.com",
+        "HoyTrabajas",
+        "Mi Empleo",
+        "Empleate",
+        "SENA Agencia Publica de Empleo",
+        "Trabajando.com",
+        "EmpleosLatino"
+      ],
+      "standby": []
+    },
+    "Philippines": {
+      "funded": [
+        "Jobstreet",
+        "Kalibrr",
+        "Bossjob",
+        "Philjobnet",
+        "Jobs180",
+        "MyNimo",
+        "Pinoyjobs",
+        "JobsCloud",
+        "Foundit",
+        "Jobsdb",
+        "OnlineJobs.ph",
+        "TrabahoPH",
+        "Fastjobs Malaysia"
+      ],
+      "standby": []
+    }
+  }
+}
