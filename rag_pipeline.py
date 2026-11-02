@@ -866,6 +866,17 @@ class QdrantStore(_VectorStore):
         return int(info.points_count or 0)
 
 
+# Embedding-dimension guard for this pipeline's collection (same contract as
+# vector_search._qdrant_dim_guard): None until a mismatch is proven; then a
+# dict naming the collection, expected (embedder) dim and actual vector size.
+# Exposed on /api/deploy/ready (embedding.rag_v2.dim_guard). Without it, an
+# embedder fallback (LocalEmbedder 384-d / HashEmbedder 128-d when
+# VOYAGE_API_KEY is missing but QDRANT_* is set) was queried against the
+# 1024-d collection and every vector leg failed at request time with only a
+# warning, or -- at an equal dim -- silently scored incomparable vectors.
+_rag_dim_guard: dict[str, Any] | None = None
+
+
 class QdrantRESTStore(_VectorStore):
     """Qdrant Cloud-backed store over stdlib REST (PRIMARY production path).
 
@@ -908,6 +919,47 @@ class QdrantRESTStore(_VectorStore):
         # Sticky flag so we don't probe ``/points/query`` on every search
         # once we've learned the server only supports the legacy endpoint.
         self._use_legacy_search = False
+        # Dim guard state: None = not yet verified, True = OK, False = refused.
+        self._dim_ok: bool | None = None
+
+    def _check_dim(self) -> None:
+        """Refuse to search a collection whose vector size != embedder dim.
+
+        One ``GET /collections/{c}`` per store instance (read-only). A proven
+        mismatch is sticky and raises ``_RestError`` on every search, which
+        ``NovaRAGPipeline.retrieve`` already degrades to BM25-only. A config
+        that cannot be read is not a proven mismatch: fail open, retry later.
+        """
+        global _rag_dim_guard
+        if self._dim_ok is True:
+            return
+        if self._dim_ok is None:
+            try:
+                info = _http_json(self._coll_url(), self._headers, method="GET")
+            except _RestError as exc:
+                logger.warning("RAG dim guard: collection read failed: %s", exc)
+                return
+            size, _distance, _named = vector_search._qdrant_vector_params(
+                info.get("result")
+            )
+            if size is None or size == self._dim:
+                self._dim_ok = True
+                return
+            self._dim_ok = False
+            _rag_dim_guard = {
+                "collection": self._collection,
+                "expected_dim": self._dim,
+                "actual_dim": size,
+                "reason": (
+                    f"collection '{self._collection}' vector size {size} != "
+                    f"embedder dim {self._dim}"
+                ),
+            }
+            logger.error(
+                "RAG DIM GUARD: %s -- vector leg disabled, BM25 only",
+                _rag_dim_guard["reason"],
+            )
+        raise _RestError(f"dim guard: {(_rag_dim_guard or {}).get('reason')}")
 
     # ----- helpers ---------------------------------------------------------
 
@@ -1046,6 +1098,7 @@ class QdrantRESTStore(_VectorStore):
         filters: dict[str, Any] | None = None,
     ) -> list[tuple[str, float]]:
         """Vector search via REST with query->search endpoint fallback."""
+        self._check_dim()
         qfilter = self._build_filter(filters)
         if not self._use_legacy_search:
             try:
@@ -1085,6 +1138,7 @@ class QdrantRESTStore(_VectorStore):
         to the base-class ``None`` contract if the endpoint errors, so
         ``retrieve`` can degrade to ``search`` + ``get``.
         """
+        self._check_dim()
         qfilter = self._build_filter(filters)
         endpoint = "/points/search" if self._use_legacy_search else "/points/query"
         is_query_api = not self._use_legacy_search

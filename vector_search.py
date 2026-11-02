@@ -492,6 +492,16 @@ _qdrant_lock = threading.Lock()
 _qdrant_attach_lock = threading.Lock()
 _qdrant_attach_last_attempt: float = 0.0
 _QDRANT_ATTACH_COOLDOWN_S = 60.0
+# Per-process attach bookkeeping, surfaced on /api/deploy/ready so the probe
+# says WHICH process armed the tier and how, instead of a bare boolean that
+# was only true on whichever worker happened to have served a search.
+#   _qdrant_attach_pid     pid of the process whose GET armed the flag (the
+#                          gunicorn master when warm_retrieval() ran pre-fork)
+#   _qdrant_attach_source  "warmup" | "search" | "probe" | ... (caller tag)
+#   _qdrant_attach_attempts  GETs made by THIS process (reset after fork)
+_qdrant_attach_pid: int | None = None
+_qdrant_attach_source: str | None = None
+_qdrant_attach_attempts: int = 0
 # Qdrant currently holds duplicate points per doc_id (build_index's point ids
 # are derived from abs(hash(entry["id"])), and str hashing is randomized
 # per-process with PYTHONHASHSEED unset) -- over-fetch then dedupe client-side
@@ -1366,8 +1376,8 @@ def _deterministic_point_id(doc_id: str) -> int:
     return int(digest[:15], 16)  # 60 bits -- safely within int64
 
 
-def _qdrant_attach() -> bool:
-    """Arm THIS process's Qdrant tier, lazily, on first search. Read-only.
+def _qdrant_attach(source: str = "search", timeout: int = _QDRANT_TIMEOUT) -> bool:
+    """Arm THIS process's Qdrant tier (first search, probe, or boot warm-up). Read-only.
 
     gunicorn --preload forks workers after wsgi.py has already run startup in
     the master; module globals do not cross fork(), so a worker's
@@ -1383,10 +1393,17 @@ def _qdrant_attach() -> bool:
     GET-only, fail closed on any error so the caller falls through to BM25/
     TF-IDF instead of reporting a false "available".
 
+    Args:
+        source: Caller tag recorded with a successful attach ("warmup",
+            "search", "probe") for /api/deploy/ready.
+        timeout: HTTP timeout for the GET; warm-up passes a short one so a
+            Qdrant outage cannot hold up boot for the full default.
+
     Returns:
         True if this process's Qdrant tier is (now, or already) usable.
     """
     global _qdrant_available, _qdrant_attach_last_attempt
+    global _qdrant_attach_pid, _qdrant_attach_source, _qdrant_attach_attempts
 
     if _qdrant_available:
         return True
@@ -1410,16 +1427,22 @@ def _qdrant_attach() -> bool:
         ):
             return False
         _qdrant_attach_last_attempt = now
+        _qdrant_attach_attempts += 1
 
-        check = _qdrant_request("GET", f"/collections/{_active_collection()}")
+        check = _qdrant_request(
+            "GET", f"/collections/{_active_collection()}", timeout=timeout
+        )
         if check and check.get("result"):
             # Dim/distance guard: attach only to a collection this process's
             # embedding model can actually search (see _qdrant_dim_guard_check).
             if _qdrant_dim_guard_check(_active_collection(), check["result"]):
                 return False
             _qdrant_available = True
+            _qdrant_attach_pid = os.getpid()
+            _qdrant_attach_source = source
             logger.info(
-                "Qdrant attached lazily in PID %d for collection %s",
+                "Qdrant attached (%s) in PID %d for collection %s",
+                source,
                 os.getpid(),
                 _active_collection(),
             )
@@ -1431,6 +1454,47 @@ def _qdrant_attach() -> bool:
             _QDRANT_ATTACH_COOLDOWN_S,
         )
         return False
+
+
+def _after_fork_in_child() -> None:
+    """Reset per-process attach bookkeeping in a freshly forked worker.
+
+    The armed flag itself is kept: it records that the collection exists and
+    passed the dim guard for this env, which is equally true in the child
+    (every Qdrant call is a fresh urllib request; no socket is shared). Only
+    the counters and the retry cooldown are per-process, so a worker whose
+    master failed to attach retries on its first touch instead of waiting out
+    the master's cooldown.
+    """
+    global _qdrant_attach_last_attempt, _qdrant_attach_attempts
+    _qdrant_attach_last_attempt = 0.0
+    _qdrant_attach_attempts = 0
+
+
+if hasattr(os, "register_at_fork"):  # POSIX; gunicorn forks workers this way
+    os.register_at_fork(after_in_child=_after_fork_in_child)
+
+
+def qdrant_attach_state() -> dict[str, Any]:
+    """Honest per-process view of the Qdrant attach for health endpoints."""
+    pid = os.getpid()
+    attached = bool(_qdrant_available)
+    return {
+        "pid": pid,
+        "configured": _qdrant_is_configured(),
+        "attached_in_this_worker": attached,
+        "attach_attempted_in_this_worker": _qdrant_attach_attempts > 0,
+        "attempts_in_this_worker": _qdrant_attach_attempts,
+        "attached_by_pid": _qdrant_attach_pid if attached else None,
+        "attach_source": _qdrant_attach_source if attached else None,
+        # True when the GET that armed this worker ran in its parent (the
+        # gunicorn master's pre-fork warm-up): still valid here, see
+        # _after_fork_in_child.
+        "inherited_from_parent": bool(
+            attached and _qdrant_attach_pid is not None and _qdrant_attach_pid != pid
+        ),
+        "dim_guard_refused": _qdrant_guarded(),
+    }
 
 
 def _qdrant_upsert_points(
@@ -2330,7 +2394,7 @@ def build_index(documents: list[dict]) -> None:
     Args:
         documents: List of dicts with at least "id" and "text" keys.
     """
-    global _index_built
+    global _index_built, _keyword_indexes_built_by
 
     if not documents:
         logger.warning("build_index called with empty document list")
@@ -2387,6 +2451,7 @@ def build_index(documents: list[dict]) -> None:
     ]
     _bm25_index.index(flat_docs)
     _build_tfidf_index(flat_docs)
+    _keyword_indexes_built_by = "build_index"
 
     # Stagger embedding in smaller chunks to avoid overwhelming Voyage AI on startup
     _STAGGER_CHUNK_SIZE = 64  # Process 64 docs at a time with delays between chunks
@@ -2941,6 +3006,20 @@ def _resolve_doc(doc_id: str, extra: dict[str, dict] | None = None) -> dict | No
     Returns:
         Dict with id, text, metadata -- or None if not found.
     """
+    # The current search()'s Qdrant payload wins: it IS the chunk the vector
+    # hit scored. Doc ids are positional ("file.json:N"), so once BM25 is
+    # built from the local KB (warm_retrieval) the same id can name a
+    # different chunk locally if the KB changed after the collection was
+    # indexed -- looking BM25 up first would then return the wrong text.
+    if extra:
+        hit = extra.get(doc_id)
+        if hit and (hit.get("text") or "").strip():
+            return {
+                "id": hit["id"],
+                "text": hit["text"][:500],
+                "metadata": hit.get("metadata") or {},
+            }
+
     # Check in-memory vector index
     with _index_lock:
         for entry in _index:
@@ -2968,17 +3047,48 @@ def _resolve_doc(doc_id: str, extra: dict[str, dict] | None = None) -> dict | No
         except ValueError:
             pass
 
-    # Check the current search()'s Qdrant payload passthrough
-    if extra:
-        hit = extra.get(doc_id)
-        if hit and (hit.get("text") or "").strip():
-            return {
-                "id": hit["id"],
-                "text": hit["text"][:500],
-                "metadata": hit.get("metadata") or {},
-            }
-
     return None
+
+
+# BM25-only ids that were renamed because the same positional id named a
+# different chunk in Qdrant (KB edited after the collection was indexed).
+_BM25_ONLY_PREFIX = "bm25-only::"
+_hybrid_id_text_mismatches: int = 0
+
+
+def _same_chunk(a: str, b: str) -> bool:
+    """True if two chunk texts are the same chunk (Qdrant returns <=500 chars)."""
+    a, b = (a or "").strip(), (b or "").strip()
+    if not a or not b:
+        return True  # nothing to compare: keep the historical id fusion
+    n = min(len(a), len(b), 500)
+    return a[:n] == b[:n]
+
+
+def _separate_drifted_ids(
+    bm25_results: list[tuple[str, float]], qdrant_payloads: dict[str, dict]
+) -> list[tuple[str, float]]:
+    """Rename BM25 ids whose text differs from the Qdrant hit with that id.
+
+    RRF fuses by id. Ids are positional ("file.json:N"), so a KB edit after
+    the collection was indexed makes Qdrant's "f.json:12" and local BM25's
+    "f.json:12" different chunks; fusing them would boost both under one id
+    and return whichever text resolves first. A renamed id ranks on its own
+    and resolves from BM25 only. No-op when ids line up (the normal case).
+    """
+    global _hybrid_id_text_mismatches
+    if not qdrant_payloads:
+        return bm25_results
+    out: list[tuple[str, float]] = []
+    for doc_id, score in bm25_results:
+        hit = qdrant_payloads.get(doc_id)
+        local = _bm25_index.get_doc(doc_id) if hit else None
+        if hit and local and not _same_chunk(hit.get("text", ""), local.get("text", "")):
+            _hybrid_id_text_mismatches += 1
+            out.append((f"{_BM25_ONLY_PREFIX}{doc_id}", score))
+        else:
+            out.append((doc_id, score))
+    return out
 
 
 def _warn_retrieval_dead() -> None:
@@ -3106,7 +3216,9 @@ def search(query: str, top_k: int = 5) -> list[dict]:
     )
 
     if vector_results and bm25_results:
-        # Full hybrid: merge both via RRF
+        # Full hybrid: merge both via RRF. Fuse only ids that name the SAME
+        # chunk on both sides (see _separate_drifted_ids).
+        bm25_results = _separate_drifted_ids(bm25_results, qdrant_payloads)
         fused = reciprocal_rank_fusion(vector_results, bm25_results, k=60)
         logger.debug(
             "Hybrid search: %d vector + %d BM25 -> %d fused for query=%s",
@@ -3118,7 +3230,10 @@ def search(query: str, top_k: int = 5) -> list[dict]:
 
         results: list[dict] = []
         for doc_id, rrf_score in fused[:top_k]:
-            doc = _resolve_doc(doc_id, extra=qdrant_payloads)
+            if doc_id.startswith(_BM25_ONLY_PREFIX):
+                doc = _bm25_index.get_doc(doc_id[len(_BM25_ONLY_PREFIX) :])
+            else:
+                doc = _resolve_doc(doc_id, extra=qdrant_payloads)
             if doc:
                 doc["score"] = rrf_score
                 doc["search_method"] = "hybrid_rrf"
@@ -3181,32 +3296,24 @@ def search(query: str, top_k: int = 5) -> list[dict]:
     return []
 
 
-def index_knowledge_base() -> int:
-    """Index all knowledge base JSON files from the data/ directory at startup.
+def _collect_kb_documents() -> list[dict]:
+    """Chunk the canonical KB files into ``{id, text, metadata}`` documents.
 
-    Reads each JSON file, extracts text-bearing entries, and indexes them.
-    Handles various KB JSON structures (nested dicts, lists of dicts, etc.).
-
-    Returns:
-        Number of documents indexed, or 0 on failure.
+    The single chunking pass shared by index_knowledge_base() (embed + index)
+    and build_keyword_indexes() (BM25/TF-IDF only), so both see the same ids
+    in the same order -- the order scripts/reindex_embeddings.py indexes too.
     """
     data_dir = Path(__file__).resolve().parent / "data"
     if not data_dir.exists():
         logger.warning("Data directory not found: %s", data_dir)
-        return 0
-
-    # KB files to index (skip api_cache, backups, etc.). Shared module-level
-    # constant so scripts/reindex_embeddings.py indexes the exact same corpus.
-    kb_files = _KB_INDEX_FILES
+        return []
 
     documents: list[dict] = []
     doc_id = 0
-
-    for filename in kb_files:
+    for filename in _KB_INDEX_FILES:
         fpath = data_dir / filename
         if not fpath.exists():
             continue
-
         try:
             with open(fpath, "r", encoding="utf-8") as f:
                 raw = json.load(f)
@@ -3214,9 +3321,7 @@ def index_knowledge_base() -> int:
             logger.warning("Failed to load %s for indexing: %s", filename, e)
             continue
 
-        # Extract text chunks from various JSON structures
-        chunks = _extract_text_chunks(raw, source=filename)
-        for chunk_text in chunks:
+        for chunk_text in _extract_text_chunks(raw, source=filename):
             if len(chunk_text.strip()) < 20:
                 continue
             doc_id += 1
@@ -3227,7 +3332,19 @@ def index_knowledge_base() -> int:
                     "metadata": {"source": filename, "chunk_id": doc_id},
                 }
             )
+    return documents
 
+
+def index_knowledge_base() -> int:
+    """Index all knowledge base JSON files from the data/ directory at startup.
+
+    Reads each JSON file, extracts text-bearing entries, and indexes them.
+    Handles various KB JSON structures (nested dicts, lists of dicts, etc.).
+
+    Returns:
+        Number of documents indexed, or 0 on failure.
+    """
+    documents = _collect_kb_documents()
     if not documents:
         logger.warning("No documents extracted from knowledge base for indexing")
         return 0
@@ -3235,7 +3352,7 @@ def index_knowledge_base() -> int:
     logger.info(
         "Extracted %d text chunks from %d KB files for vector indexing",
         len(documents),
-        len(kb_files),
+        len(_KB_INDEX_FILES),
     )
     build_index(documents)
 
@@ -3244,6 +3361,76 @@ def index_knowledge_base() -> int:
     _is_startup_indexing = False
 
     return len(documents)
+
+
+# Keyword-index warm-up state (build_keyword_indexes), for health endpoints.
+_keyword_indexes_built_by: str | None = None  # "warmup" | "build_index" | None
+_keyword_indexes_error: str | None = None
+
+
+def build_keyword_indexes(source: str = "warmup") -> int:
+    """Build BM25 + TF-IDF over the KB -- text only, no embedding, no network.
+
+    Production serves vectors from Qdrant and never runs build_index()
+    (NOVA_BUILD_LOCAL_INDEX is off, see wsgi.py), and build_index() was the
+    ONLY place the keyword indexes were built -- so prod had no hybrid RRF,
+    no BM25-only fallback when Voyage or Qdrant failed, and nothing for
+    _resolve_doc to fall back on. This builds just the keyword side (~0.1 s
+    and ~40 MB for ~6.2k chunks). Run it in the gunicorn master before fork
+    (wsgi.py) so the workers share the pages copy-on-write.
+
+    Returns:
+        Number of documents in the BM25 index (0 on failure; never raises).
+    """
+    global _keyword_indexes_built_by, _keyword_indexes_error
+    try:
+        documents = _collect_kb_documents()
+        if not documents:
+            _keyword_indexes_error = "no KB documents extracted"
+            return 0
+        _bm25_index.index(documents)
+        _build_tfidf_index(documents)
+        _keyword_indexes_built_by = source
+        _keyword_indexes_error = None
+        return _bm25_index.N
+    except Exception as exc:  # noqa: BLE001 -- warm-up must never break boot
+        _keyword_indexes_error = f"{type(exc).__name__}: {exc}"[:300]
+        logger.error("Keyword index build failed: %s", exc, exc_info=True)
+        return 0
+
+
+def warm_retrieval(attach_timeout: int = 5) -> dict[str, Any]:
+    """Boot-time retrieval warm-up: keyword indexes, then a read-only attach.
+
+    Called once from wsgi.py in the gunicorn master before fork, so every
+    worker starts with BM25/TF-IDF built and (when Qdrant is configured and
+    the collection passes the dim guard) the Qdrant tier already armed --
+    /api/deploy/ready then reports the same thing on every worker from the
+    first request instead of only on one that has served a search. The dim
+    guard runs here, at boot, so a wrong-dimension collection is refused and
+    reported before any search is served.
+
+    Returns:
+        A summary dict (also logged as one line). Never raises.
+    """
+    t0 = time.monotonic()
+    bm25_docs = build_keyword_indexes("warmup")
+    attached = False
+    if _qdrant_is_configured():
+        try:
+            attached = _qdrant_attach(source="warmup", timeout=attach_timeout)
+        except Exception as exc:  # noqa: BLE001 -- warm-up must never break boot
+            logger.error("Qdrant warm-up attach raised: %s", exc, exc_info=True)
+    summary = {
+        "bm25_documents": bm25_docs,
+        "tfidf_built": _tfidf_built,
+        "qdrant_configured": _qdrant_is_configured(),
+        "qdrant_attached": attached,
+        "dim_guard": _qdrant_dim_guard,
+        "seconds": round(time.monotonic() - t0, 2),
+    }
+    logger.info("Retrieval warm-up (pid=%d): %s", os.getpid(), summary)
+    return summary
 
 
 def _extract_text_chunks(data: Any, source: str = "", prefix: str = "") -> list[str]:
@@ -3663,4 +3850,8 @@ def get_status() -> dict:
         # Non-None while the active Qdrant collection is refused because its
         # vector size/distance does not match the active embedding model.
         "qdrant_dim_guard": _qdrant_dim_guard,
+        "qdrant_attach": qdrant_attach_state(),
+        "keyword_indexes_built_by": _keyword_indexes_built_by,
+        "keyword_indexes_error": _keyword_indexes_error,
+        "hybrid_id_text_mismatches": _hybrid_id_text_mismatches,
     }

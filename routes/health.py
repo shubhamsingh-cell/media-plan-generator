@@ -1771,7 +1771,9 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
         # (the attach is what runs the dimension/distance compatibility check).
         # Read-only GET and a no-op once armed; the later call in the
         # retrieval block below stays as a no-op inside the 60s cooldown.
-        _vs._qdrant_attach()
+        # Normally already armed pre-fork by wsgi.warm_retrieval(); tagged
+        # "probe" so qdrant_attach.attach_source shows when THIS call did it.
+        _vs._qdrant_attach(source="probe")
         result["embedding"] = {
             "provider": _vs.get_embedding_provider(),
             "model": _vs.get_active_embedding_model(),
@@ -1798,6 +1800,22 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
             # -- a silent wrong-dim collection used to look healthy here.
             "dim_guard": _vs._qdrant_dim_guard,
         }
+        # Nova RAG v2 (rag_pipeline) is a SECOND embedding space with its own
+        # collection and model; surfaced so the two can never be confused for
+        # one. No network here: dim_guard is set by its store's first search.
+        try:
+            import rag_pipeline as _rag
+
+            result["embedding"]["rag_v2"] = {
+                "enabled": os.environ.get("RAG_V2_ENABLED", "").strip().lower()
+                in ("1", "true", "yes", "on"),
+                "model": _rag._VOYAGE_EMBED_MODEL,
+                "dim": _rag._VOYAGE_EMBED_DIM,
+                "collection": _rag._QDRANT_COLLECTION,
+                "dim_guard": _rag._rag_dim_guard,
+            }
+        except Exception:  # noqa: BLE001 -- observability must never break readiness
+            result["embedding"]["rag_v2"] = {"status": "unavailable"}
 
         # Retrieval-layer observability. indexed_documents above reads 0
         # PERMANENTLY under the current design (in-memory corpus build is
@@ -1819,14 +1837,30 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
         # once armed, so calling it here is the same cheap check search()
         # already makes on every request -- this just makes the probe pay
         # for it once per worker instead of waiting on a live query to.
-        _vs._qdrant_attach()
+        _vs._qdrant_attach(source="probe")
         _status = _vs.get_status()
         result["retrieval"] = {
             "pid": os.getpid(),
             "qdrant_attached": _vs._qdrant_available,
+            # Per-worker truth about that flag: who armed it (pid + source:
+            # "warmup" = the master's pre-fork GET inherited by this worker,
+            # "search"/"probe" = this worker's own lazy GET), and whether this
+            # worker has tried at all. qdrant_attached alone could not tell a
+            # warmed worker from one that only the probe itself just armed.
+            "qdrant_attach": _status["qdrant_attach"],
             "in_memory_documents": len(_vs._index),
+            # BM25 / TF-IDF are built at boot by wsgi.warm_retrieval() (text
+            # only, no embedding) so hybrid RRF and the keyword fallback are
+            # live in prod; false here now means the build FAILED, and
+            # keyword_indexes.error says why.
             "bm25_built": _status["bm25_built"],
             "tfidf_built": _status["tfidf_built"],
+            "keyword_indexes": {
+                "bm25_documents": _status["bm25_index_size"],
+                "built_by": _status["keyword_indexes_built_by"],
+                "error": _status["keyword_indexes_error"],
+                "hybrid_id_text_mismatches": _status["hybrid_id_text_mismatches"],
+            },
             "search_mode": _status["search_mode"],
             "can_retrieve": bool(
                 _vs._qdrant_available

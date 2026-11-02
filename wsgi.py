@@ -175,6 +175,21 @@ def _run_deferred_startup() -> None:
     except Exception as widgets_err:
         logger.warning("[wsgi] Dashboard widgets pre-warm failed: %s", widgets_err)
 
+    # Retrieval warm-up, in the master BEFORE fork: build BM25 + TF-IDF over
+    # the KB (text only, ~0.1 s / ~40 MB, shared copy-on-write and frozen by
+    # gc.freeze below) and arm the Qdrant tier with one read-only GET that
+    # also runs the embedding-dimension guard. Workers inherit both, so
+    # search() runs hybrid RRF (and keeps a keyword fallback if Voyage or
+    # Qdrant fail) from the first request, and /api/deploy/ready reports the
+    # same state on every worker instead of only on one that already served
+    # a search. Never raises; the short attach timeout bounds the boot delay.
+    try:
+        import vector_search as _vs_warm
+
+        _vs_warm.warm_retrieval(attach_timeout=5)
+    except Exception as vs_warm_err:
+        logger.warning("[wsgi] Retrieval warm-up failed: %s", vs_warm_err)
+
     # Freeze the pre-loaded heap before fork. Everything loaded above (KB,
     # gazetteer, SlotOps baselines) is read-only reference data that the
     # workers inherit copy-on-write -- but CPython's cyclic GC writes into
