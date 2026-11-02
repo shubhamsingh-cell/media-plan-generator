@@ -69,7 +69,7 @@ PINNED = (
 )
 
 # Figures that used to be hardcoded on these surfaces and must not come back.
-STALE = (
+STALE_RAW = (
     "10,341",
     "10341",
     "10,238",
@@ -108,6 +108,22 @@ STALE = (
     "half its industry midpoint",
 )
 
+
+
+def _stale() -> tuple:
+    """STALE_RAW minus any figure the code computes again today.
+
+    A count that lands back on an old value is current, not stale: on
+    2026-11-03 re-pointing delisted router slugs took the distinct-model count
+    from 22 to 23, the figure an older build had hardcoded.
+    """
+    c = proof_claims.claims()
+    current = set()
+    for key, labels in (("ai_models", ("AI models", "LLM")), ("live_apis", ("live APIs",)),
+                        ("knowledge_bases", ("knowledge bases",))):
+        if key in c:
+            current |= {f"{c[key].text} {lab}" for lab in labels}
+    return tuple(s for s in STALE_RAW if s not in current)
 
 def _get(port: int, path: str) -> tuple[int, str]:
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
@@ -335,7 +351,7 @@ def test_hub_template_carries_tokens_not_numbers() -> None:
     assert "{{claim_supply_partners}}" in src
     assert "{{claim_supply_partners:raw}}" in src
     assert "{{claim_soc2}}" in src
-    for stale in STALE:
+    for stale in _stale():
         assert stale not in src, f"stale figure {stale!r} still in hub.html"
 
 
@@ -388,7 +404,7 @@ def test_hub_is_served_with_the_computed_numbers(live_port: int) -> None:
     assert (
         "{{claim_" not in html and "{{/claim_" not in html and "{{#claim_" not in html
     )
-    for stale in STALE:
+    for stale in _stale():
         assert stale not in html, f"stale figure {stale!r} served on the hub"
 
 
@@ -425,7 +441,7 @@ def test_nova_greeting_uses_the_same_numbers() -> None:
         ("countries", "countries"),
     ):
         assert f"**{c[key].text} {label}**" in greeting, key
-    for stale in STALE:
+    for stale in _stale():
         assert stale not in greeting
     assert c["supply_partners"].text in proof_claims.reach_phrase()
 
