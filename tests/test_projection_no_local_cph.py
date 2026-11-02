@@ -90,7 +90,9 @@ def test_nova_formatter_says_the_note_and_prints_no_hires_figure():
     out = nova._format_budget_response(_nova(), 60000)
     assert NOTE in out
     assert "Estimated Hires" not in out and "Cost per Hire" not in out
-    assert "Cost per Application: $" in out
+    # a US-dollar plan for a GBP market says so (US$), never a bare "$"
+    assert "Cost per Application: US$" in out
+    assert "market currency is GBP" in out
 
 
 def test_a_us_dollar_plan_in_london_follows_the_same_rule():

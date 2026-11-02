@@ -10822,6 +10822,19 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if _detect_strings:
             _combined = " ".join(_detect_strings)
             _detected_country = _detect_country(_combined)
+        if not _detected_country:
+            # A bare world city ("Berlin") names its country too; the alias
+            # table above only knows country names.
+            try:
+                import country_registry
+
+                for loc in locations_list or []:
+                    _city_country = country_registry.world_city_country(loc)
+                    if _city_country:
+                        _detected_country = _city_country
+                        break
+            except (ImportError, AttributeError, TypeError, ValueError):
+                logger.error("world-city country lookup failed", exc_info=True)
         # Currency follows the detected country.
         _budget_currency = (
             _get_currency_for_country(_detected_country) if _detected_country else "USD"
@@ -24493,9 +24506,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
                 if loc_data.get("supply_data"):
                     sd = loc_data["supply_data"]
-                    mc_section_parts.append(
-                        f"- Monthly job ad spend: {sd.get('monthly_spend', 'N/A')}"
-                    )
+                    # The knowledge base records market spend in US dollars.
+                    _mc_spend = str(sd.get("monthly_spend", "N/A"))
+                    if mc_currency != "USD":
+                        _mc_spend = re.sub(r"(?<![A-Za-z$])\$(?=\d)", "US$", _mc_spend)
+                    mc_section_parts.append(f"- Monthly job ad spend: {_mc_spend}")
                     mc_section_parts.append(
                         f"- Total boards: {sd.get('total_boards', 'N/A')}"
                     )
@@ -28510,6 +28525,25 @@ def _format_goal_plan(gp: dict) -> str:
     return "\n".join(parts)
 
 
+def _usd_for_foreign_market(text: str, data: Any) -> str:
+    """Say "US$" when a projection priced in USD is for a non-USD market.
+
+    The chat budget tool prices in US dollars (its schema), so a Berlin plan's
+    figures are dollars; a bare "$60,000" beside a euro market reads as if it
+    were local money. Every bare "$<digits>" becomes "US$<digits>" and one
+    line names both currencies.
+    """
+    if not isinstance(data, dict):
+        return text
+    plan_cur = str(data.get("currency") or "USD").upper()
+    market = str(data.get("market_currency") or "").upper()
+    if plan_cur != "USD" or not market or market == "USD":
+        return text
+    out = re.sub(r"(?<![A-Za-z$])\$(?=\d)", "US$", text)
+    note = f"_Figures are in US dollars; the market currency is {market}._"
+    return out.rstrip() + "\n\n" + note
+
+
 def _format_budget_response(data: dict, budget: float) -> str:
     """Format budget projection data into a readable response."""
     parts = []
@@ -28589,7 +28623,7 @@ def _format_budget_response(data: dict, budget: float) -> str:
                     f"- {rec.get('recommendation', rec.get('message', str(rec)))}"
                 )
 
-    return "\n".join(parts)
+    return _usd_for_foreign_market("\n".join(parts), data)
 
 
 def _format_dei_response(data: dict, country: str) -> str:
@@ -28846,15 +28880,23 @@ def _enrich_response(
 # A money figure with an optional range end ("$15-$35", "$34.97–$58"), K/M/B
 # suffix and sign; a percentage with an optional sign. Neither may start or
 # end inside a longer number.
+# "$", or a prefixed dollar the currency map emits (A$, C$, NZ$, S$, US$,
+# COL$ ...).
+_BOLD_DOLLAR = r"(?:[A-Z]{1,3})?\$"
 _RE_BOLD_MONEY = re.compile(
-    r"(?<![\w$.,])([-+\u2212]?\$\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?"
-    r"(?:\s?[-\u2013]\s?\$\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?)?)"
+    r"(?<![\w$.,])([-+\u2212]?" + _BOLD_DOLLAR + r"\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?"
+    r"(?:\s?[-\u2013]\s?" + _BOLD_DOLLAR + r"\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?)?)"
     r"(?![\d])"
 )
 _RE_BOLD_PERCENT = re.compile(
     r"(?<![\w.,%])(?<!\d[-\u2013])([-+\u2212]?\d+(?:\.\d+)?(?:\s?[-\u2013]\s?\d+(?:\.\d+)?)?%)"
 )
-_RE_PROTECTED_SPAN = re.compile(r"```.*?```|`[^`\n]*`|\*\*[^*\n]+?\*\*", re.S)
+_RE_PROTECTED_SPAN = re.compile(
+    r"```.*?```|`[^`\n]*`|\*\*[^*\n]+?\*\*"
+    r"|\]\([^)\s]*\)"  # markdown link target
+    r"|https?://[^\s)\]]+",  # bare URL
+    re.S,
+)
 
 
 def _outside_code_and_bold(text: str, fn: Any) -> str:

@@ -88,3 +88,58 @@ def test_plain_render_formats_forecast_money() -> None:
         "CPC", {"forecast_30d": {"indeed": 1.31}, "currency": "EUR"}
     )
     assert "Indeed €1.31" in out
+
+
+# Review 2026-11-03 (finding 12).
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("Budget A$1,200 per month", "Budget **A$1,200** per month"),
+        ("CPC NZ$2.10 and S$1.80", "CPC **NZ$2.10** and **S$1.80**"),
+        ("Spend C$5,000-C$8,000", "Spend **C$5,000-C$8,000**"),
+    ],
+)
+def test_prefixed_dollar_figures_are_bolded(raw: str, expected: str) -> None:
+    assert fmt(raw) == expected
+
+
+def test_urls_and_link_targets_untouched() -> None:
+    raw = "See https://example.org/sale-50%-off and [the report](https://example.org/r?cut=5%&b=$10) now."
+    out = fmt(raw)
+    assert "https://example.org/sale-50%-off" in out
+    assert "(https://example.org/r?cut=5%&b=$10)" in out
+
+
+def test_berlin_plan_figures_say_us_dollars() -> None:
+    """Transcript 27: a Berlin plan printed "$60,000" with nothing saying the
+    figures are US dollars while the market's money is the euro."""
+    nv = nova.Nova()
+    data = nv._query_budget_projection(
+        {"budget": 60000, "roles": ["Data Engineer"], "locations": ["Berlin"], "industry": "technology"}
+    )
+    out = nova._format_budget_response(data, 60000)
+    import re
+
+    assert not re.search(r"(?<![A-Za-z])\$\d", out), out[:600]
+    assert "US$60,000" in out and "EUR" in out
+
+
+def test_multi_country_spend_is_labelled_usd() -> None:
+    """Transcript 13: "Monthly job ad spend: $1,500,000" beside "(currency: EUR)"."""
+    res = nova.Nova()._chat_rule_based(
+        "Compare hiring in Germany and France: job ad spend and boards"
+    )
+    text = res["response"]
+    import re
+
+    assert "Multi-Country Comparison" in text
+    assert not re.search(r"spend: \*{0,2}\$\d", text), text[:800]
+    assert "US$1,500,000" in text
+
+
+def test_a_bare_world_city_names_its_market() -> None:
+    data = nova.Nova()._query_budget_projection(
+        {"budget": 60000, "roles": ["Data Engineer"], "locations": ["Berlin"], "industry": "technology"}
+    )
+    assert data["country"] == "Germany" and data.get("market_currency") == "EUR"
+    assert data["currency"] == "USD"  # the tool still prices in US dollars
