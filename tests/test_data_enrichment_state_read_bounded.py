@@ -104,6 +104,8 @@ def test_boot_read_is_bounded_but_covers_slowest_source(
     age = datetime.now(timezone.utc) - _since(net.calls[0][0])
     longest = timedelta(hours=max(de.FRESHNESS_THRESHOLDS.values()))
     assert age > longest  # a redeploy must not make quarterly sources look never-run
+    # ...but it must stay bounded: no more than the longest threshold + 1 day.
+    assert age <= longest + timedelta(days=1, minutes=5)
 
 
 def test_timeout_leaves_state_untouched(
@@ -162,3 +164,76 @@ def test_exhausted_per_cycle_read_logs_warning_not_error(
     assert exhausted[0].levelno == logging.WARNING
     assert "best-effort state read" in exhausted[0].getMessage()
     assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+def _pg_rows(days_ago: dict[str, int]) -> bytes:
+    import json
+
+    now = datetime.now(timezone.utc)
+    return json.dumps(
+        [
+            {
+                "source": src,
+                "records_affected": 1,
+                "details": {"success": True},
+                "created_at": (now - timedelta(days=d)).isoformat(),
+            }
+            for src, d in days_ago.items()
+        ]
+    ).encode()
+
+
+class _WindowedNet(_Net):
+    """Serves only the rows inside the request's created_at lower bound."""
+
+    def __init__(self, rows: list[dict]) -> None:
+        super().__init__()
+        self.rows = rows
+
+    def __call__(self, req: Any, timeout: Any = None, context: Any = None) -> Any:
+        import json
+
+        self.calls.append((req.full_url, timeout))
+        since = _since(req.full_url)
+        kept = [
+            r
+            for r in self.rows
+            if datetime.fromisoformat(r["created_at"]) >= since
+        ]
+        return _Resp(json.dumps(kept).encode())
+
+
+def test_failed_boot_read_still_recovers_monthly_and_quarterly_sources(
+    engine: de.DataEnrichmentEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Boot read timed out -> state empty. The per-cycle read must widen to the
+    boot window so 20 d / 40 d old runs are found (census 720 h, drift 2160 h);
+    otherwise a redeploy re-runs them and burns Census/Adzuna quota."""
+    import json
+
+    engine._state = {"last_runs": {}, "stats": {}}
+    rows = json.loads(
+        _pg_rows({"census_demographics": 20, "benchmark_drift_check": 40})
+    )
+    net = _WindowedNet(rows)
+    monkeypatch.setattr(de.urllib.request, "urlopen", net)
+    engine._adopt_persisted_state()
+    assert not engine._is_stale("census_demographics")
+    assert not engine._is_stale("benchmark_drift_check")
+    # still best-effort: single attempt succeeded, short timeout
+    assert net.calls[0][1] == de._STATE_BEST_EFFORT_TIMEOUT
+
+
+def test_complete_state_uses_the_short_window(
+    engine: de.DataEnrichmentEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    engine._state = {
+        "last_runs": {src: now for src in de.FRESHNESS_THRESHOLDS},
+        "stats": {},
+    }
+    net = _Net()
+    monkeypatch.setattr(de.urllib.request, "urlopen", net)
+    engine._adopt_persisted_state()
+    age = datetime.now(timezone.utc) - _since(net.calls[0][0])
+    assert age < timedelta(days=15)

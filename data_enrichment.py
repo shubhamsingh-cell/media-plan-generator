@@ -770,6 +770,7 @@ class DataEnrichmentEngine:
         self,
         *,
         best_effort: bool = False,
+        full_window: bool = False,
     ) -> Optional[dict]:
         """Load enrichment state from the Supabase enrichment_log table.
 
@@ -783,6 +784,10 @@ class DataEnrichmentEngine:
                 Uses a single retry and a shorter timeout, and reports exhaustion
                 as a WARNING (a degraded-mode read, not an engine failure). The
                 boot-time read keeps the full retry/timeout budget.
+            full_window: True to use the boot look-back (longest freshness
+                threshold) even for a best-effort read. ``_adopt_persisted_state``
+                sets it while the in-memory state lacks a source, so a failed boot
+                read can still be recovered for the slow monthly/quarterly sources.
 
         Returns:
             Reconstructed state dict, or None if Supabase is unavailable.
@@ -807,7 +812,7 @@ class DataEnrichmentEngine:
                 - timedelta(
                     days=(
                         _STATE_LOOKBACK_DAYS
-                        if best_effort
+                        if best_effort and not full_window
                         else _STATE_BOOT_LOOKBACK_DAYS
                     )
                 )
@@ -932,7 +937,16 @@ class DataEnrichmentEngine:
         (or by the pre-deploy instance) instead of trusting a boot-time snapshot.
         Best-effort: any failure leaves the in-memory state untouched.
         """
-        persisted = self._load_state_from_supabase(best_effort=True)
+        # The short window is only safe once the in-memory state already knows
+        # every source (the boot read succeeded): rows older than 14 days would
+        # otherwise be unreachable and monthly/quarterly sources would look
+        # never-run after a redeploy whose boot read timed out.
+        with self._lock:
+            known = self._state.get("last_runs") or {}
+            complete = all(known.get(src) for src in FRESHNESS_THRESHOLDS)
+        persisted = self._load_state_from_supabase(
+            best_effort=True, full_window=not complete
+        )
         if not persisted:
             return
         with self._lock:
