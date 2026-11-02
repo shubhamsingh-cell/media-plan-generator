@@ -163,7 +163,10 @@
   // ---------------------------------------------------------------------------
   var WIDGET_TOKEN_URL = "/api/chat/widget-token";
   var WIDGET_TOKEN_HEADER = "X-Nova-Widget-Token";
-  var _gate = { mode: "", token: "", cid: "", exp: 0 };
+  var _gate = { mode: "", token: "", cid: "", exp: 0, recheckAt: 0 };
+  var WIDGET_TOKEN_CODE = "WIDGET_TOKEN_REQUIRED";
+  var WIDGET_MINT_TIMEOUT_MS = 3000;
+  var WIDGET_MINT_BACKOFF_MS = 60000;
 
   function _widgetTokenExpiry(token) {
     var parts = String(token || "").split(".");
@@ -187,8 +190,19 @@
   }
 
   function needsWidgetToken(conversationId) {
+    if (_gate.mode === "off" && _gate.recheckAt && Date.now() >= _gate.recheckAt) {
+      _gate.mode = "";
+      _gate.recheckAt = 0;
+    }
     if (_gate.mode === "off") return false;
     return !currentWidgetToken(conversationId);
+  }
+
+  // A failed mint (timeout, network, 429) sends without a token for a while
+  // instead of re-minting before every message; a real gate 401 re-arms it.
+  function backOffWidgetMint() {
+    _gate.mode = "off";
+    _gate.recheckAt = Date.now() + WIDGET_MINT_BACKOFF_MS;
   }
 
   function ensureWidgetToken(conversationId, done) {
@@ -198,40 +212,81 @@
       finished = true;
       done();
     }
+    var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    // The first message never waits on a slow mint for more than 3 s.
+    var timer = setTimeout(function () {
+      if (finished) return;
+      if (ctrl) {
+        try {
+          ctrl.abort();
+        } catch (_) {}
+      }
+      backOffWidgetMint();
+      finish();
+    }, WIDGET_MINT_TIMEOUT_MS);
     try {
       fetch(WIDGET_TOKEN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({ conversation_id: conversationId }),
+        signal: ctrl ? ctrl.signal : undefined,
       })
         .then(function (r) {
-          // An older server without the endpoint (404) or a refusal means no
-          // gate this page can satisfy: send as before and let the server say.
-          if (!r.ok) return { gate: r.status === 429 ? "" : "off" };
+          // 429: try again later. Any other refusal (an older server without
+          // the endpoint, a page the mint does not admit) means no gate this
+          // page can satisfy: send as before and let the server say.
+          if (r.status === 429) return { gate: "", backoff: true };
+          if (!r.ok) return { gate: "off" };
           return r.json();
         })
         .then(function (d) {
+          if (finished) return;
           if (d && d.gate === "signed" && d.widget_token) {
             setWidgetToken(conversationId, d.widget_token);
-          } else if (!d || d.gate !== "") {
+          } else if (d && d.backoff) {
+            backOffWidgetMint();
+          } else {
             // "off", or an answer this build does not understand: stop asking
-            // until a chat reply says otherwise (a 401 re-arms the mint).
+            // until a chat reply says otherwise (a gate 401 re-arms the mint).
             _gate.mode = "off";
           }
         })
         .catch(function () {
-          /* network error: send without a token; a 401 retries once */
+          if (!finished) backOffWidgetMint();
         })
-        .then(finish);
+        .then(function () {
+          clearTimeout(timer);
+          finish();
+        });
     } catch (_e) {
+      clearTimeout(timer);
+      backOffWidgetMint();
       finish();
     }
   }
 
+  // Only the gate's own refusal: a plain 401 (no @joveo.com session) is not
+  // fixed by minting, so it is not retried as one.
   function isGateError(msg) {
     var m = String(msg == null ? "" : msg);
-    return /^HTTP 401/.test(m) || /chat token is required/i.test(m);
+    return m.indexOf(WIDGET_TOKEN_CODE) !== -1 || /chat token is required/i.test(m);
+  }
+
+  // "HTTP <status>", plus the gate code when the JSON error body carries it.
+  function httpError(res) {
+    if (res.status !== 401 || typeof res.json !== "function") {
+      return Promise.reject(new Error("HTTP " + res.status));
+    }
+    return res
+      .json()
+      .catch(function () {
+        return {};
+      })
+      .then(function (d) {
+        var code = (d && (d.code || (d.error && d.error.code))) || "";
+        throw new Error("HTTP 401" + (code === WIDGET_TOKEN_CODE ? " " + code : ""));
+      });
   }
 
   // One silent recovery per cause, then the visitor gets a Retry. Returns true
@@ -243,6 +298,7 @@
       // switched on after this page loaded: mint again and resend once.
       _gate.mode = "";
       _gate.token = "";
+      _gate.recheckAt = 0;
       state.isLoading = false;
       sendMessage(text, {
         isRetry: true,
@@ -287,6 +343,8 @@
     var msg = String(raw == null ? "" : raw).trim();
     var m = /^HTTP\s+(\d{3})/.exec(msg);
     var code = m ? parseInt(m[1], 10) : 0;
+    if (isGateError(msg))
+      return "Nova could not start a chat session. Reload the page, then press Retry.";
     if (code === 401)
       return "Nova could not verify your session. Sign in with your @joveo.com account, then press Retry.";
     if (code === 403 || /invalid session token/i.test(msg))
@@ -4203,7 +4261,7 @@
           signal: abortCtrl.signal,
         })
           .then(function (res) {
-            if (!res.ok) throw new Error("HTTP " + res.status);
+            if (!res.ok) return httpError(res);
             hideTyping();
             // Create streaming message element with avatar row and blinking cursor
             var streamRow = document.createElement("div");

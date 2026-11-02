@@ -62,6 +62,12 @@ function record(tab, via, body, widgetToken) {
   return server(Object.assign({}, body, {widget_token: widgetToken || ""}));
 }
 
+// The server's JSON error body: a gate refusal carries its code.
+function errorResponse(ans) {
+  var body = {success: false, error: "refused", code: ans.code || (ans.status === 401 ? "WIDGET_TOKEN_REQUIRED" : "ERROR")};
+  return { ok: false, status: ans.status, json: function () { return Promise.resolve(body); } };
+}
+
 function doneEvent(ans) {
   var evt = {done: true, full_response: "reply",
     conversation_id: ans.conversation_id, session_token: ans.session_token};
@@ -87,18 +93,21 @@ function makeFetch(tab) {
     if (url === "/api/chat/stream") {
       if (TRANSPORT === "post") return Promise.resolve({ ok: false, status: 500 });
       var ans = record(tab, "sse", JSON.parse(opts.body), headerToken(opts));
-      if (ans.status) return Promise.resolve({ ok: false, status: ans.status });
+      if (ans.status) return Promise.resolve(errorResponse(ans));
       return sseResponse([{token: "reply"}, doneEvent(ans)]);
     }
     if (url === "/api/chat") {
       var a = record(tab, "post", JSON.parse(opts.body), headerToken(opts));
-      if (a.status) return Promise.resolve({ ok: false, status: a.status });
+      if (a.status) return Promise.resolve(errorResponse(a));
       var d = doneEvent(a); d.response = "reply";
       return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve(d); } });
     }
     if (url === "/api/chat/widget-token") {
       var mb = JSON.parse(opts.body); mints.push(mb.conversation_id);
       var m = typeof serverMint === "function" ? serverMint(mb) : {};
+      if (m && m.hang) return new Promise(function () {});  // never answers
+      if (m && m.status) return Promise.resolve({ ok: false, status: m.status,
+        json: function () { return Promise.resolve({}); } });
       return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve(m); } });
     }
     return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve({}); } });
@@ -118,8 +127,10 @@ function makeWebSocket(tab) {
     var ans = record(tab, "ws", msg, msg.widget_token);
     setTimeout(function () {
       if (ans.status) {
-        ws.onmessage({data: JSON.stringify({type: "error", code: "WIDGET_TOKEN_REQUIRED",
-          error: "HTTP " + ans.status + ": a chat token is required", done: true})});
+        var gateRefusal = (ans.code || "WIDGET_TOKEN_REQUIRED") === "WIDGET_TOKEN_REQUIRED";
+        ws.onmessage({data: JSON.stringify({type: "error", code: ans.code || "WIDGET_TOKEN_REQUIRED",
+          error: gateRefusal ? "HTTP " + ans.status + ": a chat token is required" : "Authentication required",
+          done: true})});
         return;
       }
       ws.onmessage({data: JSON.stringify({token: "reply", done: false})});

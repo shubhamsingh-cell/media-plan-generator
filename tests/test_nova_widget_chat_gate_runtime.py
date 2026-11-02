@@ -148,3 +148,75 @@ console.log(JSON.stringify({bodies: bodies, mints: mints}));
     assert len(out["bodies"]) == 3
     assert all(b["widget_token"] == "" for b in out["bodies"])
     assert len(out["mints"]) == 1
+
+
+# Review 2026-11-03: under "off" any 401 was treated as a gate error (minted
+# and resent); the first message waited on a mint with no timeout; a 429 on
+# the mint left the mode unset, so every message minted again.
+
+PLAIN_401_SERVER = r"""
+function serverMint(body) { return {gate: "off"}; }
+function server(body) { return {status: 401, code: "AUTH_REQUIRED"}; }
+"""
+
+
+@pytest.mark.parametrize("transport", ["ws", "sse"])
+def test_off_plain_401_is_not_retried_as_a_gate_error(transport):
+    out = run_widget(
+        PLAIN_401_SERVER,
+        r"""
+var chat = makeTab("A");
+chat.send("hello"); await settle();
+console.log(JSON.stringify({bodies: bodies, mints: mints}));
+""",
+        transport,
+    )
+    assert "error" not in out, out
+    assert len(out["mints"]) == 1  # the one per-page check, not a re-mint
+    via = [b["via"] for b in out["bodies"]]
+    assert via.count(transport) == 1, via  # never resent on the same transport
+
+
+HANGING_MINT = r"""
+function serverMint(body) { return {hang: true}; }
+var serverTokens = {};
+function server(body) { return {conversation_id: body.conversation_id, session_token: "t"}; }
+"""
+
+
+def test_a_hanging_mint_does_not_hold_the_first_message():
+    out = run_widget(
+        HANGING_MINT,
+        r"""
+var chat = makeTab("A");
+var t0 = Date.now();
+chat.send("first"); await new Promise(function (r) { setTimeout(r, 3400); });
+console.log(JSON.stringify({bodies: bodies, waited: Date.now() - t0}));
+""",
+        "sse",
+    )
+    assert "error" not in out, out
+    assert len(out["bodies"]) == 1 and out["bodies"][0]["widget_token"] == ""
+
+
+MINT_429 = r"""
+var mintCalls = 0;
+function serverMint(body) { mintCalls++; return {status: 429}; }
+var serverTokens = {};
+function server(body) { return {conversation_id: body.conversation_id, session_token: "t"}; }
+"""
+
+
+def test_a_429_on_the_mint_backs_off_instead_of_minting_every_message():
+    out = run_widget(
+        MINT_429,
+        r"""
+var chat = makeTab("A");
+for (var i = 0; i < 3; i++) { chat.send("q" + i); await settle(); }
+console.log(JSON.stringify({bodies: bodies, mints: mints}));
+""",
+        "sse",
+    )
+    assert "error" not in out, out
+    assert len(out["bodies"]) == 3
+    assert len(out["mints"]) == 1

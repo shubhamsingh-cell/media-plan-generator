@@ -26,7 +26,8 @@
   // Under "off" the mint answers {gate:"off"} once and nothing else changes.
   var WIDGET_TOKEN_URL = "/api/chat/widget-token";
   var WIDGET_TOKEN_HEADER = "X-Nova-Widget-Token";
-  var _gate = { mode: "", token: "", cid: "", exp: 0 };
+  var _gate = { mode: "", token: "", cid: "", exp: 0, recheckAt: 0 };
+  var WIDGET_TOKEN_CODE = "WIDGET_TOKEN_REQUIRED";
 
   function _gateSet(conversationId, token) {
     if (typeof token !== "string" || !token) return;
@@ -45,31 +46,87 @@
   }
 
   function _gateNeeds(conversationId) {
+    if (_gate.mode === "off" && _gate.recheckAt && Date.now() >= _gate.recheckAt) {
+      _gate.mode = "";
+      _gate.recheckAt = 0;
+    }
     return _gate.mode !== "off" && !_gateToken(conversationId);
   }
 
+  // A failed mint (timeout, network, 429) sends without a token for 60 s
+  // instead of re-minting before every message; a gate 401 re-arms it.
+  function _gateBackOff() {
+    _gate.mode = "off";
+    _gate.recheckAt = Date.now() + 60000;
+  }
+
+  // Only the gate's own refusal is retried with a fresh mint.
+  function _isGateError(msg) {
+    var m = String(msg == null ? "" : msg);
+    return m.indexOf(WIDGET_TOKEN_CODE) !== -1 || /chat token is required/i.test(m);
+  }
+
+  function _httpError(r) {
+    if (r.status !== 401 || typeof r.json !== "function") {
+      return Promise.reject(new Error("HTTP " + r.status));
+    }
+    return r
+      .json()
+      .catch(function () {
+        return {};
+      })
+      .then(function (d) {
+        var code = (d && (d.code || (d.error && d.error.code))) || "";
+        throw new Error("HTTP 401" + (code === WIDGET_TOKEN_CODE ? " " + code : ""));
+      });
+  }
+
   function _gateEnsure(conversationId, done) {
+    var finished = false;
+    function finish() {
+      if (finished) return;
+      finished = true;
+      done();
+    }
+    var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    // The first message never waits on a slow mint for more than 3 s.
+    var timer = setTimeout(function () {
+      if (finished) return;
+      if (ctrl) {
+        try {
+          ctrl.abort();
+        } catch (_) {}
+      }
+      _gateBackOff();
+      finish();
+    }, 3000);
     fetch(WIDGET_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify({ conversation_id: conversationId }),
+      signal: ctrl ? ctrl.signal : undefined,
     })
       .then(function (r) {
-        return r.ok ? r.json() : { gate: r.status === 429 ? "" : "off" };
+        if (r.status === 429) return { backoff: true };
+        return r.ok ? r.json() : { gate: "off" };
       })
       .then(function (d) {
+        if (finished) return;
         if (d && d.gate === "signed" && d.widget_token) {
           _gateSet(conversationId, d.widget_token);
-        } else if (!d || d.gate !== "") {
+        } else if (d && d.backoff) {
+          _gateBackOff();
+        } else {
           _gate.mode = "off";
         }
       })
       .catch(function () {
-        /* network error: send without a token; a 401 retries once */
+        if (!finished) _gateBackOff();
       })
       .then(function () {
-        done();
+        clearTimeout(timer);
+        finish();
       });
   }
 
@@ -3135,10 +3192,11 @@
             onError: function (errMsg) {
               clearTimeout(hardTimeout);
               // Chat gate: an expired or missing widget token re-mints once.
-              if (/^HTTP 401/.test(String(errMsg)) && !state._gateRetried) {
+              if (_isGateError(errMsg) && !state._gateRetried) {
                 state._gateRetried = true;
                 _gate.mode = "";
                 _gate.token = "";
+                _gate.recheckAt = 0;
                 var wsRow = document.getElementById("streaming-msg");
                 if (wsRow && wsRow.parentNode) wsRow.parentNode.removeChild(wsRow);
                 _startStreaming();
@@ -3189,7 +3247,7 @@
             signal: ac.signal,
           })
             .then(function (r) {
-              if (!r.ok) throw new Error("HTTP " + r.status);
+              if (!r.ok) return _httpError(r);
               hideThinking();
 
               var content = _createStreamingDOM();
@@ -3271,13 +3329,14 @@
                 errorMsg = "Nova is busy. Please wait a moment and try again.";
               } else if (
                 err.message &&
-                err.message.indexOf("HTTP 401") === 0 &&
+                _isGateError(err.message) &&
                 !state._gateRetried
               ) {
                 // Chat gate: an expired or missing widget token re-mints once.
                 state._gateRetried = true;
                 _gate.mode = "";
                 _gate.token = "";
+                _gate.recheckAt = 0;
                 _startStreaming();
                 return;
               } else if (err.message && err.message.indexOf("403") > -1) {

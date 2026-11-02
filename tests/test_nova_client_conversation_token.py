@@ -429,3 +429,56 @@ def test_platform_drawer_gate_helpers_mint_once_and_honour_off():
     assert out["signed"] == {"mints": 1, "token": "v1.a.9999999999.s", "other": ""}
     assert out["expired"] == ""
     assert out["off"] == {"mints": 1, "mode": "off", "token": ""}
+
+
+def test_platform_drawer_only_retries_the_gate_refusal_and_backs_off_on_429():
+    """Review 2026-11-03: any 401 counted as a gate error, and a 429 on the
+    mint re-minted before every message."""
+    src = (ROOT / "static" / "js" / "platform.js").read_text(encoding="utf-8")
+    out = run_node(
+        "const _gate = { mode: '', token: '', cid: '', exp: 0, recheckAt: 0 };\n"
+        + "var mints = 0, mintStatus = 429;\n"
+        + "function fetch(url, opts) { mints++; return Promise.resolve({ ok: false, status: mintStatus,"
+        " json: function () { return Promise.resolve({}); } }); }\n"
+        + js_block(src, "function _gateSet(")
+        + js_block(src, "function _gateToken(")
+        + js_block(src, "function _gateBackOff(")
+        + js_block(src, "function _gateEnsure(")
+        + js_block(src, "function _isGateRefusal(")
+        + r"""
+function resp(status, code) { var b = {code: code}; var r = { status: status,
+  json: function () { return Promise.resolve(b); }, clone: function () { return r; } }; return r; }
+(async function () {
+  var r = {};
+  await _gateEnsure("drawer-A"); await _gateEnsure("drawer-A"); await _gateEnsure("drawer-A");
+  r.mintsAfter429 = mints; r.mode = _gate.mode;
+  r.plain = await _isGateRefusal(resp(401, "AUTH_REQUIRED"));
+  r.gate = await _isGateRefusal(resp(401, "WIDGET_TOKEN_REQUIRED"));
+  r.other = await _isGateRefusal(resp(500, "WIDGET_TOKEN_REQUIRED"));
+  console.log(JSON.stringify(r));
+})();
+"""
+    )
+    assert out == {"mintsAfter429": 1, "mode": "off", "plain": False, "gate": True, "other": False}
+
+
+def test_nova_page_plain_401_is_not_resent():
+    """/nova: an off-mode 401 (no session) is shown, never minted-and-resent."""
+    out = run_nova_page(
+        """
+El.prototype.focus = function () {};
+globalThis.escapeHtml = function (t) { return String(t); };
+El.prototype.querySelector = function () { return { addEventListener: function () {} }; };
+var realFetch = fetch;
+fetch = function (url, opts) {
+  if (url === WIDGET_TOKEN_URL) return realFetch(url, opts);
+  bodies.push(JSON.parse(opts.body));
+  return Promise.resolve({ ok: false, status: 401,
+    json: function () { return Promise.resolve({code: "AUTH_REQUIRED"}); } });
+};
+sendMessage(); await tick(); await tick(); await tick();
+console.log(JSON.stringify({sent: bodies.length, mints: mints.length}));
+"""
+    )
+    assert "error" not in out, out
+    assert out == {"sent": 1, "mints": 1}

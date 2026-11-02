@@ -51,7 +51,8 @@ function _getOrCreateWS(cb) { cb(null); }
 // a controllable SSE stream: push(text) delivers a chunk; abort rejects the read
 var streams = [];
 var WIDGET_TOKEN_URL = "/api/chat/widget-token", WIDGET_TOKEN_HEADER = "X-Nova-Widget-Token";
-var _gate = { mode: "", token: "", cid: "", exp: 0 }, mints = [];
+var _gate = { mode: "", token: "", cid: "", exp: 0, recheckAt: 0 }, mints = [];
+var WIDGET_TOKEN_CODE = "WIDGET_TOKEN_REQUIRED";
 var mintAnswer = { gate: "off" };
 function fetch(url, opts) {
   if (url === WIDGET_TOKEN_URL) {  // NOVA_CHAT_GATE mint (answer set per test)
@@ -96,6 +97,9 @@ def _lifted() -> str:
             "function _gateSet(",
             "function _gateToken(",
             "function _gateNeeds(",
+            "function _gateBackOff(",
+            "function _isGateError(",
+            "function _httpError(",
             "function _gateEnsure(",
             "function sendMessage()",
         )

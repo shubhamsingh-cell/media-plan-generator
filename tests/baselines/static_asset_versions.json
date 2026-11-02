@@ -36,8 +36,8 @@
   },
   "static/js/hub.js": {
     "referrer": "hub.html",
-    "sha256": "7a038e287a52f7b01f9c0920da3583e1a763816e1fdafe0c90d2c33a43beda90",
-    "version": "2.9.10"
+    "sha256": "a42d4b046ed4edd9ed9bde40075c47f60c6cc744ba28389617647565ee9c63c0",
+    "version": "2.9.11"
   },
   "static/js/motion-engine.js": {
     "referrer": "hub.js",
@@ -71,7 +71,7 @@
   },
   "static/nova-chat.js": {
     "referrer": "hub.js",
-    "sha256": "8cd40ce45f966f2df6ea6c5d14fbf968f3be42edd215ceb93622591d50aa4a45",
-    "version": "nb2g"
+    "sha256": "90d5fd07e7f05ded0780aa5f08f585f8bc64033b93b186ad051019c247e4f199",
+    "version": "nb2h"
   }
 }

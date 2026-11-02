@@ -86,7 +86,9 @@ def _persona_style() -> str:
 def test_widget_error_copy_says_what_to_do_not_a_raw_status():
     src = _widget_src()
     out = run_node(
-        js_block(src, "function friendlyChatError(")
+        'var WIDGET_TOKEN_CODE = "WIDGET_TOKEN_REQUIRED";\n'
+        + js_block(src, "function isGateError(")
+        + js_block(src, "function friendlyChatError(")
         + r"""
 var cases = ["HTTP 401", "HTTP 403", "HTTP 429", "HTTP 502", "HTTP 404",
   "WebSocket closed", "WebSocket error", "Failed to fetch", "",
@@ -157,6 +159,8 @@ def test_widget_retry_button_resends_without_touching_the_draft_or_injecting_htm
     src = _widget_src()
     out = run_node(
         _DOM_STUB
+        + 'var WIDGET_TOKEN_CODE = "WIDGET_TOKEN_REQUIRED";\n'
+        + js_block(src, "function isGateError(")
         + js_block(src, "function friendlyChatError(")
         + js_block(src, "function showStreamError(")
         + r"""
@@ -629,7 +633,8 @@ var KEY = "nova_session_token:nova-CUR";
 var sends = [], csrf = 0;
 function sendMessage(text, opts) { sends.push({text: text, opts: opts, token: store[KEY] || null}); }
 function refreshCsrfToken(done) { csrf++; done(); }
-var _gate = { mode: "signed", token: "T", cid: "nova-CUR", exp: 0 };
+var _gate = { mode: "signed", token: "T", cid: "nova-CUR", exp: 0, recheckAt: 0 };
+var WIDGET_TOKEN_CODE = "WIDGET_TOKEN_REQUIRED";
 """
         + js_block(src, "function isGateError(")
         + js_block(src, "function isWsTransportError(")
@@ -654,10 +659,11 @@ r.wsDrop = resendAfterRecoverableError("WebSocket closed", "q5", {});
 r.pinned = _widgetWsFailCount;
 r.wsDropTwice = resendAfterRecoverableError("WebSocket closed", "q5", {transportRetried: true});
 sends.length = 0;
-r.gate401 = resendAfterRecoverableError("HTTP 401", "q6", {});
+r.plain401 = resendAfterRecoverableError("HTTP 401", "q6", {});
+r.gate401 = resendAfterRecoverableError("HTTP 401 WIDGET_TOKEN_REQUIRED", "q6", {});
 r.gateCleared = _gate.mode === "" && _gate.token === "";
 r.gateSends = sends.slice();
-r.gate401Twice = resendAfterRecoverableError("HTTP 401", "q6", {gateRetried: true});
+r.gate401Twice = resendAfterRecoverableError("HTTP 401 WIDGET_TOKEN_REQUIRED", "q6", {gateRetried: true});
 r.gateWsFrame = resendAfterRecoverableError("HTTP 401: a chat token is required", "q7", {});
 console.log(JSON.stringify(r));
 """
@@ -684,6 +690,8 @@ console.log(JSON.stringify(r));
     assert out["wsDrop"] is True and out["pinned"] == 3 and out["wsDropTwice"] is False
     # NOVA_CHAT_GATE: a 401 (expired / missing widget token) re-mints and
     # resends once; a second 401 reaches the visitor.
+    # a plain 401 (no session) is not a gate error: minting cannot fix it
+    assert out["plain401"] is False
     assert out["gate401"] is True and out["gateCleared"] is True
     assert out["gateSends"][0]["opts"]["gateRetried"] is True
     assert out["gate401Twice"] is False

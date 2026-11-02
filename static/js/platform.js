@@ -1495,7 +1495,7 @@ const NovaDrawer = (() => {
      POST /api/chat/widget-token, refreshed by every reply, sent as the
      X-Nova-Widget-Token header. Under "off" the mint answers {gate:"off"}
      once and nothing else changes. */
-  const _gate = { mode: "", token: "", cid: "", exp: 0 };
+  const _gate = { mode: "", token: "", cid: "", exp: 0, recheckAt: 0 };
 
   function _gateSet(conversationId, token) {
     if (typeof token !== "string" || !token) return;
@@ -1513,27 +1513,71 @@ const NovaDrawer = (() => {
     return _gate.token;
   }
 
+  /* A failed mint (timeout, network, 429) sends without a token for 60 s
+     instead of re-minting before every message. */
+  function _gateBackOff() {
+    _gate.mode = "off";
+    _gate.recheckAt = Date.now() + 60000;
+  }
+
   function _gateEnsure(conversationId) {
+    if (_gate.mode === "off" && _gate.recheckAt && Date.now() >= _gate.recheckAt) {
+      _gate.mode = "";
+      _gate.recheckAt = 0;
+    }
     if (_gate.mode === "off" || _gateToken(conversationId)) {
       return Promise.resolve();
     }
-    return fetch("/api/chat/widget-token", {
+    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    /* the message never waits on a slow mint for more than 3 s */
+    const timeout = new Promise((resolve) =>
+      setTimeout(() => resolve({ timedOut: true }), 3000),
+    );
+    const mint = fetch("/api/chat/widget-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify({ conversation_id: conversationId }),
+      signal: ctrl ? ctrl.signal : undefined,
     })
-      .then((r) => (r.ok ? r.json() : { gate: r.status === 429 ? "" : "off" }))
-      .then((d) => {
-        if (d && d.gate === "signed" && d.widget_token) {
-          _gateSet(conversationId, d.widget_token);
-        } else if (!d || d.gate !== "") {
-          _gate.mode = "off";
-        }
+      .then((r) => {
+        if (r.status === 429) return { backoff: true };
+        return r.ok ? r.json() : { gate: "off" };
       })
-      .catch(() => {
-        /* network error: send without a token; a 401 retries once */
-      });
+      .catch(() => ({ backoff: true }));
+    return Promise.race([mint, timeout]).then((d) => {
+      if (d && d.timedOut) {
+        if (ctrl) {
+          try {
+            ctrl.abort();
+          } catch (e) {
+            /* already settled */
+          }
+        }
+        _gateBackOff();
+      } else if (d && d.gate === "signed" && d.widget_token) {
+        _gateSet(conversationId, d.widget_token);
+      } else if (d && d.backoff) {
+        _gateBackOff();
+      } else {
+        _gate.mode = "off";
+      }
+    });
+  }
+
+  /* Only the gate's own refusal (code WIDGET_TOKEN_REQUIRED) is retried. */
+  function _isGateRefusal(r) {
+    if (r.status !== 401 || typeof r.clone !== "function") {
+      return Promise.resolve(false);
+    }
+    return r
+      .clone()
+      .json()
+      .then((d) => {
+        const code = (d && (d.code || (d.error && d.error.code))) || "";
+        return code === "WIDGET_TOKEN_REQUIRED";
+      })
+      .catch(() => false);
   }
 
   /* Conversation id sent to /api/chat: the server scopes memory by it. */
@@ -1951,11 +1995,13 @@ const NovaDrawer = (() => {
             headers: headers,
             credentials: "same-origin",
             body: body,
-          }).then((r) => {
-            if (r.status !== 401 || !widgetToken) return r;
+          }).then((r) =>
+            _isGateRefusal(r).then((refused) => {
+            if (!refused) return r;
             /* Expired or rotated widget token: mint again and resend once. */
             _gate.mode = "";
             _gate.token = "";
+            _gate.recheckAt = 0;
             return _gateEnsure(conversationId).then(() => {
               const fresh = _gateToken(conversationId);
               if (!fresh) return r;
@@ -1967,7 +2013,8 @@ const NovaDrawer = (() => {
                 body: body,
               });
             });
-          });
+            }),
+          );
         });
 
       gatedChatFetch(
