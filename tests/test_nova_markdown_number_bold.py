@@ -110,12 +110,14 @@ def test_urls_and_link_targets_untouched() -> None:
     assert "(https://example.org/r?cut=5%&b=$10)" in out
 
 
-def test_berlin_plan_figures_say_us_dollars() -> None:
-    """Transcript 27: a Berlin plan printed "$60,000" with nothing saying the
-    figures are US dollars while the market's money is the euro."""
+def test_german_plan_figures_say_us_dollars() -> None:
+    """Transcript 27: a German plan printed "$60,000" with nothing saying the
+    figures are US dollars while the market's money is the euro. (Bare
+    "Berlin" is ambiguous with Berlin, NH -- see
+    tests/test_nova_bare_city_ambiguity.py -- so the market is named.)"""
     nv = nova.Nova()
     data = nv._query_budget_projection(
-        {"budget": 60000, "roles": ["Data Engineer"], "locations": ["Berlin"], "industry": "technology"}
+        {"budget": 60000, "roles": ["Data Engineer"], "locations": ["Berlin, Germany"], "industry": "technology"}
     )
     out = nova._format_budget_response(data, 60000)
     import re
@@ -137,9 +139,9 @@ def test_multi_country_spend_is_labelled_usd() -> None:
     assert "US$1,500,000" in text
 
 
-def test_a_bare_world_city_names_its_market() -> None:
+def test_a_bare_foreign_only_city_names_its_market() -> None:
     data = nova.Nova()._query_budget_projection(
-        {"budget": 60000, "roles": ["Data Engineer"], "locations": ["Berlin"], "industry": "technology"}
+        {"budget": 60000, "roles": ["Data Engineer"], "locations": ["Dortmund"], "industry": "technology"}
     )
     assert data["country"] == "Germany" and data.get("market_currency") == "EUR"
     assert data["currency"] == "USD"  # the tool still prices in US dollars

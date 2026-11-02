@@ -10822,19 +10822,30 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if _detect_strings:
             _combined = " ".join(_detect_strings)
             _detected_country = _detect_country(_combined)
+        _ambiguous_city: Optional[Tuple[str, str]] = None
         if not _detected_country:
-            # A bare world city ("Berlin") names its country too; the alias
-            # table above only knows country names.
+            # A bare foreign-only city ("Dortmund", "Mumbai") names its
+            # country, by the plan generator's own rule
+            # (plan_geo.bare_foreign_city_country). A name that is also a US
+            # city ("Berlin", "Dublin", "Melbourne") is NOT guessed foreign:
+            # the plan stays cross-market and the answer says so.
             try:
                 import country_registry
+                import plan_geo
 
                 for loc in locations_list or []:
-                    _city_country = country_registry.world_city_country(loc)
+                    if not isinstance(loc, str) or not loc.strip():
+                        continue
+                    _city_country = plan_geo.bare_foreign_city_country(loc)
                     if _city_country:
                         _detected_country = _city_country
                         break
+                    if "," not in loc and _ambiguous_city is None:
+                        _world = country_registry.world_city_country(loc)
+                        if _world:
+                            _ambiguous_city = (loc.strip(), _world)
             except (ImportError, AttributeError, TypeError, ValueError):
-                logger.error("world-city country lookup failed", exc_info=True)
+                logger.error("bare-city country lookup failed", exc_info=True)
         # Currency follows the detected country.
         _budget_currency = (
             _get_currency_for_country(_detected_country) if _detected_country else "USD"
@@ -10858,6 +10869,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             result["budget_reading"] = budget_reading
         if target_hires > 0:
             result["target_hires"] = target_hires
+        if _ambiguous_city and not _detected_country:
+            _amb_name, _amb_world = _ambiguous_city
+            result["location_assumption"] = (
+                f'"{_amb_name}" is also a US city name, so this plan is not '
+                f"priced for {_amb_world}: say \"{_amb_name}, {_amb_world}\" "
+                "(or the US state) for a local plan."
+            )
         if _detected_country:
             result["country"] = _detected_country
         else:
@@ -27383,6 +27401,14 @@ _NOVA_AMBIGUOUS_CITIES: Dict[str, List[str]] = {
     "warsaw": ["Warsaw, IN (US)", "Warsaw, Poland"],
     "paris": ["Paris, TX (US)", "Paris, France"],
     "rome": ["Rome, GA (US)", "Rome, Italy"],
+    # World cities with a US namesake (plan_geo keeps them unresolved, so
+    # chat asks rather than guess a foreign market for a US user).
+    "berlin": ["Berlin, NH (US)", "Berlin, Germany"],
+    "dublin": ["Dublin, OH (US)", "Dublin, Ireland"],
+    "melbourne": ["Melbourne, FL (US)", "Melbourne, Australia"],
+    "manchester": ["Manchester, NH (US)", "Manchester, UK"],
+    "toronto": ["Toronto, OH (US)", "Toronto, Canada"],
+    "munich": ["Munich, ND (US)", "Munich, Germany"],
 }
 
 # Pre-compiled word-boundary patterns so detection is O(N) tokens, not O(N*M).
@@ -28554,6 +28580,8 @@ def _format_budget_response(data: dict, budget: float) -> str:
         )
     else:
         parts.append(f"*Budget Allocation: ${budget:,.0f}*\n")
+    if data.get("location_assumption"):
+        parts.append(f"_{data['location_assumption']}_\n")
 
     if "channel_allocations" in data:
         allocs = data["channel_allocations"]
