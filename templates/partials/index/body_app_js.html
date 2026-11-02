@@ -92,6 +92,9 @@
       target_region: region.region,
       custom_countries: region.custom_countries,
       excluded_publishers: excludedPublishers.slice(),
+      // Warehouse / gig-courier picks steer the industry read of vague
+      // titles, so the preview estimate must carry them as generate does.
+      job_categories: selectedJobCategories.slice(),
     };
   }
   // ── Enterprise hourly hiring (opt-in) ──
@@ -4844,6 +4847,8 @@
     // A card click fires no input/change event, so the form auto-save never
     // saw it: persist the selection now (audit D-14).
     saveFormState();
+    // The estimate body carries the picks (novaPlanCoreInputs).
+    if (window.NovaPreview) window.NovaPreview.update();
   }
 
   function updateJobCategoryInsight() {
@@ -6640,7 +6645,6 @@
       // the 21 internal industry keys above still drive the benchmark stack).
       naics_selected_code: selectedNaicsCode || "",
       naics_selected_title: selectedNaicsTitle || "",
-      job_categories: selectedJobCategories,
       job_category_labels: selectedJobCategories.map(
         (k) => channelsDB?.job_categories?.[k]?.label || k,
       ),

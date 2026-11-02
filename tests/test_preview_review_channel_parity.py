@@ -132,6 +132,7 @@ def _run_wizard(touch: dict | None, estimate: dict | None) -> dict:
             "var locations = " + json.dumps(_BRIEF["locations"]) + ";",
             "var roles = " + json.dumps(_BRIEF["roles"]) + ";",
             "var excludedPublishers = [];  // the shared payload builder reads it",
+            "var selectedJobCategories = [];  // and the category picks",
             "var state = " + json.dumps(state) + ";",
             "var values = " + json.dumps(values) + ";",
             "var listeners = [];",

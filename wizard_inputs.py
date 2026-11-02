@@ -741,6 +741,103 @@ def format_budget_amount(amount: float) -> str:
     return f"{amount:,.2f}"
 
 
+# ---------------------------------------------------------------------------
+# Role categories and campaign goals the wizard offers.
+# ---------------------------------------------------------------------------
+# First-class categories the picker (data/channels_db.json job_categories)
+# gained 2026-11-03; each carries the SOC family the standardizer already
+# assigns (standardizer.get_soc_code) and the canonical titles that stand
+# for the category when a typed title is too vague to place ("Rider").
+ROLE_CATEGORIES: dict[str, dict[str, Any]] = {
+    "warehouse_logistics": {
+        "label": "Warehouse & logistics",
+        "soc": ("53-7062",),
+        "role_hints": ("Warehouse Associate",),
+    },
+    "gig_courier_delivery": {
+        "label": "Gig / courier delivery",
+        "soc": ("53-3033", "43-5021"),
+        "role_hints": ("Delivery Driver", "Courier"),
+    },
+}
+
+# The wizard's Campaign Goals checkboxes, in order (body_content.html lists
+# exactly these). "App Install" is the conversion an app-first gig employer
+# buys; the projection still counts applications (no install model yet).
+CAMPAIGN_GOALS: tuple[str, ...] = (
+    "Brand Awareness",
+    "Lead Generation",
+    "Direct Hiring",
+    "Talent Pipeline",
+    "Employer Branding",
+    "Diversity Hiring",
+    "App Install",
+)
+
+
+def _goal_key(goal: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", goal.casefold()).strip()
+
+
+_GOAL_BY_KEY: dict[str, str] = {_goal_key(g): g for g in CAMPAIGN_GOALS}
+
+
+def normalize_campaign_goals(goals: Any) -> list[str]:
+    """Known goals in their canonical spelling ("app_install" -> "App
+    Install"), other goals kept as sent, duplicates dropped, order kept."""
+    if isinstance(goals, str):
+        goals = [g for g in goals.split(",")]
+    out: list[str] = []
+    for g in goals if isinstance(goals, list) else []:
+        text = " ".join(str(g or "").split())
+        if not text:
+            continue
+        canon = _GOAL_BY_KEY.get(_goal_key(text), text)
+        if canon not in out:
+            out.append(canon)
+    return out
+
+
+def normalize_job_categories(
+    categories: Any, known: Optional[Any] = None
+) -> tuple[list[str], list[str]]:
+    """``(kept, unknown)``: category keys in ``known`` (default: the
+    picker's keys plus :data:`ROLE_CATEGORIES`), deduplicated, and the
+    values that are not a category key."""
+    known_keys = set(known) if known is not None else set(ROLE_CATEGORIES)
+    kept: list[str] = []
+    unknown: list[str] = []
+    for c in categories if isinstance(categories, list) else []:
+        key = str(c or "").strip()
+        if not key:
+            continue
+        if key in known_keys:
+            if key not in kept:
+                kept.append(key)
+        elif key not in unknown:
+            unknown.append(key)
+    return kept, unknown
+
+
+def category_role_hints(categories: Any) -> list[str]:
+    """Canonical titles for the picked categories in :data:`ROLE_CATEGORIES`."""
+    hints: list[str] = []
+    for c in categories if isinstance(categories, list) else []:
+        for h in (ROLE_CATEGORIES.get(str(c)) or {}).get("role_hints", ()):
+            if h not in hints:
+                hints.append(h)
+    return hints
+
+
+def category_soc(categories: Any) -> str:
+    """The first SOC code of the first picked category that has one, else ""."""
+    for c in categories if isinstance(categories, list) else []:
+        soc = (ROLE_CATEGORIES.get(str(c)) or {}).get("soc") or ()
+        if soc:
+            return soc[0]
+    return ""
+
+
 def page_config() -> dict[str, Any]:
     """Everything the wizard page needs to read inputs exactly as the server
     does -- embedded into templates/partials/index/body_inputs_js.html at

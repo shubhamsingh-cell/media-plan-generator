@@ -124,6 +124,7 @@ def wizard_payloads(
     touch: Optional[dict] = None,
     excluded_publishers: Optional[list] = None,
     site_goals: Optional[dict] = None,
+    job_categories: Optional[list] = None,
 ) -> dict:
     """{"generate": <payload>, "estimate": <preview's /api/estimate body>}
     after JSON round-trip, for one wizard form state.
@@ -170,7 +171,8 @@ def wizard_payloads(
             _stub_dom(state),
             "var selectedIndustry = " + json.dumps(selected_industry) + ";",
             "var selectedNaicsCode = null, selectedNaicsTitle = null;",
-            "var selectedJobCategories = [], channelsDB = null;",
+            "var selectedJobCategories = " + json.dumps(job_categories or []) + ";",
+            "var channelsDB = null;",
             "var locations = " + json.dumps(locations or []) + ";",
             "var roles = " + json.dumps(roles or []) + ";",
             "var competitors = [], briefFiles = [], transcriptFiles = [], historicalFiles = [];",

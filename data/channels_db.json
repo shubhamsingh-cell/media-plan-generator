@@ -997,6 +997,40 @@
       "best_practices": ["Bar association and legal society job board postings", "Law school career center partnerships", "Discreet confidential searches for senior roles", "Compliance certification-targeted campaigns (CCEP, CRCM)", "Legal industry publication advertising"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "LawJobs.com", "Talent.com", "Monster"],
       "competitor_channels": []
+    },
+    "warehouse_logistics": {
+      "label": "Warehouse & logistics",
+      "icon": "🏷️",
+      "description": "Warehouse associates, pickers and packers, forklift operators, and distribution-centre roles",
+      "soc_codes": ["53-7062"],
+      "example_roles": ["Warehouse Associates", "Pickers & Packers", "Forklift Operators", "Package Handlers", "Inventory Associates", "Loaders / Unloaders"],
+      "recommended_channels": {
+        "primary": ["Indeed", "Snagajob", "Jobcase Inc", "JobGet", "Instawork"],
+        "secondary": ["Craigslist", "OfferUp", "SonicJobs", "PostJobFree", "MyJobHelper"],
+        "social": ["Meta (Facebook/Instagram)", "TikTok Ads", "Snapchat Ads"],
+        "niche": ["WarehouseJobs.com", "Wonolo", "Shiftsmart", "BlueCrew"]
+      },
+      "best_practices": ["Mobile-first apply experience critical", "Same-day or next-day interview scheduling", "WhatsApp/SMS campaigns for hourly workers", "Local classified boards and community groups"],
+      "joveo_supply_fit": ["Indeed", "Snagajob", "Jobcase", "Talent.com", "Jooble", "JobRapido"],
+      "competitor_channels": [],
+      "_derived_from": ["blue_collar_hourly", "operations_supply_chain"]
+    },
+    "gig_courier_delivery": {
+      "label": "Gig / courier delivery",
+      "icon": "🛵",
+      "description": "Couriers, last-mile and app-based delivery drivers, and independent gig delivery roles",
+      "soc_codes": ["53-3033", "43-5021"],
+      "example_roles": ["Couriers", "Last-Mile Delivery Drivers", "App-Based Delivery Partners", "Bike / Scooter Couriers", "Package Delivery Drivers"],
+      "recommended_channels": {
+        "primary": ["Indeed", "Snagajob", "JobGet", "Instawork", "Jobcase Inc"],
+        "secondary": ["Craigslist", "OfferUp", "SonicJobs", "DriveMyWay"],
+        "social": ["Meta (Facebook/Instagram)", "TikTok Ads", "Snapchat Ads", "YouTube Ads"],
+        "niche": ["Wonolo", "Shiftsmart", "BlueCrew"]
+      },
+      "best_practices": ["Mobile-first apply experience critical", "Heavy social media presence on Facebook/TikTok", "WhatsApp/SMS campaigns for hourly workers", "Referral bonus programs"],
+      "joveo_supply_fit": ["Indeed", "Snagajob", "Jobcase", "Talent.com", "Jooble"],
+      "competitor_channels": [],
+      "_derived_from": ["blue_collar_hourly", "transportation_logistics"]
     }
   },
   "cpa_rate_benchmarks": {

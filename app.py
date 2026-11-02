@@ -4457,6 +4457,70 @@ def _capture_input_roles(data: dict) -> None:
     logger.info("generate intake roles: %d role(s): %r", len(titles), titles)
 
 
+def _validate_wizard_picks(data: dict) -> list:
+    """Validate the wizard's category and goal picks in place; returns
+    warnings. Category keys the picker does not offer are dropped (named in
+    the warning); goal spellings are canonicalised ("app_install" -> "App
+    Install"), goals the wizard does not list are kept as sent."""
+    warnings: list = []
+    known = set((load_channels_db() or {}).get("job_categories") or {}) | set(
+        wizard_inputs.ROLE_CATEGORIES
+    )
+    if data.get("job_categories") is not None:
+        kept, unknown = wizard_inputs.normalize_job_categories(
+            data.get("job_categories"), known
+        )
+        data["job_categories"] = kept
+        if unknown:
+            warnings.append(
+                "Unknown job categories ignored: " + ", ".join(unknown[:10])
+            )
+    if data.get("campaign_goals") is not None:
+        data["campaign_goals"] = wizard_inputs.normalize_campaign_goals(
+            data.get("campaign_goals")
+        )
+    return warnings
+
+
+def _classify_for_request(
+    raw_industry: str, company_name: str, roles: list, payload: dict
+) -> dict:
+    """``classify_industry`` with the wizard's warehouse / gig-courier pick
+    applied: while the industry pick is generic ("", "general", or the
+    wizard's own "General / Entry-Level"), the category's canonical titles
+    join the roles and the pick reads as unset, so the classifier infers the
+    sector from the roles. A vague title ("Rider") with a gig/courier pick
+    then classifies as logistics instead of the generic entry-level default.
+    An explicit industry pick always wins. Used by the preview estimate, the
+    headline projection and both generate paths, so they agree."""
+    roles = list(roles or [])
+    payload = payload or {}
+    hints = wizard_inputs.category_role_hints(payload.get("job_categories"))
+    # The pick as the client made it: Phase 0 rewrites "" / "general" to
+    # the general legacy key before /api/generate classifies.
+    pick = payload.get("_industry_original")
+    if pick is None:
+        pick = raw_industry
+    pick = str(pick or "").strip().lower()
+    if hints and (pick in _GENERIC_INDUSTRY_STRINGS or pick == "general_entry_level"):
+        return classify_industry(
+            "", company_name, roles + [h for h in hints if h not in roles]
+        )
+    return classify_industry(raw_industry, company_name, roles)
+
+
+def _role_soc_for_request(title: str, data: dict) -> str:
+    """The SOC code market-data lookups use for one role: the standardizer's,
+    else (title it cannot place) the picked category's SOC family."""
+    soc = ""
+    if _STANDARDIZER_AVAILABLE:
+        try:
+            soc = std_get_soc_code(title) or ""
+        except Exception:  # noqa: BLE001
+            soc = ""
+    return soc or wizard_inputs.category_soc((data or {}).get("job_categories"))
+
+
 def _hire_goal_for_budget(data: dict) -> int:
     """The client's stated hiring goal, as budget_engine's ``target_hires``.
 
@@ -6335,7 +6399,9 @@ def _compute_plan_estimate(brief: dict) -> dict:
                 }
             )
 
-    industry_profile = classify_industry(industry_raw, company_name, roles_titles)
+    industry_profile = _classify_for_request(
+        industry_raw, company_name, roles_titles, brief
+    )
     industry_key = industry_profile.get("legacy_key", "general_entry_level")
 
     _DEFAULT_ALLOC_ESTIMATE = {
@@ -6650,7 +6716,7 @@ def _attach_headline_projection(
                     }
                 )
         titles = [r["title"] for r in preview_roles]
-        key = classify_industry(raw_industry, client, titles).get(
+        key = _classify_for_request(raw_industry, client, titles, plan).get(
             "legacy_key", "general_entry_level"
         )
         default_mix = {
@@ -19419,6 +19485,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     ]
                 elif _arr_val is not None and not isinstance(_arr_val, list):
                     data[_arr_field] = [str(_arr_val)]
+            for _pick_warning in _validate_wizard_picks(data):
+                logger.info("generate intake: %s", _pick_warning)
 
             # hershey_2026_09_24 fix (build-quality follow-up): clean
             # data["competitors"] ONCE, here at the request boundary --
@@ -20351,8 +20419,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             roles_list = [
                                 r.strip() for r in roles_list.split(",") if r.strip()
                             ]
-                        industry_profile = classify_industry(
-                            industry_raw, company_name, roles_list
+                        industry_profile = _classify_for_request(
+                            industry_raw, company_name, roles_list, gen_data
                         )
                         gen_data["industry"] = industry_profile.get(
                             "legacy_key", "general_entry_level"
@@ -21682,6 +21750,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             # Build normalized list of roles (up to 5) with title + SOC code
             _roles_normalized: list[dict[str, str]] = []
+            _pick_soc = wizard_inputs.category_soc(data.get("job_categories"))
             if isinstance(_roles_for_api, list):
                 for _r in _roles_for_api[:5]:
                     if isinstance(_r, dict):
@@ -21690,7 +21759,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         if _t:
                             _roles_normalized.append({"title": _t, "soc": _s})
                     elif isinstance(_r, str) and _r.strip():
-                        _roles_normalized.append({"title": _r.strip(), "soc": ""})
+                        # A warehouse / gig-courier category pick carries a
+                        # SOC family: market-data lookups then run for its
+                        # roles instead of skipping a title without a code.
+                        _roles_normalized.append(
+                            {
+                                "title": _r.strip(),
+                                "soc": (
+                                    _role_soc_for_request(_r.strip(), data)
+                                    if _pick_soc
+                                    else ""
+                                ),
+                            }
+                        )
             elif _roles_for_api:
                 _roles_normalized.append({"title": str(_roles_for_api), "soc": ""})
 
@@ -22417,7 +22498,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             roles_list = data.get("target_roles") or data.get("roles") or []
             if isinstance(roles_list, str):
                 roles_list = [r.strip() for r in roles_list.split(",") if r.strip()]
-            industry_profile = classify_industry(industry_raw, company_name, roles_list)
+            industry_profile = _classify_for_request(
+                industry_raw, company_name, roles_list, data
+            )
 
             # Set the industry key to the legacy key for backward compatibility with
             # research.py, channels_db.json, and all internal lookup tables
