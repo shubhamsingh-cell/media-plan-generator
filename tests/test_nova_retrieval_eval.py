@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -82,12 +84,44 @@ def test_every_label_resolves_in_the_current_kb(corpus: List[rev.Chunk]) -> None
 _CLIENT_KEYS = {"client", "client_name"}
 
 
-def _client_strings() -> set:
-    """Every client string the KB names, read from the data (never typed here).
+def _fallback_data_files() -> List[str]:
+    """Static allowlist when git is unavailable: the committed KB files only."""
+    names = set(vs._KB_INDEX_FILES) - set(rev.RUNTIME_GENERATED_KB_FILES)
+    names |= {"client_media_plans_kb.json", "joveo_media_plan_deck_2026.json"}
+    return sorted(names)
+
+
+def _tracked_data_files(root: Path = PROJECT_ROOT) -> List[str]:
+    """Top-level ``data/*.json`` names that git TRACKS in ``root``.
+
+    Git-ignored runtime files (``data/request_log.json``, caches) are written
+    by the server and by test fixtures with fake "client" values; reading them
+    would make the client check depend on whatever ran on this machine before.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z", "--", "data"],
+            capture_output=True,
+            check=True,
+            timeout=30,
+        ).stdout.decode("utf-8")
+    except (OSError, subprocess.SubprocessError):
+        return _fallback_data_files()
+    names = []
+    for rel in out.split("\0"):
+        parts = rel.split("/")
+        if len(parts) == 2 and parts[0] == "data" and parts[1].endswith(".json"):
+            names.append(parts[1])
+    return sorted(names) or _fallback_data_files()
+
+
+def _client_strings(root: Path = PROJECT_ROOT) -> set:
+    """Every client string the tracked KB names, read from the data.
 
     Sources: client_media_plans_kb.json plan keys, and the value of every
-    ``client`` / ``client_name`` key anywhere in data/*.json (plans[*].client,
-    example_brief.client, ``*_meta`` blocks, ...).
+    ``client`` / ``client_name`` key anywhere in the git-tracked data/*.json
+    (plans[*].client, example_brief.client, ``*_meta`` blocks, ...). Never
+    typed here, which would commit them.
     """
     out: set = set()
 
@@ -101,13 +135,14 @@ def _client_strings() -> set:
             for val in node:
                 walk(val)
 
-    for path in sorted((PROJECT_ROOT / "data").glob("*.json")):
+    for name in _tracked_data_files(root):
+        path = root / "data" / name
         try:
             data = json.loads(path.read_text("utf-8"))
         except (OSError, ValueError):
             continue
         walk(data)
-        if path.name == "client_media_plans_kb.json":
+        if name == "client_media_plans_kb.json" and isinstance(data, dict):
             out.update(k.replace("_", " ") for k in (data.get("plans") or {}))
     return out
 
@@ -144,6 +179,55 @@ def test_query_set_names_no_client() -> None:
     text = nre.DEFAULT_QUERIES_PATH.read_text("utf-8")
     assert _leaks(text, tokens) == []
     assert "client_media_plans_kb.json" not in text.lower()
+
+
+_FAKE_RUNTIME_CLIENT = "Zzfixture Hiring Co Run 12"
+
+
+def _fake_runtime_log(root: Path) -> None:
+    (root / "data" / "request_log.json").write_text(
+        json.dumps([{"client_name": _FAKE_RUNTIME_CLIENT, "client": _FAKE_RUNTIME_CLIENT}]),
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
+def test_untracked_runtime_files_do_not_feed_the_client_check(tmp_path: Path) -> None:
+    """A fixture-written data/request_log.json (git-ignored) must be ignored."""
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "kb.json").write_text(
+        json.dumps({"example_brief": {"client": "Realco Industries"}}), encoding="utf-8"
+    )
+    (tmp_path / ".gitignore").write_text("data/request_log.json\n", encoding="utf-8")
+    git = ["git", "-C", str(tmp_path)]
+    subprocess.run(git + ["init", "-q"], check=True)
+    subprocess.run(git + ["add", ".gitignore", "data/kb.json"], check=True)
+    _fake_runtime_log(tmp_path)
+
+    names = _client_strings(tmp_path)
+    assert names == {"Realco Industries"}
+    tokens = _client_tokens(names)
+    assert _leaks(f"How is {_FAKE_RUNTIME_CLIENT} doing?", tokens) == []
+    assert _leaks("What CPA did Realco Industries get?", tokens)
+
+
+def test_fallback_allowlist_excludes_runtime_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without git, only the static KB allowlist is read (never request_log)."""
+    def _no_git(*_a, **_kw):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(subprocess, "run", _no_git)
+    files = _tracked_data_files(tmp_path)
+    assert files == _fallback_data_files()
+    assert "request_log.json" not in files
+    assert "client_media_plans_kb.json" in files
+
+
+def test_real_repo_check_ignores_a_populated_request_log() -> None:
+    """The live repo's tracked set never includes data/request_log.json."""
+    assert "request_log.json" not in _tracked_data_files()
 
 
 def test_client_check_would_catch_a_named_client() -> None:
