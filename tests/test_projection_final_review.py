@@ -258,6 +258,36 @@ def test_headline_helper_applies_the_estimates_vendor_gate(monkeypatch):
     assert est_gate == head_gate == {"niche_boards": False}, (est_gate, head_gate)
 
 
+_PINNED_MONTH = 10  # October: the RN / Columbus / $150k top-2 share is 55.7 %
+
+
+def _top2_share(brief):
+    import tools_regen_bundles as T
+
+    alloc = T.build_plan_data(brief)["_budget_allocation"]["channel_allocations"]
+    pcts = sorted((v.get("percentage", 0) for v in alloc.values()), reverse=True)
+    return round(sum(pcts[:2]), 2)
+
+
+@pytest.mark.parametrize("today_month", [1, 6, 11])
+def test_pinned_campaign_month_makes_the_channel_mix_clock_independent(
+    monkeypatch, today_month
+):
+    """The pin must reach both budget_engine ``datetime.now().month`` fallbacks:
+    with the month pinned, the top-2 share does not move with the wall clock."""
+    import datetime as _dt
+
+    class _FakeDT(_dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, today_month, 15)
+
+    monkeypatch.setattr(_dt, "datetime", _FakeDT)
+    brief = _brief("Registered Nurse", "Columbus, OH", "healthcare_medical", "$150,000")
+    brief["campaign_start_month"] = _PINNED_MONTH
+    assert _top2_share(brief) == 55.7  # > 55 -> the concentration risk fires
+
+
 @pytest.mark.parametrize(
     "role,loc,ind,budget",
     [
@@ -269,7 +299,12 @@ def test_headline_helper_applies_the_estimates_vendor_gate(monkeypatch):
 def test_channel_concentration_risk_quotes_a_range(role, loc, ind, budget):
     import re as _re
 
-    data, wb, prs = _bundle(_brief(role, loc, ind, budget))
+    # Pin the campaign month: the channel mix (and so whether the top-2 share
+    # clears the 55 % risk threshold) is seasonal, and an unpinned brief falls
+    # back to today's month, which made this test pass or fail by calendar.
+    brief = _brief(role, loc, ind, budget)
+    brief["campaign_start_month"] = _PINNED_MONTH
+    data, wb, prs = _bundle(brief)
     texts = [str(v) for s, _c, v in _cells(wb) if "could impact" in str(v)]
     texts += [t for i, t in _deck(prs) if i == 10 and "could impact" in t]
     assert texts, "fixture must trigger the channel-concentration risk"
