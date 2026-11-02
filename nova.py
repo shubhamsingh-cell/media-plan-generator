@@ -26409,10 +26409,6 @@ def _extract_budget(text: str) -> float:
         r"([\d,.]+)\s*[kK]\s*(?:dollar|usd|budget)",  # 50K dollars
         r"\$\s*([\d,.]+)",  # $50,000
         r"([\d,.]+)\s*(?:dollar|usd)",  # 50000 dollars
-        # A bare figure tied to the word budget ("a 50000 budget", "budget of
-        # 50,000"): at least four digits, so a head count never reads as money.
-        r"(?<![\w.,])(\d{1,3}(?:,\d{3})+|\d{4,})\s*budget",
-        r"budget\s*(?:of|is|:|=)?\s*(\d{1,3}(?:,\d{3})+|\d{4,})(?![\d,])",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
@@ -26427,7 +26423,31 @@ def _extract_budget(text: str) -> float:
                 return val
             except ValueError:
                 continue
+    # A bare figure tied to the word budget ("a 50000 budget", "budget of
+    # 50,000", "budget of 60k"): at least four digits, so a head count never
+    # reads as money, and a plain year ("our 2026 budget", "budget 2026") is
+    # never money unless comma grouping or a k/m suffix says it is.
+    for pattern in _RE_BARE_BUDGETS:
+        for match in pattern.finditer(text):
+            digits, suffix = match.group(1), (match.group(2) or "").lower()
+            if "," not in digits and not suffix and _RE_YEAR.fullmatch(digits):
+                continue
+            val = float(digits.replace(",", ""))
+            if suffix == "k":
+                val *= 1_000
+            elif suffix == "m":
+                val *= 1_000_000
+            return val
     return 0.0  # No budget detected -- callers should prompt the user
+
+
+_RE_YEAR = re.compile(r"(?:19|20)\d{2}")
+_RE_BARE_BUDGETS = (
+    re.compile(r"(?<![\w.,])(\d{1,3}(?:,\d{3})+|\d{4,})\s*([kKmM])?\s*budget"),
+    re.compile(
+        r"budget\s*(?:of|is|:|=)?\s*(\d{1,3}(?:,\d{3})+|\d{4,})\s*([kKmM](?![a-z]))?(?![\d,])"
+    ),
+)
 
 
 def _estimate_confidence(tools_used: list, sources: set) -> float:
