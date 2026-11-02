@@ -895,7 +895,9 @@ class TestNarrativeProviderPriority:
         # change, to prove those lists weren't touched at all (not just that
         # the head is unchanged).
         expected_claude_index = {
-            TASK_STRUCTURED: 23,
+            # 22 since 2026-11-03: the 2.6B Liquid route moved from before
+            # Claude Sonnet to after it (review); nothing narrative-related.
+            TASK_STRUCTURED: 22,
             TASK_COMPLEX: 4,
             TASK_VERIFICATION: 15,
             TASK_PLAN_STRUCTURED: 16,

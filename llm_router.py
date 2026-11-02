@@ -1253,9 +1253,9 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_YI,
         OPENROUTER_ARCEE,
         OPENROUTER_DEEPSEEK_R1,
-        OPENROUTER_LIQUID,
         HUGGINGFACE,
         CLAUDE,
+        OPENROUTER_LIQUID,  # 2.6B: tail fallback only, after Claude Sonnet
         CLAUDE_OPUS,
     ],
     TASK_CONVERSATIONAL: [

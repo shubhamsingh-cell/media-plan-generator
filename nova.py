@@ -25942,7 +25942,9 @@ _PLAIN_RENDER_NAMES = {
 # Keys that name a ratio, share, index, rate of change or count: never money,
 # whatever money word they contain ("cost_of_living_index", "budget_share",
 # "cpc_change_pct", "forecast_hires").
-_PLAIN_NOT_MONEY_SUFFIXES = ("_pct", "_index", "_ratio", "_multiplier", "_share", "_hires", "_percent", "_rate")
+_PLAIN_NOT_MONEY_SUFFIXES = (
+    "_pct", "_index", "_ratio", "_multiplier", "_share", "_hires", "_percent", "_rate", "_factor"
+)
 _PLAIN_NOT_MONEY_WORDS = ("change", "growth", "share", "ratio", "index", "pct", "percent", "hires", "trend")
 
 
@@ -26427,9 +26429,17 @@ def _detect_keywords(text: str, keyword_map: Dict[str, List[str]]) -> set:
     return found
 
 
+# "turkey" the bird (a turkey processing plant, turkey farm) is not Turkey.
+_RE_TURKEY_POULTRY = re.compile(
+    r"\bturkeys?\s+(?:processing|processors?|plants?|farms?|farming|meat|"
+    r"slaughter\w*|hatcher\w*|poultry|breeding|growers?|houses?|barns?)\b",
+    re.IGNORECASE,
+)
+
+
 def _detect_country(text: str) -> Optional[str]:
     """Detect a country name in the text."""
-    text_lower = text.lower()
+    text_lower = _RE_TURKEY_POULTRY.sub(" ", text.lower())
     # Check country aliases (longest first to avoid partial matches)
     sorted_aliases = sorted(_COUNTRY_ALIASES.keys(), key=len, reverse=True)
     for alias in sorted_aliases:
@@ -26461,7 +26471,7 @@ def _detect_country(text: str) -> Optional[str]:
                 return "United States"
     # Countries the datasets cover that have no alias row above (Peru,
     # Bangladesh, Pakistan, Greece...): themselves, never "unknown -> US".
-    return country_registry.detect_extra(text)
+    return country_registry.detect_extra(_RE_TURKEY_POULTRY.sub(" ", text))
 
 
 def _detect_us_state(text: str) -> Optional[str]:
@@ -28914,7 +28924,9 @@ _BOLD_DOLLAR = r"(?:[A-Z]{1,3})?\$"
 _RE_BOLD_MONEY = re.compile(
     r"(?<![\w$.,])([-+\u2212]?" + _BOLD_DOLLAR + r"\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?"
     r"(?:\s?[-\u2013]\s?" + _BOLD_DOLLAR + r"\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?)?)"
-    r"(?![\d])"
+    # never word-adjacent ("#A$100X") and never a prefix of a dot- or
+    # comma-grouped figure ("R$1.200,50" stays whole and unbolded)
+    r"(?![\w]|[.,]\d)"
 )
 _RE_BOLD_PERCENT = re.compile(
     r"(?<![\w.,%])(?<!\d[-\u2013])([-+\u2212]?\d+(?:\.\d+)?(?:\s?[-\u2013]\s?\d+(?:\.\d+)?)?%)"
@@ -28922,7 +28934,8 @@ _RE_BOLD_PERCENT = re.compile(
 _RE_PROTECTED_SPAN = re.compile(
     r"```.*?```|`[^`\n]*`|\*\*[^*\n]+?\*\*"
     r"|\]\([^)\s]*\)"  # markdown link target
-    r"|https?://[^\s)\]]+",  # bare URL
+    r"|https?://[^\s)\]]+"  # bare URL
+    r"|\b(?:[\w-]+\.)+[a-z]{2,}[/?][^\s)\]]*",  # scheme-less domain + path/query
     re.S,
 )
 
@@ -29243,7 +29256,7 @@ _RE_KB_US_ONLY = re.compile(r"\b(nonfarm|payrolls?|jolts|bls|fed funds)\b", re.I
 
 def _countries_named(text: str) -> set:
     """Every country an alias in ``text`` names (word-bounded)."""
-    low = " " + re.sub(r"[_.]+", " ", str(text or "").lower()) + " "
+    low = " " + _RE_TURKEY_POULTRY.sub(" ", re.sub(r"[_.]+", " ", str(text or "").lower())) + " "
     found: set = set()
     for alias, country in _COUNTRY_ALIASES.items():
         if len(alias) < 2:
@@ -29299,6 +29312,13 @@ def _clean_kb_chunk(content: str, limit: int = 200) -> str:
     """
     path, text = _kb_chunk_parts(content)
     label = _kb_entity_label(path)
+    # A chunk known to be about one market says so even when its path does
+    # not name it (US payrolls notes): "United States · ...".
+    regions = _kb_chunk_regions(content)
+    if len(regions) == 1:
+        (region,) = tuple(regions)
+        if region.lower() not in label.lower():
+            label = f"{region} \u00b7 {label}" if label else region
     facts: List[str] = []
     for raw in text.splitlines():
         m = _RE_KB_KEY_LINE.match(raw)
