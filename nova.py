@@ -25899,6 +25899,20 @@ _PLAIN_RENDER_NAMES = {
 }
 
 
+# Keys that name a ratio, share, index, rate of change or count: never money,
+# whatever money word they contain ("cost_of_living_index", "budget_share",
+# "cpc_change_pct", "forecast_hires").
+_PLAIN_NOT_MONEY_SUFFIXES = ("_pct", "_index", "_ratio", "_multiplier", "_share", "_hires", "_percent", "_rate")
+_PLAIN_NOT_MONEY_WORDS = ("change", "growth", "share", "ratio", "index", "pct", "percent", "hires", "trend")
+
+
+def _plain_is_money_key(key: str) -> bool:
+    low = str(key).lower()
+    if low.endswith(_PLAIN_NOT_MONEY_SUFFIXES) or any(w in low for w in _PLAIN_NOT_MONEY_WORDS):
+        return False
+    return any(h in low for h in _PLAIN_RENDER_MONEY_HINTS)
+
+
 def _plain_label(key: Any) -> str:
     words = str(key).replace("-", "_").split("_")
     return " ".join(_PLAIN_RENDER_NAMES.get(w.lower(), w.capitalize()) for w in words if w)
@@ -25943,7 +25957,7 @@ def _render_tool_data_plain(tool_label: str, tool_result: Any) -> str:
         k = str(key)
         if k.startswith("_") or k in _PLAIN_RENDER_SKIP_KEYS or value in (None, "", [], {}):
             continue
-        money = any(h in k.lower() for h in _PLAIN_RENDER_MONEY_HINTS)
+        money = _plain_is_money_key(k)
         if isinstance(value, dict):
             parts = [
                 f"{_plain_label(sk)} {_plain_value(sv, money, symbol)}"

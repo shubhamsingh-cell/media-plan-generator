@@ -71,3 +71,27 @@ def test_renderer_formats_money_and_drops_internal_fields() -> None:
     assert "-5%" in out
     for leaked in ("usd_rate", "Format every monetary", "_internal", "1.33"):
         assert leaked not in out
+
+
+def test_ratio_and_count_fields_never_get_a_currency_symbol() -> None:
+    """Review 2026-11-03: money was chosen by substring, so
+    "Budget Share: €35.00", "Cost Index: €1.08", "Forecast Hires: €1,200"."""
+    out = nova._render_tool_data_plain(
+        "Market",
+        {
+            "currency": "EUR",
+            "cost_of_living_index": 1.08,
+            "cpc_change_pct": -5.0,
+            "salary_premium_pct": 12.5,
+            "budget_share": 35.0,
+            "forecast_hires": 1200,
+            "salary_growth": 3.1,
+            "cost_ratio": 0.4,
+            "median_salary": 61000,
+        },
+    )
+    for line in out.splitlines():
+        if line.startswith("- Median Salary"):
+            assert "€61,000" in line
+        elif line.startswith("- "):
+            assert "€" not in line, line
