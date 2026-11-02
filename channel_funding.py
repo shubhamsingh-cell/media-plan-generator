@@ -758,6 +758,9 @@ def _score_candidates(data: Any, country: str) -> List[Dict[str, Any]]:
         status = publisher_filter.status_label(b["record"])
         if "note" in s:
             status += _note_suffix(s["note"])
+        owned = publisher_filter.ownership_status(b["name"])
+        if owned:
+            status += f"; {owned}"
         out.append(
             {
                 "name": publisher_filter.display_name(

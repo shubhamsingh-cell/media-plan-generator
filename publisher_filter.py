@@ -616,8 +616,8 @@ def filter_items(
 
 def display_name(name: Any, country: Any = None) -> str:
     """``name`` after sourced renames ('CareerBuilder Vietnam' ->
-    'CareerViet') and with a sourced ownership note ('Joblift (now part of
-    Adzuna, insolvency 2026)'); unchanged when neither applies."""
+    'CareerViet') and with a sourced ownership note ('Joblift (Adzuna-owned
+    since Jul 2026)'); unchanged when neither applies."""
     text = str(name or "")
     want = canonical_country(country)
     key = _squash(text)
@@ -642,6 +642,14 @@ def _ownership_for(name: Any) -> Optional[Dict[str, Any]]:
         if keys & own["_keys"]:
             return own
     return None
+
+
+def ownership_status(name: Any) -> str:
+    """The dated ownership events for a supply-status column ("Joblift GmbH
+    insolvency filed 2026-04-07; Adzuna bought its assets 2026-07-16
+    (online-recruiting.net, 2026-07)"), or "" -- never part of the name."""
+    own = _ownership_for(name)
+    return str((own or {}).get("status_note") or "")
 
 
 def ownership_group(name: Any) -> str:

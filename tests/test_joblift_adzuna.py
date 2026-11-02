@@ -8,7 +8,8 @@ Germany; in the UK, US, Belgium, Italy, the Netherlands and France the
 operation moves to the Adzuna platform.
 
 Decision: joblift.de stays fundable in Germany while the site is live, but
-every surface that names it says "now part of Adzuna, insolvency 2026",
+every client surface names it "Joblift (Adzuna-owned since Jul 2026)" (the
+insolvency and asset-deal dates sit in the workbook's supply-status column),
 the local-relevance score treats Joblift and Adzuna as one group (a plan
 never funds both as independent boards), and outside Germany Joblift is a
 folded board operated by Adzuna (never listed or funded on its own).
@@ -20,6 +21,8 @@ import json
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 import channel_funding
 import publisher_filter
 
@@ -28,7 +31,7 @@ SOURCE = (
     "https://www.online-recruiting.net/"
     "adzuna-uebernimmt-joblift-die-totgesagte-marke-bekommt-ein-zweites-leben"
 )
-NOTE = "now part of Adzuna, insolvency 2026"
+NOTE = "Adzuna-owned since Jul 2026"
 GERMANY = {
     "locations": ["Berlin, Germany"],
     "target_roles": ["Maintenance Technician"],
@@ -139,3 +142,65 @@ def test_the_deck_funded_line_keeps_the_note_and_the_workbook_names_it():
     blob = " ".join(funded).replace("\n", " ")
     assert "Joblift" in blob, funded
     assert NOTE in blob, funded
+
+
+def test_the_supply_status_carries_the_dated_events_and_the_source():
+    import io
+
+    import openpyxl
+
+    import excel_v2
+
+    data = dict(GERMANY, client_name="Acme", budget="250000")
+    data["_budget_allocation"] = {
+        "channel_allocations": {
+            "regional_boards": {"label": "Regional Job Boards", "dollar_amount": 86511.54}
+        }
+    }
+    split = channel_funding.regional_budget_split(data, data["_budget_allocation"])
+    joblift = [b for b in split["countries"][0]["boards"] if b["name"].startswith("Joblift")]
+    assert joblift, split["countries"][0]["boards"]
+    status = joblift[0]["status"]
+    assert "insolvency filed 2026-04-07" in status, status
+    assert "Adzuna bought its assets 2026-07-16" in status, status
+    assert "online-recruiting.net" in status, status
+    ws = openpyxl.Workbook().active
+    excel_v2._build_sheet_channel_recommendations(ws, data)
+    rows = [
+        [str(c.value) for c in row if c.value is not None]
+        for row in ws.iter_rows()
+    ]
+    own = [r for r in rows if r and r[0] == f"Joblift ({NOTE})"]
+    assert own and any("insolvency filed 2026-04-07" in v for v in own[0]), own
+    # the dates are in the status column, never in the board name
+    assert not any("insolvency" in r[0] for r in rows if r)
+
+
+def test_the_funded_line_continuations_hang_under_the_first_board():
+    import io
+
+    from pptx import Presentation
+
+    import ppt_generator
+
+    data = dict(GERMANY, client_name="Acme", budget="250000")
+    data["_budget_allocation"] = {
+        "channel_allocations": {
+            "regional_boards": {"label": "Regional Job Boards", "dollar_amount": 86511.54}
+        }
+    }
+    prs = Presentation(io.BytesIO(ppt_generator.generate_pptx(dict(data))))
+    for slide in prs.slides:
+        shapes = [sh for sh in slide.shapes if sh.has_text_frame]
+        lead = [sh for sh in shapes if sh.text_frame.text.startswith("Regional & aggregator")]
+        if not lead:
+            continue
+        below = [
+            sh for sh in shapes
+            if sh.top > lead[0].top and "€" in sh.text_frame.text
+            and not sh.text_frame.text.startswith("Regional")
+        ]
+        assert below, "expected the funded line to wrap in this fixture"
+        assert all(sh.left > lead[0].left for sh in below)
+        return
+    pytest.fail("no funded line")

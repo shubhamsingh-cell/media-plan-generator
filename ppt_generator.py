@@ -2448,6 +2448,18 @@ def _measure_lines(
         return _estimate_lines(text, width_in, font_pt)
 
 
+def _text_width_in(text: str, font_pt: float, bold: bool = False) -> float:
+    """Rendered width of one line of ``text`` in inches (real Poppins
+    advances; an average-glyph estimate when the font can't be measured)."""
+    font = _measure_font(bold)
+    if font is not None:
+        try:
+            return font.getlength(str(text)) * font_pt / (_MEASURE_FONT_PX * 72.0)
+        except (OSError, ValueError, AttributeError):
+            pass
+    return len(str(text)) * font_pt * 0.55 / 72.0
+
+
 def _fit_font_to_measured_lines(
     text: str,
     width_in: float,
@@ -12098,10 +12110,12 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     # boards says so). See channel_funding.regional_budget_split. A board named
     # here is not repeated in the market-share line above it.
     _funded_lines: List[str] = []
+    _funded_indent: List[float] = []
     _funded_countries: Dict[str, set] = {}
     for _entry in (_regional_split or {}).get("countries", [])[:3]:
         if not _entry["boards"]:
             _funded_lines.append(_entry["note"])
+            _funded_indent.append(0.0)
             continue
         _funded_countries[_pubfilter.canonical_country(_entry["country"])] = {
             _board_key(b["name"]) for b in _entry["boards"]
@@ -12110,25 +12124,33 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
         _pieces = []
         for b in _entry["boards"]:
             _short = re.sub(r"\s*\(.*?\)", "", b["name"]).strip() or b["name"]
-            # the shortened name keeps a sourced ownership note ("Joblift (now
-            # part of Adzuna, insolvency 2026)"), never a brand qualifier
+            # the shortened name keeps a sourced ownership note ("Joblift
+            # (Adzuna-owned since Jul 2026)"), never a brand qualifier
             _short = _pubfilter.display_name(_short, _entry["country"])
             _pieces.append(f"{_short} {_fmt_currency(b['amount'], compact=True)}")
         # wrap onto continuation lines so a long board name never runs past
         # the slide's right margin (7% slack: the ruler reads short of the
         # rendered bold face)
-        _line = _lead
+        # Continuation lines hang under the first board name (design review
+        # 2026-11-03: they used to restart at the margin, under the lead).
+        _hang = _text_width_in(_lead, 10.0, bold=True)
+        _line, _first = _lead, True
+        _avail = 11.9 * 0.93
         for _piece in _pieces:
             _cand = _line + (" \u00b7 " if _line != _lead and _line.strip() else "") + _piece
-            if _line != _lead and _measure_lines(_cand, 11.9 * 0.93, 10.0, bold=True) > 1:
+            if _line != _lead and _measure_lines(_cand, _avail, 10.0, bold=True) > 1:
                 _funded_lines.append(_line)
+                _funded_indent.append(0.0 if _first else _hang)
+                _first = False
+                _avail = 11.9 * 0.93 - _hang
                 _line = _piece
             else:
                 _line = _cand
         _funded_lines.append(_line)
+        _funded_indent.append(0.0 if _first else _hang)
     _funded_h_in = [
-        0.27 + 0.17 * (_measure_lines(_fl, 11.9 * 0.93, 10.0, bold=True) - 1)
-        for _fl in _funded_lines
+        0.27 + 0.17 * (_measure_lines(_fl, 11.9 * 0.93 - _fi, 10.0, bold=True) - 1)
+        for _fl, _fi in zip(_funded_lines, _funded_indent)
     ]
     # market-share lines: a board the funded line already prices is dropped
     # from its country's line; a country whose boards are all funded loses it
@@ -12397,12 +12419,12 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             )
             _set_body_font(_btf)
             _line_top_in += 0.27
-        for _fl, _fh in zip(_funded_lines, _funded_h_in):
+        for _fl, _fh, _fi in zip(_funded_lines, _funded_h_in, _funded_indent):
             _fx, _ftf = _add_textbox(
                 slide,
-                Inches(0.55),
+                Inches(0.55 + _fi),
                 Inches(_line_top_in),
-                Inches(12.2),
+                Inches(12.2 - _fi),
                 Inches(_fh),
                 text=_fl,
                 font_size=10,
