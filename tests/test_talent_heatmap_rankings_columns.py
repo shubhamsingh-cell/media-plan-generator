@@ -40,10 +40,7 @@ def test_each_rankings_header_sits_over_its_field(result):
     ws = _sheet(result)
     headers = {ws.cell(row=5, column=c).value: c for c in range(2, 12)}
     assert "Hiring Difficulty" not in headers  # that is the next sheet
-    by_name = {
-        (loc.get("display_name") or loc["location"]): loc
-        for loc in result["comparison"]["locations"]
-    }
+    by_name = {th._rankings_label(loc): loc for loc in result["comparison"]["locations"]}
     seen = 0
     for r in range(6, ws.max_row + 1):
         name = ws.cell(row=r, column=headers["Location"]).value
@@ -60,3 +57,27 @@ def test_each_rankings_header_sits_over_its_field(result):
         comp = ws.cell(row=r, column=headers["Competition"]).value
         assert str(comp).startswith(f"{loc['competition']['score']}/100")
     assert seen == len(LOCS)
+
+
+def test_a_foreign_city_row_is_named_by_city_with_national_figures(result):
+    ws = _sheet(result)
+    names = [ws.cell(row=r, column=2).value for r in range(6, ws.max_row + 1)]
+    uk = [n for n in names if n and "London" in str(n)]
+    assert uk, names
+    assert "national" in uk[0].lower() and "United Kingdom" in uk[0], uk[0]
+    assert "United Kingdom" not in names  # never the bare country as the row label
+
+
+def test_cost_of_living_reads_n_a_outside_the_us_and_the_score_wraps(result):
+    ws = _sheet(result)
+    headers = {ws.cell(row=5, column=c).value: c for c in range(2, 12)}
+    for r in range(6, ws.max_row + 1):
+        name = str(ws.cell(row=r, column=2).value or "")
+        col = ws.cell(row=r, column=headers["Cost of Living"]).value
+        if "London" in name:
+            assert str(col).startswith("n/a"), col
+        elif name.startswith(("Dallas", "Austin")):
+            assert not str(col).startswith("n/a"), col
+        score = ws.cell(row=r, column=headers["Recommendation Score"])
+        if score.value:
+            assert score.alignment.wrap_text, name

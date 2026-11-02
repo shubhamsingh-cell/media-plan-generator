@@ -1483,6 +1483,8 @@ def compare_locations(
                     "factors": c.get("factors") or [],
                 },
                 "cost_of_living": {
+                    # the index is US-relative: only a US location is scored
+                    "scored": col_scored,
                     "index": coli,
                     "rating": l.get("coli_rating", "Unknown"),
                     "vs_national": l.get("relative_to_national", "N/A"),
@@ -1526,6 +1528,23 @@ def _safe_result(future):
 # ═══════════════════════════════════════════════════════════════════════════════
 # 9. EXCEL REPORT GENERATION
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _rankings_label(loc: Dict[str, Any]) -> str:
+    """Row label for Location Rankings: a city abroad whose figures are its
+    country's ("Birmingham, UK" -> "Birmingham (United Kingdom, national
+    figures)") is named by its city, never by the bare country."""
+    shown = str(loc.get("display_name") or loc.get("location") or "")
+    raw = str(loc.get("location") or "")
+    city = re.split(r"[,(]", raw, maxsplit=1)[0].strip()
+    if (
+        city
+        and not _is_us_location(_resolve_location(raw))
+        and shown.lower() != city.lower()
+        and city.lower() not in shown.lower()
+    ):
+        return f"{city} ({shown}, national figures)"
+    return shown
 
 
 def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
@@ -1624,9 +1643,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             ws1.cell(row=row, column=2).fill = hdr_fill
             _divided = True
             row += 1
-        ws1.cell(
-            row=row, column=2, value=loc.get("display_name", loc.get("location") or "")
-        ).font = bold_font
+        ws1.cell(row=row, column=2, value=_rankings_label(loc)).font = bold_font
         td = loc.get("talent_density", {})
         ws1.cell(
             row=row,
@@ -1648,7 +1665,11 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         ws1.cell(
             row=row,
             column=7,
-            value=f"{col.get('index', 100)} ({col.get('rating') or ''})",
+            value=(
+                f"{col.get('index', 100)} ({col.get('rating') or ''})"
+                if col.get("scored", True)
+                else "n/a (US-relative index)"
+            ),
         ).font = data_font
         rec = loc.get("recommendation_score") or 0
         _ns = loc.get("not_scored") or ""
@@ -1658,6 +1679,8 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         cell.font = (
             green_font if rec >= 60 else (orange_font if rec >= 40 else red_font)
         )
+        # a partial score's "(Salary not scored; ...)" stays in its column
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
         ws1.cell(row=row, column=9, value="Best" if loc.get("is_best") else "").font = (
             green_font
         )
