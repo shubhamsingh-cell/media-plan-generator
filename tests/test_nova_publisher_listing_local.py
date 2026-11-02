@@ -79,3 +79,14 @@ def test_formatter_shows_note_and_best_boards_when_none_local() -> None:
     assert "(0 publishers)" not in out
     assert "No Health boards are confirmed" in out
     assert "- Board A" in out and "- Board B" in out
+
+
+def test_client_exclusions_apply_to_the_best_local_boards(nv) -> None:
+    """Review 2026-11-03: the fallback list ignored client exclusions (UAE
+    with Jooble excluded still led with Jooble)."""
+    res = nv._query_publishers(
+        {"country": "United Arab Emirates", "category": "Health", "excluded_publishers": ["Jooble"]}
+    )
+    best = res.get("best_local_boards") or []
+    assert best, res
+    assert not any(publisher_filter.names_match("Jooble", b) for b in best), best

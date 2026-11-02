@@ -2225,7 +2225,11 @@ def _plan_money_formatter(result: Any) -> Any:
     return lambda v: f"{symbol}{v:,.0f}"
 
 def _localize_publisher_names(
-    result: Dict[str, Any], names: List[str], country: str, category: str
+    result: Dict[str, Any],
+    names: List[str],
+    country: str,
+    category: str,
+    pf_data: Any = None,
 ) -> List[str]:
     """``names`` cut to the boards the supply repository confirms as in the
     Joveo network for ``country``, in the media plan's local-relevance order
@@ -2243,7 +2247,7 @@ def _localize_publisher_names(
         == publisher_filter.SUPPLY_IN_NETWORK
     ]
     try:
-        kept = channel_funding.rank_names(kept, country)
+        kept = channel_funding.rank_names(kept, country, pf_data)
     except (AttributeError, KeyError, OSError, TypeError, ValueError):
         logger.error("local-relevance ordering failed", exc_info=True)
     result["country"] = country
@@ -2258,7 +2262,7 @@ def _localize_publisher_names(
         try:
             result["best_local_boards"] = [
                 b["name"]
-                for b in channel_funding.funding_order({}, country)[
+                for b in channel_funding.funding_order(pf_data or {}, country)[
                     : channel_funding.FUNDED_BOARD_COUNT
                 ]
             ]
@@ -9170,7 +9174,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 result["category"] = cat_key
                 if _pf_country:
                     pubs_list = _localize_publisher_names(
-                        result, pubs_list, _pf_country, cat_key
+                        result, pubs_list, _pf_country, cat_key, _pf_data
                     )
                 result["publishers"] = pubs_list
                 result["count"] = len(pubs_list)
@@ -9227,6 +9231,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             [m["name"] for m in _industry_matches],
                             _pf_country,
                             category,
+                            _pf_data,
                         )
                     )
                     _industry_matches = [
@@ -9250,7 +9255,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
                 # the media plan's local-relevance order (channel_funding)
                 try:
-                    pubs = channel_funding.rank_names(pubs, country_resolved)
+                    pubs = channel_funding.rank_names(
+                        pubs, country_resolved, _pf_data
+                    )
                 except (AttributeError, KeyError, OSError, TypeError, ValueError):
                     logger.error("local-relevance ordering failed", exc_info=True)
                 result["country"] = country_resolved
