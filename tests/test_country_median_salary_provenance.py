@@ -313,3 +313,30 @@ def test_a_bare_glyph_currency_on_another_currencys_plan_is_written_with_its_cod
     assert research.median_salary_display("United Kingdom", "GBP").startswith("£40,911")
     assert research.median_salary_display("Australia", "USD").startswith("A$1,741 a week")
     assert research.median_salary_display("Switzerland", "EUR").startswith("CHF 7,024")
+
+
+@pytest.mark.parametrize("key", ["in", "uk"])
+def test_no_hires_methodology_and_note_quote_no_hire_totals(key):
+    """Where hires are not projected, the ROI methodology line keeps the
+    suppressed-CPH opening (tests/test_suppressed_cph_workbook_scan.py) and the
+    cost-per-hire note says hires are not projected -- neither calls hire totals
+    indicative or cites the US-average cap."""
+    wb = _bundle(key)["wb"]
+    texts = [
+        str(c.value)
+        for name in ("ROI Projections", "Confidence Intervals")
+        for row in wb[name].iter_rows()
+        for c in row
+        if isinstance(c.value, str)
+    ]
+    method = [t for t in texts if t.startswith("Methodology:")]
+    assert method == [excel_v2._roi_methodology_note({}, hires_off=True)], method
+    assert method[0].startswith(
+        "Methodology: this market has no verified local cost-per-hire"
+    )
+    notes = [t for t in texts if t.startswith("Cost per hire: —")]
+    assert notes and set(notes) == {excel_v2._SUPPRESSED_CPH_NOTE_NO_HIRES}
+    for t in method + notes:
+        assert "not projected" in t
+        for banned in ("indicative", "capped", "US industry average"):
+            assert banned not in t, (banned, t)

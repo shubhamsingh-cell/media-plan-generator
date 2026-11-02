@@ -3862,10 +3862,10 @@ def _roi_methodology_note(budget_alloc: Any, hires_off: bool = False) -> str:
         # hires are not projected (the Executive Summary's decision): no hire
         # total, no cap and no hires-to-applications rate to explain
         return (
-            "Methodology: hires are not projected for this market (no verified "
-            "local cost-per-hire benchmark); the App→Qualified and "
-            "Qualified→Interview rates above are planning assumptions within "
-            "the stated bands."
+            "Methodology: this market has no verified local cost-per-hire "
+            "benchmark, so hires and cost per hire are not projected; the "
+            "App→Qualified and Qualified→Interview rates above are planning "
+            "assumptions within the stated bands."
         )
     info = _plan_industry_cph(budget_alloc)
     if info.get("claim_suppressed"):
