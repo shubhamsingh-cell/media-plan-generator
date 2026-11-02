@@ -4433,6 +4433,30 @@ def _default_month() -> int:
     return budget_engine.default_campaign_month()
 
 
+def _capture_input_roles(data: dict) -> None:
+    """Record the roles /api/generate received as ``data["input_roles"]``
+    and log them (count + each role, nothing else from the brief).
+
+    bundle_qa's input-role integrity check compares this list with the
+    plan's role set, deck and workbook and fails the bundle loudly when a
+    role went missing between intake and delivery (reviewer case
+    2026-10-16: 4 roles typed, 3 lower-cased roles reached the generator).
+    Always overwritten here, so a client cannot send its own list.
+    """
+    raw = data.get("target_roles") or data.get("roles") or []
+    if isinstance(raw, str):
+        raw = [r.strip() for r in raw.split(",") if r.strip()]
+    titles: list = []
+    for r in raw if isinstance(raw, list) else []:
+        if isinstance(r, dict):
+            r = r.get("title") or r.get("role") or ""
+        t = " ".join(str(r or "").split())
+        if t:
+            titles.append(t)
+    data["input_roles"] = titles
+    logger.info("generate intake roles: %d role(s): %r", len(titles), titles)
+
+
 def _hire_goal_for_budget(data: dict) -> int:
     """The client's stated hiring goal, as budget_engine's ``target_hires``.
 
@@ -11464,7 +11488,17 @@ def _run_bundle_qa_gate(
             gate_err,
             exc_info=True,
         )
-        return pptx_bytes, xlsx_bytes, None
+        # A crash must not read "clean" while an input role is missing.
+        try:
+            _role_findings = bundle_qa.input_role_findings(data)
+        except Exception:  # noqa: BLE001
+            _role_findings = []
+        if not _role_findings:
+            return pptx_bytes, xlsx_bytes, None
+        gate = {
+            "summary": bundle_qa.summarize_findings(_role_findings),
+            "findings": _role_findings,
+        }
     summary = gate.get("summary")
     for _f in gate.get("findings") or []:
         logger.warning(
@@ -19369,6 +19403,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if isinstance(roles_input, str):
                 roles_input = [r.strip() for r in roles_input.split(",") if r.strip()]
             data["target_roles"] = roles_input
+            _capture_input_roles(data)
             # One entry per site, "City, ST" pairs kept whole (Hershey
             # 2026-09-24: sites pasted as one entry were planned as one).
             _normalize_location_field(data)

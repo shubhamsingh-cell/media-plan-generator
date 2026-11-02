@@ -2602,6 +2602,117 @@ def _check_unsourced_competitor_claim(
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Input-role integrity (reviewer case 2026-10-16: a 4-role brief reached the
+# generator with 3 lower-cased roles and the fourth vanished, bundle "clean").
+# ---------------------------------------------------------------------------
+def _role_title(role: Any) -> str:
+    if isinstance(role, dict):
+        role = role.get("title") or role.get("role") or ""
+    return " ".join(str(role or "").split())
+
+
+def _role_key(title: str) -> str:
+    try:
+        from standardizer import normalize_role
+
+        return normalize_role(title) or ""
+    except Exception:  # noqa: BLE001 -- the raw-title match still runs
+        return ""
+
+
+def input_role_findings(
+    data: dict,
+    deck_text: str | None = None,
+    workbook_text: str | None = None,
+) -> list[Finding]:
+    """CRITICAL ``input_role_missing`` for every role in
+    ``data["input_roles"]`` (what /api/generate received, captured at
+    intake) that is absent from the plan's role set, the deck text or the
+    workbook text. ``deck_text`` / ``workbook_text`` of None skip that
+    surface (not generated / not parsed).
+
+    The plan's role set is matched one plan role per input role: first by
+    case-insensitive title, then by the engine's standardized key
+    (``standardizer.normalize_role``), so "RN" is satisfied by "Registered
+    Nurse", but two supervisor titles that standardize to one key cannot
+    both be satisfied by a single surviving title. A surface counts as
+    naming the role when its text contains the typed title, or the plan
+    role it was matched to (case-insensitive). Plans with no intake list
+    (regeneration tools, older callers) are not checked.
+    """
+    inputs = data.get("input_roles") if isinstance(data, dict) else None
+    if not isinstance(inputs, list):
+        return []
+    typed = [t for t in (_role_title(r) for r in inputs) if t]
+    plan_raw = data.get("target_roles") or data.get("roles") or []
+    if isinstance(plan_raw, str):
+        plan_raw = [p for p in plan_raw.split(",")]
+    plan = [t for t in (_role_title(r) for r in plan_raw) if t]
+    free = list(range(len(plan)))
+    matched: dict[int, str] = {}
+    for i, title in enumerate(typed):  # pass 1: same title, any case
+        for j in free:
+            if plan[j].casefold() == title.casefold():
+                matched[i] = plan[j]
+                free.remove(j)
+                break
+    for i, title in enumerate(typed):  # pass 2: same standardized key
+        if i in matched:
+            continue
+        key = _role_key(title)
+        for j in free:
+            if key and _role_key(plan[j]) == key:
+                matched[i] = plan[j]
+                free.remove(j)
+                break
+    out: list[Finding] = []
+    surfaces = (("deck", deck_text), ("workbook", workbook_text))
+    for i, title in enumerate(typed):
+        if i not in matched:
+            out.append(
+                _finding(
+                    "critical",
+                    "input_role_missing",
+                    f"Input role '{title}' was requested but is not in the "
+                    f"plan's role set ({len(plan)} of {len(typed)} roles "
+                    "reached the plan)",
+                    "plan",
+                )
+            )
+        names = [title.casefold()] + (
+            [matched[i].casefold()] if i in matched else []
+        )
+        for where, text in surfaces:
+            if text is None:
+                continue
+            folded = " ".join(text.split()).casefold()
+            if not any(n in folded for n in names):
+                out.append(
+                    _finding(
+                        "critical",
+                        "input_role_missing",
+                        f"Input role '{title}' was requested but the {where} "
+                        "never names it",
+                        where,
+                    )
+                )
+    return out
+
+
+def _check_input_role_integrity(
+    pptx_units: list[_TextUnit],
+    xlsx_units: list[_TextUnit],
+    pptx_bytes: bytes | None,
+    xlsx_bytes: bytes | None,
+    data: dict,
+    findings: list[Finding],
+) -> None:
+    deck_text = "\n".join(u.text for u in pptx_units) if pptx_bytes else None
+    wb_text = "\n".join(u.text for u in xlsx_units) if xlsx_bytes else None
+    findings.extend(input_role_findings(data, deck_text, wb_text))
+
+
 def run_bundle_qa(
     pptx_bytes: bytes | None, xlsx_bytes: bytes | None, data: dict
 ) -> list[Finding]:
@@ -2630,6 +2741,15 @@ def run_bundle_qa(
             )
 
     all_units = pptx_units + xlsx_units
+    try:
+        _check_input_role_integrity(
+            pptx_units, xlsx_units, pptx_bytes, xlsx_bytes, data, findings
+        )
+    except Exception as exc:  # noqa: BLE001
+        findings.append(
+            _finding("critical", "input_role_check_crashed", f"{exc!r}", "")
+        )
+
     _check_deadline()
     try:
         _check_text_patterns(all_units, data, findings)
@@ -3148,6 +3268,7 @@ def gate_bundle(
         )
         out = dict(original)
         out["summary"] = _timeout_summary(elapsed, budget)
+        _merge_role_findings(out["summary"], data)
         out["findings"] = list(out["summary"]["findings"])
         out["error"] = "qa_gate_timeout"
         return out
@@ -3161,8 +3282,36 @@ def gate_bundle(
         )
         out = dict(original)
         out["error"] = f"{type(exc).__name__}: {exc}"[:300]
+        role_findings = _safe_role_findings(data)
+        if role_findings:  # a crash must not read "clean" with a role gone
+            out["summary"] = summarize_findings(role_findings)
+            out["findings"] = role_findings
         return out
     return box.get("result") or original
+
+
+def _safe_role_findings(data: Any) -> list[Finding]:
+    """Plan-role-set check only (no bundle parsing): cheap enough to run on
+    the timeout and crash paths, so neither can hide a missing role."""
+    try:
+        return input_role_findings(data if isinstance(data, dict) else {})
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _merge_role_findings(summary: dict, data: Any) -> None:
+    role_findings = _safe_role_findings(data)
+    if not role_findings:
+        return
+    summary["findings"] = list(summary.get("findings") or []) + role_findings
+    summary["critical_count"] = int(summary.get("critical_count") or 0) + len(
+        role_findings
+    )
+    summary["codes"] = sorted(set(summary.get("codes") or []) | {"input_role_missing"})
+    summary["critical_ids"] = (
+        list(summary.get("critical_ids") or [])
+        + [finding_id(f) for f in role_findings]
+    )[:25]
 
 
 __all__ = [
@@ -3171,6 +3320,7 @@ __all__ = [
     "finding_id",
     "gate_budget_s",
     "gate_bundle",
+    "input_role_findings",
     "repair_bundle",
     "run_bundle_qa",
     "summarize_findings",
