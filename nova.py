@@ -2271,6 +2271,36 @@ _RE_FRESHNESS_ASK = re.compile(
     r"\b(news|headlines?|this week|today|yesterday|latest|breaking|just announced)\b"
 )
 
+def _oecd_newest_first(result: Dict[str, Any]) -> Dict[str, Any]:
+    """OECD rows newest first, led by the latest value per country.
+
+    The API returns observations in no useful order (oldest first for some
+    series) and tool results are cut before the model reads them, so a
+    "current rate" question could be answered from 2003 rows.
+    """
+    rows = result.get("data")
+    if not isinstance(rows, list) or not rows:
+        return result
+    ordered = sorted(
+        (r for r in rows if isinstance(r, dict)),
+        key=lambda r: str(r.get("time_period") or ""),
+        reverse=True,
+    )
+    latest: List[Dict[str, Any]] = []
+    seen: set = set()
+    for r in ordered:
+        c = r.get("country")
+        if c in seen:
+            continue
+        seen.add(c)
+        latest.append(
+            {"country": c, "time_period": r.get("time_period"), "value": r.get("value")}
+        )
+    out: Dict[str, Any] = {"latest": latest}
+    out.update({k: v for k, v in result.items() if k != "latest"})
+    out["data"] = ordered
+    return out
+
 def _currency_symbol(currency_code: Optional[str]) -> str:
     """Return display symbol for a currency code, defaulting to '$'."""
     if not currency_code:
@@ -15922,7 +15952,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if isinstance(cached, dict) and "data" in cached:
                 cached.setdefault("tool", "query_oecd_sdmx")
                 cached["cached"] = True
-                return cached
+                return _oecd_newest_first(cached)
         except Exception as exc:  # noqa: BLE001 -- cache must never crash callers
             logger.warning(f"OECD SDMX cache get failed: {exc}")
 
@@ -15947,7 +15977,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(f"OECD SDMX cache set failed: {exc}")
-            return result
+            return _oecd_newest_first(result)
         except ImportError:
             logger.error("api_enrichment.fetch_oecd_sdmx_data not available")
             return {
