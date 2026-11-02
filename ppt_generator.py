@@ -13550,21 +13550,36 @@ def _week_range_label(first: int, last: int) -> str:
     return f"Week {first}" if first == last else f"Weeks {first}-{last}"
 
 
-# Timeline bullets the fit loop keeps longest: a cost-per-qualified-application
-# bullet carries the plan's quality KPI (reviewer 2026-10-16: volume, not
-# quality), then the bullets naming this plan's client / top channels.
+# Timeline bullets the fit loop keeps longest: the plan-specific ones (this
+# client, this plan's top channels -- design review 2026-11-03), then the
+# cost-per-qualified-application (CPQA) lines (the plan's quality KPI,
+# reviewer 2026-10-16), then generic boilerplate.
 _TIMELINE_KPI_MARKERS = ("cpqa",)
 _TIMELINE_PERSONALIZED_MARKERS = ("campaign setup", "scale top performers")
 
 
 def _timeline_bullet_keep_rank(bullet: str) -> int:
-    """0 = keep longest (CPQA), 1 = plan-specific, 2 = generic boilerplate."""
+    """0 = keep longest (plan-specific), 1 = CPQA, 2 = generic boilerplate."""
     low = bullet.lower()
-    if any(m in low for m in _TIMELINE_KPI_MARKERS):
-        return 0
     if any(m in low for m in _TIMELINE_PERSONALIZED_MARKERS):
+        return 0
+    if any(m in low for m in _TIMELINE_KPI_MARKERS):
         return 1
     return 2
+
+
+def _shorten_personalized_bullet(bullet: str) -> Optional[str]:
+    """A shorter form of a plan-specific bullet, cut at a clause break, or
+    None: "Scale top performers: A and B, steered by CPQA" -> "Scale top
+    performers: A, steered by CPQA"; "Campaign setup & publisher activation
+    for C" -> "Campaign setup for C"."""
+    m = re.match(r"(Scale top performers: )(.+?) and [^,]+(, steered by CPQA)?$", bullet)
+    if m:
+        return m.group(1) + m.group(2) + (m.group(3) or "")
+    m = re.match(r"Campaign setup & publisher activation (for .+)$", bullet)
+    if m:
+        return f"Campaign setup {m.group(1)}"
+    return None
 
 
 def _fit_timeline_bullets(
@@ -13575,44 +13590,50 @@ def _fit_timeline_bullets(
     font_pt: float,
 ) -> List[str]:
     """Degrade a phase card's bullets until ``height_in(bullets)`` fits
-    ``box_h_in``: trim the longest non-personalised bullet at a clause
-    boundary, and only drop a bullet once trimming cannot help -- generic
-    boilerplate first, then the plan-specific bullets, the CPQA bullet last
-    (it used to be dropped first, so Phase 2's "steered by CPQA" never
-    rendered). Never truncates mid-word, never overprints.
+    ``box_h_in``. Shorten first, drop last: plan-specific bullets are cut at
+    a clause break, long generic ones trimmed at a clause boundary, and only
+    then is a bullet dropped -- generic boilerplate first, then the CPQA
+    lines, the plan-specific bullets last. Never truncates mid-word, never
+    overprints.
 
     visual: render-verified against a real Keynote export -- an extremely
     long client name, or a comparison panel with a realistic row count, can
     leave the card less height than its bullets need, and PowerPoint does not
     clip a textbox's own overflow."""
     bullets = list(bullets)
-    for _ in range(10):  # bounded -- at most 3 bullets, converges fast
-        if not bullets or height_in(bullets) <= box_h_in + 0.01:
+
+    def _fits() -> bool:
+        return not bullets or height_in(bullets) <= box_h_in + 0.01
+
+    for _ in range(12):  # bounded -- at most 3 bullets, converges fast
+        if _fits():
             break
+        shortened = False
+        for k, b in enumerate(bullets):
+            short = _shorten_personalized_bullet(b)
+            if short and short != b:
+                bullets[k] = short
+                shortened = True
+                break
+        if shortened:
+            continue
         longest_i = max(
             range(len(bullets)),
             key=lambda i: _estimate_lines(f"\u2713  {bullets[i]}", width_in, font_pt),
         )
         if len(bullets[longest_i]) > 40 and _timeline_bullet_keep_rank(
             bullets[longest_i]
-        ) != 1:
-            bullets[longest_i] = _trunc_clause(
-                bullets[longest_i], len(bullets[longest_i]) - 12
-            )
-            continue
+        ) != 0:
+            trimmed = _trunc_clause(bullets[longest_i], len(bullets[longest_i]) - 12)
+            if trimmed != bullets[longest_i]:
+                bullets[longest_i] = trimmed
+                continue
         if len(bullets) <= 1:
             break
         drop_i = max(
             range(len(bullets)),
             key=lambda i: (_timeline_bullet_keep_rank(bullets[i]), i),
         )
-        if _timeline_bullet_keep_rank(bullets[drop_i]) == 0 and len(
-            bullets[longest_i]
-        ) > 40:
-            bullets[longest_i] = _trunc_clause(
-                bullets[longest_i], len(bullets[longest_i]) - 12
-            )
-            continue
         bullets.pop(drop_i)
     return bullets
 
@@ -13714,8 +13735,16 @@ def _interpolate_timeline_bullets(
             if "campaign setup" in low and "publisher activation" in low and client:
                 text = f"Campaign setup & publisher activation for {client}"
             elif low.strip() == "scale top performers" and top_channels_phrase:
-                text = f"Scale top performers: {top_channels_phrase}"
+                # carries the CPQA steering itself, so a one-bullet card
+                # keeps both the plan's channels and the quality KPI
+                text = f"Scale top performers: {top_channels_phrase}, steered by CPQA"
             new_bullets.append(text)
+        # the scale bullet now carries the CPQA steering: the generic bid
+        # bullet would only repeat it
+        if any(b.endswith(", steered by CPQA") for b in new_bullets):
+            new_bullets = [
+                b for b in new_bullets if not b.startswith("Bid optimization steered by CPQA")
+            ]
         ph["bullets"] = new_bullets
 
 

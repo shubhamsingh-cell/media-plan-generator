@@ -5,7 +5,9 @@ loop dropped generic bullets first, and the CPQA bullets (the plan's quality
 KPI, reviewer defect 4) counted as generic, so on a plan whose comparison
 panel leaves the phase cards one bullet of room Phase 2 showed only "Scale
 top performers" and the CPQA steering never rendered (seen on a local UK
-plan 2026-11-03).
+plan 2026-11-03). Revised after design review the same day: plan-specific
+bullets are kept first and Phase 2's "Scale top performers" bullet carries
+"steered by CPQA" itself, so a one-bullet card shows both.
 """
 
 from __future__ import annotations
@@ -45,7 +47,9 @@ def test_a_one_bullet_phase_2_card_keeps_the_cpqa_bullet(monkeypatch):
     assert len(cards) == 3
     assert all("\n" not in c for c in cards), cards  # one bullet per card
     assert "steered by CPQA" in cards[1], cards
-    assert "qualified" in cards[0] and "CPQA" in cards[2], cards
+    # plan-specific bullets outrank the CPQA lines (design review 2026-11-03):
+    # Phase 1 keeps the client, Phase 2's scale bullet carries the CPQA steering
+    assert "Manpower - Amerigas" in cards[0] and "CPQA" in cards[2], cards
 
 
 def test_with_room_the_plan_specific_bullets_still_render():
