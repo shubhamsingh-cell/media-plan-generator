@@ -763,7 +763,7 @@ ROLE_CATEGORIES: dict[str, dict[str, Any]] = {
 
 # The wizard's Campaign Goals checkboxes, in order (body_content.html lists
 # exactly these). "App Install" is the conversion an app-first gig employer
-# buys; the projection still counts applications (no install model yet).
+# buys; the projection still counts applications (APP_INSTALL_NOTE says so).
 CAMPAIGN_GOALS: tuple[str, ...] = (
     "Brand Awareness",
     "Lead Generation",
@@ -773,6 +773,17 @@ CAMPAIGN_GOALS: tuple[str, ...] = (
     "Diversity Hiring",
     "App Install",
 )
+
+
+# Printed beside an App Install goal on the deck and the workbook: the
+# projection has no install-to-application model, so its figures are
+# applications (the selectable goal metric is a separate backlog item).
+APP_INSTALL_NOTE = "App installs are not modelled; figures are applications."
+
+
+def goal_basis_note(goals: Any) -> str:
+    """:data:`APP_INSTALL_NOTE` when the goals include App Install, else ""."""
+    return APP_INSTALL_NOTE if "App Install" in normalize_campaign_goals(goals) else ""
 
 
 def _goal_key(goal: str) -> str:

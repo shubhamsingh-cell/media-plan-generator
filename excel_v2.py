@@ -16532,6 +16532,13 @@ def _apply_integrity_notes(wb, data: dict) -> None:
     Never blocks the save."""
     stamp, gap_note = _plan_integrity_notes(data)
     try:
+        # an App Install goal: the projection counts applications, say so
+        import wizard_inputs as _wi
+
+        goal_note = _wi.goal_basis_note(data.get("campaign_goals"))
+        if goal_note and "Executive Summary" in wb.sheetnames:
+            ws = wb["Executive Summary"]
+            _write_footnote(ws, ws.max_row + 1, goal_note)
         if stamp:
             for title in ("Executive Summary", "Sources & Confidence"):
                 if title in wb.sheetnames and wb[title].cell(row=1, column=COL_START).value is None:

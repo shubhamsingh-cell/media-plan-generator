@@ -5744,6 +5744,14 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         rt = p.add_run()
         rt.text = " \u00b7 ".join(str(g) for g in goals)
         _set_font(rt, size=8, color=DARK_TEXT)
+        # an App Install goal: the projection counts applications, say so
+        import wizard_inputs as _wi
+
+        _goal_note = _wi.goal_basis_note(goals)
+        if _goal_note:
+            rn = p.add_run()
+            rn.text = f". {_goal_note}"
+            _set_font(rn, size=8, color=DARK_TEXT)
 
     # Honest goal-gap one-liner (display_format.parse_hire_goal / goal_gap):
     # only renders when the client stated a hiring GOAL and this plan's
