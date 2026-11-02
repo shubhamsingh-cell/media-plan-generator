@@ -351,7 +351,7 @@ def test_hub_template_carries_tokens_not_numbers() -> None:
     assert "{{claim_supply_partners}}" in src
     assert "{{claim_supply_partners:raw}}" in src
     assert "{{claim_soc2}}" in src
-    for stale in _stale():
+    for stale in STALE_RAW:  # template source: a literal figure is never allowed
         assert stale not in src, f"stale figure {stale!r} still in hub.html"
 
 
