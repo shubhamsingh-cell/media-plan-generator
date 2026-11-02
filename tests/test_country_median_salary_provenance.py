@@ -171,7 +171,7 @@ def _table_column(ws, header: str, column_label: str) -> Dict[str, str]:
     """{Location: cell} for the table whose header row holds ``header``."""
     for row in ws.iter_rows():
         vals = [c.value for c in row]
-        if header in vals:
+        if "Location" in vals and any(isinstance(v, str) and header in v for v in vals):
             loc_col = vals.index("Location") + 1
             col = next(
                 i + 1 for i, v in enumerate(vals) if isinstance(v, str) and column_label in v
@@ -203,9 +203,9 @@ def test_location_median_and_salary_footnote_agree(key, country, sourced):
     label = research.median_salary_display(country)
     economic = _table_column(mi, "Median Salary", "Median Salary")
     assert economic and set(economic.values()) == {label}, economic
-    income = _table_column(mi, "Population", "Median Income")
-    if income:
-        assert set(income.values()) <= {label, "", "—"}, income
+    income = _table_column(mi, "Median Income", "Median Income")
+    assert income, "Location Intelligence table or its Median Income column not found"
+    assert set(income.values()) == {label}, income
     footnote = _sheet_text(wb["Quality Intelligence"])
     denial = re.search(r"Market-level salary estimates are not available for ([^;]+)", footnote)
     if sourced:

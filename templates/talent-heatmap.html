@@ -1412,17 +1412,23 @@
             return;
           }
 
-          var maxSalary = Math.max.apply(
-            null,
-            salaryData.map(function (s) {
-              return s.estimated_salary || 1;
-            }),
-          );
+          // Bars are scaled within ONE currency: a pound or franc figure is
+          // never measured against a dollar one (talent_heatmap.SALARY_CURRENCY_NOTE).
+          var maxByCurrency = {};
+          salaryData.forEach(function (s) {
+            var cur = s.currency || "USD";
+            if (s.salary_numeric !== false && s.estimated_salary > 0) {
+              maxByCurrency[cur] = Math.max(maxByCurrency[cur] || 0, s.estimated_salary);
+            }
+          });
           var html = "";
           salaryData.forEach(function (s) {
             var est = s.estimated_salary || 0;
-            var adj = s.adjusted_salary || 0;
-            var pctW = Math.max(3, (est / maxSalary) * 100);
+            var cur = s.currency || "USD";
+            var maxSalary = maxByCurrency[cur] || 0;
+            var pctW = maxSalary ? Math.max(3, (est / maxSalary) * 100) : 0;
+            var estText = s.estimated_display || ("$" + numberWithCommas(est));
+            var adjText = s.adjusted_display || ("$" + numberWithCommas(s.adjusted_salary || 0));
             var name = s.display_name || s.location || "";
             if (name.length > 28) name = name.substring(0, 25) + "...";
 
@@ -1435,14 +1441,16 @@
               "</span>" +
               '<div class="salary-bar-track"><div class="salary-bar-fill" style="width:' +
               pctW +
-              '%;"><span class="salary-bar-value">$' +
-              numberWithCommas(est) +
+              '%;"><span class="salary-bar-value">' +
+              escapeHtml(estText) +
               "</span></div></div>" +
-              '<span class="salary-bar-adjusted" title="CoL-adjusted salary">adj: $' +
-              numberWithCommas(adj) +
+              '<span class="salary-bar-adjusted" title="CoL-adjusted salary">adj: ' +
+              escapeHtml(adjText) +
               "</span>" +
               "</div>";
           });
+          html +=
+            '<p style="color:var(--text-muted);font-size:0.75rem;">Salaries are shown in each market\'s own currency and compared only within one currency.</p>';
           container.innerHTML = html;
         }
 
@@ -1500,16 +1508,17 @@
               '<div class="metric-row"><span class="metric-label">Competition</span><span class="metric-value">' +
               (comp.score || 0) +
               "/100</span></div>" +
-              '<div class="metric-row"><span class="metric-label">Est. Salary</span><span class="metric-value">$' +
-              numberWithCommas(sal.estimated || 0) +
+              '<div class="metric-row"><span class="metric-label">Est. Salary</span><span class="metric-value">' +
+              escapeHtml(sal.estimated_display || ("$" + numberWithCommas(sal.estimated || 0))) +
               "</span></div>" +
-              '<div class="metric-row"><span class="metric-label">Salary Range</span><span class="metric-value">$' +
-              numberWithCommas(sal.range_low || 0) +
-              " - $" +
-              numberWithCommas(sal.range_high || 0) +
+              '<div class="metric-row"><span class="metric-label">Salary Range</span><span class="metric-value">' +
+              escapeHtml(
+                sal.range_display ||
+                  ("$" + numberWithCommas(sal.range_low || 0) + " - $" + numberWithCommas(sal.range_high || 0)),
+              ) +
               "</span></div>" +
-              '<div class="metric-row"><span class="metric-label">CoL-Adjusted</span><span class="metric-value">$' +
-              numberWithCommas(sal.adjusted || 0) +
+              '<div class="metric-row"><span class="metric-label">CoL-Adjusted</span><span class="metric-value">' +
+              escapeHtml(sal.adjusted_display || ("$" + numberWithCommas(sal.adjusted || 0))) +
               "</span></div>" +
               '<div class="metric-row"><span class="metric-label">Cost of Living</span><span class="metric-value">' +
               (col.index || 100) +

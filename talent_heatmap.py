@@ -31,7 +31,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -682,6 +682,100 @@ def _density_rating(score: float) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+NO_LOCAL_SALARY = "No local benchmark"
+
+#: Shown with every salary table / chart: figures in different currencies are
+#: never ranked against each other.
+SALARY_CURRENCY_NOTE = (
+    "Salaries are shown in each market's own currency and compared only within "
+    "one currency: rows are grouped by currency, never ranked across "
+    "currencies. A market without a sourced annual median shows its published "
+    "statistic (with its period) or 'No local benchmark', not an estimate."
+)
+
+
+def _money(value: Any, currency: Any = "USD") -> str:
+    """``value`` with its own currency's symbol ("$52,000", "£40,911",
+    "C$70,200", "CHF 84,288"); never a "$" on a non-US$ figure."""
+    code = str(currency or "USD").upper()
+    try:
+        amount = float(value)
+    except (TypeError, ValueError):
+        return "\u2014"
+    if code == "USD":
+        return f"${amount:,.0f}"
+    try:
+        import plan_currency
+
+        symbol = plan_currency.symbol_for_code(code)
+    except Exception:  # noqa: BLE001
+        symbol = f"{code} "
+    return f"{symbol}{amount:,.0f}"
+
+
+def _salary_basis(resolved: Dict[str, Any]) -> Dict[str, Any]:
+    """How a location's median salary may be used.
+
+    ``numeric`` True: ``median`` is an ANNUAL MEDIAN in ``currency`` (a US metro
+    / state / the US, or a country whose national statistics office publishes
+    an annual median). ``numeric`` False: the row has no such figure (an
+    unsourced US$ estimate, or a sourced monthly / weekly figure or a mean):
+    ``display`` is research.median_salary_display (the published statistic with
+    its period) or "No local benchmark", and no annual number is derived."""
+    data = resolved.get("data") or {}
+    if resolved.get("type") != "country" or resolved.get("key") == "United States":
+        return {
+            "numeric": True,
+            "currency": "USD",
+            "median": data.get("median_salary", 50000),
+            "display": None,
+        }
+    res = _lazy_research()
+    key = resolved.get("key")
+    entry = None
+    display = NO_LOCAL_SALARY
+    if res is not None and hasattr(res, "median_salary_entry"):
+        entry = res.median_salary_entry(key)
+        display = res.median_salary_display(key)
+    if entry and entry.get("unit") == "year" and entry.get("statistic") == "median":
+        return {
+            "numeric": True,
+            "currency": entry["currency"],
+            "median": entry["value"],
+            "display": display,
+        }
+    return {
+        "numeric": False,
+        # the currency of the published statistic shown; None for "No local
+        # benchmark" (an unsourced US$ estimate is not shown at all)
+        "currency": entry["currency"] if entry else None,
+        "median": None,
+        "display": display,
+    }
+
+
+def _salary_sort_key(item: Dict[str, Any]) -> Tuple[int, str, float]:
+    """US$ rows first, then each other currency as its own group, then rows
+    with no comparable figure; ranked by salary WITHIN a currency only."""
+    if not item.get("salary_numeric"):
+        return (2, "", 0.0)
+    code = str(item.get("currency") or "USD")
+    return (0 if code == "USD" else 1, code, -float(item.get("estimated_salary") or 0))
+
+
+def _salary_text(item: Dict[str, Any], value_key: str, display_key: str) -> str:
+    """A salary cell: the precomputed display, else the value in the item's own
+    currency (an analysis posted back by an older page), else "No local
+    benchmark"."""
+    shown = item.get(display_key)
+    if shown:
+        return str(shown)
+    value = item.get(value_key)
+    if value in (None, ""):
+        return NO_LOCAL_SALARY
+    return _money(value, item.get("currency") or "USD")
+
+
 def get_salary_map(
     role: str, locations: List[str], industry: str = "general_entry_level"
 ) -> List[Dict[str, Any]]:
@@ -713,21 +807,51 @@ def get_salary_map(
                 {
                     "location": loc,
                     "display_name": loc,
-                    "estimated_salary": 0,
-                    "median_salary": 0,
+                    "estimated_salary": None,
+                    "median_salary": None,
                     "coli": 100,
-                    "adjusted_salary": 0,
-                    "salary_range_low": 0,
-                    "salary_range_high": 0,
-                    "currency": "USD",
+                    "adjusted_salary": None,
+                    "salary_range_low": None,
+                    "salary_range_high": None,
+                    "currency": None,
+                    "salary_numeric": False,
+                    "median_display": NO_LOCAL_SALARY,
+                    "estimated_display": NO_LOCAL_SALARY,
+                    "adjusted_display": "\u2014",
+                    "range_display": "\u2014",
                 }
             )
             continue
 
-        median = data.get("median_salary", 50000)
         coli = data.get("coli", 100)
+        basis = _salary_basis(resolved)
+        currency = basis["currency"]
+        if not basis["numeric"]:
+            # no annual median to multiply: the published statistic (or "No
+            # local benchmark") is shown as it is, never an estimated salary
+            results.append(
+                {
+                    "location": loc,
+                    "display_name": loc_name,
+                    "estimated_salary": None,
+                    "median_salary": None,
+                    "coli": coli,
+                    "adjusted_salary": None,
+                    "salary_range_low": None,
+                    "salary_range_high": None,
+                    "currency": currency,
+                    "salary_numeric": False,
+                    "median_display": basis["display"],
+                    "estimated_display": basis["display"],
+                    "adjusted_display": "\u2014",
+                    "range_display": "\u2014",
+                }
+            )
+            continue
 
-        # Estimated salary for this role
+        median = basis["median"]
+
+        # Estimated salary for this role (in the median's own currency)
         estimated = round(median * role_mult)
 
         # CoL-adjusted effective salary (what the salary buys)
@@ -736,13 +860,6 @@ def get_salary_map(
         # Salary range (roughly +/- 20%)
         range_low = round(estimated * 0.80)
         range_high = round(estimated * 1.25)
-
-        # Determine currency
-        currency = "USD"
-        if resolved["type"] == "country":
-            # the row's median states its own currency (research.COUNTRY_DATA
-            # median_salary_currency): an unsourced row is a US$ estimate
-            currency = data.get("median_salary_currency") or data.get("currency", "USD")
 
         results.append(
             {
@@ -755,10 +872,16 @@ def get_salary_map(
                 "salary_range_low": range_low,
                 "salary_range_high": range_high,
                 "currency": currency,
+                "salary_numeric": True,
+                "median_display": basis["display"] or _money(median, currency),
+                "estimated_display": _money(estimated, currency),
+                "adjusted_display": _money(adjusted, currency),
+                "range_display": f"{_money(range_low, currency)} - {_money(range_high, currency)}",
             }
         )
 
-    return sorted(results, key=lambda x: x["estimated_salary"], reverse=True)
+    # never ranked across currencies (SALARY_CURRENCY_NOTE)
+    return sorted(results, key=_salary_sort_key)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -897,11 +1020,20 @@ def get_cost_of_living_factor(locations: List[str]) -> List[Dict[str, Any]]:
         loc_name = resolved["name"]
 
         coli = data.get("coli", 100) if data else 100
-        median = (
-            data.get("median_salary", data.get("median_household_income", 50000))
-            if data
-            else 50000
-        )
+        # the median with its own currency; None where there is no annual
+        # median (see _salary_basis) -- never an annualised or relabelled figure
+        if data:
+            basis = _salary_basis(resolved)
+            if resolved.get("type") == "country" or not basis["numeric"]:
+                median = basis["median"]
+            else:
+                median = data.get("median_salary", data.get("median_household_income", 50000))
+            median_currency = basis["currency"]
+            median_display = basis["display"] or (
+                _money(median, median_currency) if median is not None else NO_LOCAL_SALARY
+            )
+        else:
+            median, median_currency, median_display = None, "USD", NO_LOCAL_SALARY
 
         if coli >= 150:
             rating = "Very High"
@@ -926,6 +1058,8 @@ def get_cost_of_living_factor(locations: List[str]) -> List[Dict[str, Any]]:
                 "coli": coli,
                 "coli_rating": rating,
                 "median_salary": median,
+                "median_salary_currency": median_currency,
+                "median_salary_display": median_display,
                 "housing_note": note,
                 "relative_to_national": (
                     f"{coli - 100:+d}%" if coli != 100 else "National average"
@@ -1225,15 +1359,21 @@ def compare_locations(
         # Calculate overall recommendation score
         density_score = d.get("talent_density_score", 50)
         comp_score = c.get("competition_score", 50)
-        salary = s.get("estimated_salary", 50000)
         coli = l.get("coli", 100)
+        # The salary term is a US$ scale: only a US$ annual figure enters it.
+        # Any other currency (or no figure) scores neutral, so the score never
+        # compares a pound or franc figure with a dollar one.
+        if s.get("salary_numeric", True) and str(s.get("currency") or "USD") == "USD":
+            salary_term = max(0, 100 - (s.get("estimated_salary") or 50000) / 1500)
+        else:
+            salary_term = 50.0
 
         # Higher density + lower competition + lower cost = better
         rec_score = (
             density_score * 0.4
             + (100 - comp_score) * 0.3
             + (200 - coli) * 0.15
-            + max(0, 100 - salary / 1500) * 0.15
+            + salary_term * 0.15
         )
         rec_score = round(min(100, max(0, rec_score)), 1)
 
@@ -1248,11 +1388,17 @@ def compare_locations(
                     "rating": d.get("rating", "Unknown"),
                 },
                 "salary": {
-                    "estimated": s.get("estimated_salary") or 0,
-                    "median": s.get("median_salary") or 0,
-                    "range_low": s.get("salary_range_low") or 0,
-                    "range_high": s.get("salary_range_high") or 0,
-                    "adjusted": s.get("adjusted_salary") or 0,
+                    "estimated": s.get("estimated_salary"),
+                    "median": s.get("median_salary"),
+                    "range_low": s.get("salary_range_low"),
+                    "range_high": s.get("salary_range_high"),
+                    "adjusted": s.get("adjusted_salary"),
+                    "currency": s.get("currency") or "USD",
+                    "numeric": bool(s.get("salary_numeric", False)),
+                    "estimated_display": s.get("estimated_display") or NO_LOCAL_SALARY,
+                    "median_display": s.get("median_display") or NO_LOCAL_SALARY,
+                    "range_display": s.get("range_display") or "\u2014",
+                    "adjusted_display": s.get("adjusted_display") or "\u2014",
                 },
                 "competition": {
                     "score": comp_score,
@@ -1404,9 +1550,9 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             value=f"{comp.get('score') or 0}/100 ({comp.get('rating') or ''})",
         ).font = data_font
         sal = loc.get("salary", {})
-        ws1.cell(row=row, column=6, value=f"${sal.get('estimated') or 0:,}").font = (
-            data_font
-        )
+        ws1.cell(
+            row=row, column=6, value=_salary_text(sal, "estimated", "estimated_display")
+        ).font = data_font
         col = loc.get("cost_of_living", {})
         ws1.cell(
             row=row,
@@ -1445,6 +1591,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         "CoL Index",
         "CoL-Adjusted Salary",
         "Salary Range",
+        "Currency",
     ]
     row = 4
     for i, h in enumerate(headers2):
@@ -1460,27 +1607,43 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             row=row, column=2, value=s.get("display_name", s.get("location") or "")
         ).font = bold_font
         ws2.cell(
-            row=row, column=3, value=f"${s.get('estimated_salary') or 0:,}"
+            row=row,
+            column=3,
+            value=_salary_text(s, "estimated_salary", "estimated_display"),
         ).font = data_font
-        ws2.cell(row=row, column=4, value=f"${s.get('median_salary') or 0:,}").font = (
-            data_font
-        )
+        ws2.cell(
+            row=row, column=4, value=_salary_text(s, "median_salary", "median_display")
+        ).font = data_font
         ws2.cell(row=row, column=5, value=s.get("coli", 100)).font = data_font
         ws2.cell(
-            row=row, column=6, value=f"${s.get('adjusted_salary') or 0:,}"
+            row=row,
+            column=6,
+            value=_salary_text(s, "adjusted_salary", "adjusted_display"),
         ).font = data_font
+        _range = s.get("range_display")
+        if not _range:
+            lo, hi = s.get("salary_range_low"), s.get("salary_range_high")
+            _range = (
+                f"{_money(lo, s.get('currency'))} - {_money(hi, s.get('currency'))}"
+                if lo not in (None, "") and hi not in (None, "")
+                else "\u2014"
+            )
+        ws2.cell(row=row, column=7, value=_range).font = data_font
         ws2.cell(
             row=row,
-            column=7,
-            value=f"${s.get('salary_range_low') or 0:,} - ${s.get('salary_range_high') or 0:,}",
+            column=8,
+            value=str(s.get("currency") or "\u2014")
+            if s.get("salary_numeric", True) or s.get("currency")
+            else "\u2014",
         ).font = data_font
-        for c in range(2, 8):
+        for c in range(2, 9):
             ws2.cell(row=row, column=c).border = thin_border
         row += 1
+    ws2.cell(row=row + 1, column=2, value=SALARY_CURRENCY_NOTE).font = data_font
 
     ws2.column_dimensions["A"].width = 3
     ws2.column_dimensions["B"].width = 32
-    for c in "CDEFG":
+    for c in "CDEFGH":
         ws2.column_dimensions[c].width = 22
 
     # ── Sheet 3: Hiring Difficulty ──
@@ -1587,7 +1750,8 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             row=row, column=7, value=f"{loc.get('budget_fit_score') or 0}/100"
         ).font = data_font
         ws4.cell(
-            row=row, column=8, value=f"${loc.get('estimated_salary') or 0:,}"
+            # optimal locations are US metros only (METRO_DATA): US$
+            row=row, column=8, value=_money(loc.get("estimated_salary") or 0, "USD")
         ).font = data_font
         ws4.cell(row=row, column=9, value=loc.get("reasoning") or "").font = data_font
         ws4.cell(row=row, column=9).alignment = wrap_align
@@ -1636,22 +1800,37 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     budget = analysis.get("budget") or 0
     for loc in locations:
         sal = loc.get("salary", {})
-        estimated = sal.get("estimated", 50000)
-        # Recruiting cost ~15-25% of salary
-        recruiting_cost = round(estimated * 0.20)
-        total_per_hire = estimated + recruiting_cost
-        total_all = total_per_hire * num_hires
-
+        estimated = sal.get("estimated")
+        cur = str(sal.get("currency") or "USD")
         ws5.cell(row=row, column=2, value=loc.get("display_name") or "").font = (
             bold_font
         )
-        ws5.cell(row=row, column=3, value=f"${estimated:,}").font = data_font
-        ws5.cell(row=row, column=4, value=f"${recruiting_cost:,}").font = data_font
-        ws5.cell(row=row, column=5, value=f"${total_per_hire:,}").font = data_font
-        ws5.cell(row=row, column=6, value=f"${total_all:,}").font = bold_font
-        fit = "Within Budget" if total_all <= budget else "Over Budget"
-        cell = ws5.cell(row=row, column=7, value=fit)
-        cell.font = green_font if fit == "Within Budget" else red_font
+        if estimated in (None, "") or not sal.get("numeric", True):
+            # no annual salary for this market: no cost is derived from one
+            ws5.cell(
+                row=row, column=3, value=_salary_text(sal, "estimated", "estimated_display")
+            ).font = data_font
+            for c in (4, 5, 6):
+                ws5.cell(row=row, column=c, value="\u2014").font = data_font
+            cell = ws5.cell(row=row, column=7, value="Not estimated")
+            cell.font = data_font
+        else:
+            # Recruiting cost ~15-25% of salary
+            recruiting_cost = round(estimated * 0.20)
+            total_per_hire = estimated + recruiting_cost
+            total_all = total_per_hire * num_hires
+            ws5.cell(row=row, column=3, value=_money(estimated, cur)).font = data_font
+            ws5.cell(row=row, column=4, value=_money(recruiting_cost, cur)).font = data_font
+            ws5.cell(row=row, column=5, value=_money(total_per_hire, cur)).font = data_font
+            ws5.cell(row=row, column=6, value=_money(total_all, cur)).font = bold_font
+            if cur != "USD":
+                # the budget is US$: a local-currency total is not compared with it
+                cell = ws5.cell(row=row, column=7, value=f"Not compared ({cur})")
+                cell.font = data_font
+            else:
+                fit = "Within Budget" if total_all <= budget else "Over Budget"
+                cell = ws5.cell(row=row, column=7, value=fit)
+                cell.font = green_font if fit == "Within Budget" else red_font
         for c in range(2, 8):
             ws5.cell(row=row, column=c).border = thin_border
         row += 1
@@ -1867,7 +2046,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             y + 0.1,
             2,
             0.4,
-            f"Salary: ${sal.get('estimated') or 0:,}",
+            f"Salary: {_salary_text(sal, 'estimated', 'estimated_display')}",
             font_size=10,
             color=WHITE,
         )
@@ -1901,29 +2080,43 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         color=WHITE,
     )
 
-    salary_data = analysis.get("salary_map") or []
-    max_salary = max((s.get("estimated_salary", 1) for s in salary_data), default=1)
+    salary_data = sorted(analysis.get("salary_map") or [], key=_salary_sort_key)
+    # bars are scaled within ONE currency: a pound bar is never measured
+    # against a dollar bar (SALARY_CURRENCY_NOTE)
+    max_by_currency: Dict[str, float] = {}
+    for s in salary_data:
+        est = s.get("estimated_salary")
+        if s.get("salary_numeric", True) and isinstance(est, (int, float)) and est > 0:
+            cur = str(s.get("currency") or "USD")
+            max_by_currency[cur] = max(max_by_currency.get(cur, 0.0), float(est))
 
     y = 1.3
     for s in salary_data[:10]:
         name = s.get("display_name", s.get("location") or "")
-        est = s.get("estimated_salary") or 0
-        bar_w = max(0.3, (est / max_salary) * 8)
-
+        est = s.get("estimated_salary")
+        cur = str(s.get("currency") or "USD")
+        label = _salary_text(s, "estimated_salary", "estimated_display")
         _add_text_box(slide3, 0.8, y, 3, 0.35, name, font_size=10, color=WHITE)
-        _add_shape(slide3, 4.0, y + 0.05, bar_w, 0.25, BLUE_VIOLET)
+        if isinstance(est, (int, float)) and max_by_currency.get(cur):
+            bar_w = max(0.3, (est / max_by_currency[cur]) * 8)
+            _add_shape(slide3, 4.0, y + 0.05, bar_w, 0.25, BLUE_VIOLET)
+        else:
+            bar_w = 0.0
         _add_text_box(
             slide3,
             4.0 + bar_w + 0.2,
             y,
-            2,
+            4,
             0.35,
-            f"${est:,}",
+            label,
             font_size=10,
             bold=True,
             color=DOWNY_TEAL,
         )
         y += 0.48
+    _add_text_box(
+        slide3, 0.8, 6.6, 11.5, 0.6, SALARY_CURRENCY_NOTE, font_size=9, color=WHITE
+    )
 
     # ── Slide 4: Optimal Locations ──
     slide4 = prs.slides.add_slide(prs.slide_layouts[6])
@@ -1980,7 +2173,8 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             y + 0.55,
             5,
             0.3,
-            f"Score: {loc.get('composite_score') or 0} | Salary: ${loc.get('estimated_salary') or 0:,} | CoL: {loc.get('coli', 100)}",
+            # optimal locations are US metros only (METRO_DATA): US$
+            f"Score: {loc.get('composite_score') or 0} | Salary: {_money(loc.get('estimated_salary') or 0, 'USD')} | CoL: {loc.get('coli', 100)}",
             font_size=9,
             color=MUTED_TEXT,
         )

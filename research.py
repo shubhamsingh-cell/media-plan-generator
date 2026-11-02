@@ -5469,6 +5469,10 @@ def get_supply_demand_ratio(
             "recommendation": recommendation,
             "unemployment": unemployment_str,
             "median_salary": loc_info.get("median_salary") or 0,
+            # a non-US figure is in its own currency (or an unsourced US$
+            # estimate); the label is the one every surface prints
+            "median_salary_currency": loc_info.get("median_salary_currency") or "USD",
+            "median_salary_display": loc_info.get("median_salary_display") or "",
             "coli": coli,
             "population": loc_info.get("population") or "",
             "major_employers": loc_info.get("major_employers") or "",
