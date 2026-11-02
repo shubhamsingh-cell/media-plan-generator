@@ -91,6 +91,14 @@
       ],
       "note": "The Federal Employment Agency's job board is arbeitsagentur.de; the repository row \"Arbeitsagentur Germany\" is the board the benchmark dataset names \"Bundesagentur fuer Arbeit (Jobboerse)\".",
       "source": "https://www.arbeitsagentur.de/"
+    },
+    {
+      "names": [
+        "OLX.pl",
+        "OLX Praca"
+      ],
+      "note": "OLX Praca is the jobs section of olx.pl; the repository row \"OLX.pl\" is the board the benchmark dataset names \"OLX Praca\" (Poland).",
+      "source": "https://www.olx.pl/praca"
     }
   ],
   "market_scope": [
