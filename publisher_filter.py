@@ -379,6 +379,25 @@ def _load_availability() -> Dict[str, Any]:
                     ),
                 }
             )
+        owned: List[Dict[str, Any]] = []
+        for own in data.get("ownership") or []:
+            if not isinstance(own, dict) or not own.get("name") or not own.get("owner"):
+                continue
+            names = [own["name"]] + [
+                a for a in (own.get("aliases") or []) if isinstance(a, str)
+            ]
+            owned.append(
+                {
+                    **own,
+                    "_keys": frozenset(
+                        group_of.get(normalize(n), normalize(n)) for n in names
+                    )
+                    - {""},
+                    "_owner_key": group_of.get(
+                        normalize(own["owner"]), normalize(own["owner"])
+                    ),
+                }
+            )
         members_of: Dict[str, List[str]] = {}
         for member_key, group_key in group_of.items():
             members_of.setdefault(group_key, []).append(member_key)
@@ -389,6 +408,7 @@ def _load_availability() -> Dict[str, Any]:
             "scopes": scopes,
             "renames": renames,
             "folded": folded,
+            "owned": owned,
         }
         return _availability_cache
 
@@ -584,7 +604,8 @@ def filter_items(
 
 def display_name(name: Any, country: Any = None) -> str:
     """``name`` after sourced renames ('CareerBuilder Vietnam' ->
-    'CareerViet'); unchanged when no rename applies."""
+    'CareerViet') and with a sourced ownership note ('Joblift (now part of
+    Adzuna, insolvency 2026)'); unchanged when neither applies."""
     text = str(name or "")
     want = canonical_country(country)
     key = _squash(text)
@@ -595,7 +616,34 @@ def display_name(name: Any, country: Any = None) -> str:
             and (not want or not ren["_countries"] or want in ren["_countries"])
         ):
             return str(ren["new"])
+    own = _ownership_for(text)
+    if own and own.get("note") and str(own["note"]) not in text:
+        return f"{text} ({own['note']})"
     return text
+
+
+def _ownership_for(name: Any) -> Optional[Dict[str, Any]]:
+    if _parts(name):
+        return None
+    keys = set(_keys_for(name))
+    for own in _load_availability()["owned"]:
+        if keys & own["_keys"]:
+            return own
+    return None
+
+
+def ownership_group(name: Any) -> str:
+    """One key for a board and the board that now owns it (Joblift and
+    Adzuna): budget splits treat the two as one group, never as two
+    independent boards. "" for a board with no ownership record either way."""
+    own = _ownership_for(name)
+    if own:
+        return "owner:" + own["_owner_key"]
+    keys = set(_keys_for(name))
+    for own in _load_availability()["owned"]:
+        if own["_owner_key"] in keys:
+            return "owner:" + own["_owner_key"]
+    return ""
 
 
 def is_folded(name: Any, country: Any = None) -> bool:

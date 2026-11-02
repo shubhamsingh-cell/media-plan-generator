@@ -1,5 +1,5 @@
 {
-  "_description": "Boards that must not be recommended, renamed boards, and platforms with a declared market scope. Read by publisher_filter.py and applied on every plan surface (workbook, deck, Nova tools). Every entry carries a source and an as_of date; a claim without a source does not belong here.",
+  "_description": "Boards that must not be recommended, renamed boards, platforms with a declared market scope, and boards now owned by another board (ownership: the name carries the owner note, and owner and owned board count as one group when budget is split). Read by publisher_filter.py and applied on every plan surface (workbook, deck, Nova tools). Every entry carries a source and an as_of date; a claim without a source does not belong here.",
   "_todo": [
     "A board was reported to have exited Vietnam; not yet identified/verified. Add an `exited` entry (with a source URL) once the board is confirmed."
   ],
@@ -153,6 +153,48 @@
       "operated_by": "Indeed",
       "note": "Indeed-operated white-label portal for Indeed's Canadian postings; not an independent board",
       "source": "https://en.wikipedia.org/wiki/Workopolis"
+    },
+    {
+      "name": "Joblift",
+      "countries": [
+        "United Kingdom",
+        "United States",
+        "Belgium",
+        "Italy",
+        "Netherlands",
+        "France"
+      ],
+      "operated_by": "Adzuna",
+      "note": "Adzuna bought Joblift's assets on 2026-07-16; outside Germany the Joblift operation moves to the Adzuna platform, so it is not an independent board there",
+      "source": "https://www.online-recruiting.net/adzuna-uebernimmt-joblift-die-totgesagte-marke-bekommt-ein-zweites-leben",
+      "as_of": "2026-11-03"
+    }
+  ],
+  "ownership": [
+    {
+      "name": "Joblift",
+      "aliases": [
+        "joblift.de",
+        "Joblift GmbH"
+      ],
+      "owner": "Adzuna",
+      "note": "now part of Adzuna, insolvency 2026",
+      "events": [
+        {
+          "date": "2026-04-07",
+          "event": "Joblift GmbH filed for preliminary insolvency proceedings"
+        },
+        {
+          "date": "2026-07-16",
+          "event": "Adzuna bought Joblift's assets (brand, platform, customer contacts) in an asset deal without the company's debts"
+        }
+      ],
+      "fundable_in": [
+        "Germany"
+      ],
+      "decision": "joblift.de still runs as its own brand in Germany, so it stays fundable there; every surface naming it carries the note, and the local-relevance score treats Joblift and Adzuna as one group so a plan never funds both as independent boards",
+      "source": "https://www.online-recruiting.net/adzuna-uebernimmt-joblift-die-totgesagte-marke-bekommt-ein-zweites-leben",
+      "as_of": "2026-11-03"
     }
   ]
 }

@@ -760,7 +760,9 @@ def _score_candidates(data: Any, country: str) -> List[Dict[str, Any]]:
             status += _note_suffix(s["note"])
         out.append(
             {
-                "name": _display_name(b["name"], s),
+                "name": publisher_filter.display_name(
+                    _display_name(b["name"], s), country
+                ),
                 "priority": b["priority"],
                 "score": score,
                 "why": " · ".join(why) or "in-network board",
@@ -800,7 +802,16 @@ def _walk(
         keys = set(publisher_filter._keys_for(c["row_name"])) | set(
             publisher_filter._keys_for(c["name"])
         )
+        # a board and the board that now owns it are one group (Joblift and
+        # Adzuna): never two independent boards in one plan
+        group = publisher_filter.ownership_group(c["row_name"])
+        if group:
+            keys.add(group)
         if keys & taken:
+            continue
+        # a portal of another board in this market (Joblift outside Germany,
+        # run on Adzuna's platform) is not a board of its own
+        if publisher_filter.is_folded(c["row_name"], country):
             continue
         if any(
             publisher_filter.names_match(c["row_name"], o)
