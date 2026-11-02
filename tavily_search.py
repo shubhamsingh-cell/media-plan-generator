@@ -110,6 +110,28 @@ _cache_lock = threading.Lock()
 _CACHE_TTL = 1800.0  # 30 minutes
 
 
+_freshness_status_logged = False
+
+
+def log_freshness_status_once() -> bool:
+    """Log ONE boot line when TAVILY_API_KEY is unset; return configured flag.
+
+    Without a key every Tavily call quietly returns None and web lookups drop
+    to the Jina / DuckDuckGo fallbacks, which nothing announced at boot. Call
+    once from startup (wsgi.py runs it in the gunicorn master, so one line per
+    deploy, not per worker). Idempotent per process.
+    """
+    global _freshness_status_logged
+    configured = bool(_get_api_key())
+    if not configured and not _freshness_status_logged:
+        _freshness_status_logged = True
+        logger.warning(
+            "TAVILY_API_KEY unset: Tavily freshness search is OFF "
+            "(web lookups fall back to Jina AI / DuckDuckGo)"
+        )
+    return configured
+
+
 def _cache_key(prefix: str, *parts: str) -> str:
     """Generate a deterministic cache key from string parts."""
     raw = f"{prefix}:{'|'.join(str(p) for p in parts)}"

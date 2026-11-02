@@ -190,6 +190,15 @@ def _run_deferred_startup() -> None:
     except Exception as vs_warm_err:
         logger.warning("[wsgi] Retrieval warm-up failed: %s", vs_warm_err)
 
+    # Freshness search: one boot line (master only) when TAVILY_API_KEY is
+    # unset, instead of silently degrading every web lookup to the fallbacks.
+    try:
+        import tavily_search as _tavily_boot
+
+        _tavily_boot.log_freshness_status_once()
+    except Exception as tavily_err:
+        logger.warning("[wsgi] Tavily status check failed: %s", tavily_err)
+
     # Freeze the pre-loaded heap before fork. Everything loaded above (KB,
     # gazetteer, SlotOps baselines) is read-only reference data that the
     # workers inherit copy-on-write -- but CPython's cyclic GC writes into
