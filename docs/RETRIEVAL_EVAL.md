@@ -110,3 +110,51 @@ The golden set therefore targets chunks whose indexed text carries the answer.
 Fixing this changes every chunk id and requires a re-embed (a new blue/green
 collection), so it is a decision, not part of this change; this eval is the tool
 that will measure whether it helps.
+
+## Nova retrieval eval (`evals/nova_retrieval_eval.py`)
+
+A second, client-neutral question set (`evals/nova_retrieval_queries.json`, 72
+rows: CPC/CPA by country and industry, job boards by country, report facts,
+plan figures, 10 out-of-scope) scored on recall@5, recall@10 and MRR. It reuses
+this harness's corpus and stable ids. Out-of-scope rows are never in recall;
+their mean top-1 score is reported beside the in-scope mean.
+
+| Tier | What runs | Needs |
+|---|---|---|
+| `local_bm25` / `local_tfidf` | the in-process keyword tiers | nothing |
+| `qdrant_vector` | the LIVE collection prod searches (one GET through the dim guard, then `points/search`; read-only) | `QDRANT_URL`, `QDRANT_API_KEY`, `VOYAGE_API_KEY` |
+| `qdrant_hybrid` | Qdrant + local BM25 fused with RRF k=60 | same |
+
+`--check` exits 1 when any tier's recall@10 is more than 3 points below
+`evals/nova_retrieval_baseline.json` or a label stops resolving. The Qdrant tiers
+are not in the committed baseline yet (no keys where it was recorded).
+
+Caveat on `qdrant_hybrid`: it fuses by STABLE id, so it measures hybrid quality
+as if Qdrant and the local BM25 index agreed on every chunk. Production fuses by
+the positional `file.json:N` id behind a drift guard (`_separate_drifted_ids`):
+an id whose local text differs from Qdrant's is ranked separately, not fused. An
+independent review measured 401 of 6,234 ids drifted on 2026-11-03, so this tier
+can overstate prod hybrid quality until the collection is re-indexed from the
+current KB. `retrieval.keyword_indexes.hybrid_id_text_mismatches` on
+`/api/deploy/ready` counts the drift prod actually hits.
+
+CI: job `nova-retrieval-eval` (offline) and `nova-retrieval-eval-live`
+(push to main, non-blocking, skipped without secrets). Neither blocks a merge or
+a deploy today: main has no branch protection and Render `autoDeploy` ships main.
+
+### Owner-only actions
+
+* Require the `nova-retrieval-eval` check on main (GitHub branch protection);
+  until then it is a signal, not a gate.
+* Add the `QDRANT_URL`, `QDRANT_API_KEY` and `VOYAGE_API_KEY` repository secrets
+  if the live job should run, then record the Qdrant tiers once:
+  `python3 evals/nova_retrieval_eval.py --update-baseline` with the keys set.
+
+### Model-id note (2026-11-03 audit)
+
+The OpenRouter DeepSeek fallback moved from `deepseek/deepseek-r1` to
+`deepseek/deepseek-v4-flash` because the bare `deepseek/deepseek-r1` slug is not
+in OpenRouter's public catalog. The dated `deepseek/deepseek-r1-0528` is still
+listed there; it was not chosen because the repo pins DeepSeek to the V4 pair.
+(The commit message for that change says R1 "left the catalog"; this is the
+precise statement.)

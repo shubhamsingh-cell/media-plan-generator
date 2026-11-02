@@ -10,9 +10,9 @@ facts, plan figures, out-of-scope) is replayed against:
 ``local_bm25``     the in-process BM25 index (``vector_search.BM25Index``)   offline
 ``local_tfidf``    the in-process TF-IDF fallback (``_tfidf_search``)        offline
 ``qdrant_vector``  the LIVE Qdrant collection prod searches, read-only     network
-``qdrant_hybrid``  Qdrant + local BM25 fused with RRF k=60 -- the path
-                   ``vector_search.search()`` serves once warm-up has built
-                   BM25 in the worker                                       network
+``qdrant_hybrid``  Qdrant + local BM25 fused with RRF k=60, fused by stable
+                   id (prod fuses by positional id behind a drift guard, so
+                   this can overstate prod hybrid quality)                  network
 
 The local tiers run offline everywhere (CI included).  The Qdrant tiers run
 only when ``QDRANT_URL``, ``QDRANT_API_KEY`` and ``VOYAGE_API_KEY`` are all set
@@ -409,7 +409,13 @@ class QdrantVector:
 
 
 class QdrantHybrid:
-    """Qdrant + local BM25 via RRF k=60: what ``search()`` serves when warm."""
+    """Qdrant + local BM25 via RRF k=60, approximating what ``search()`` serves.
+
+    Fuses by STABLE id, i.e. as if Qdrant and the local index agreed on every
+    chunk. Prod fuses by positional id behind a drift guard that ranks drifted
+    ids separately, so this tier can OVERSTATE prod hybrid quality while the
+    collection lags the KB (see docs/RETRIEVAL_EVAL.md).
+    """
 
     name = "qdrant_hybrid"
 

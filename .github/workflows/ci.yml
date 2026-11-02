@@ -83,7 +83,11 @@ jobs:
           if-no-files-found: ignore
 
   nova-retrieval-eval:
-    name: Nova Retrieval Eval (offline, blocking)
+    name: Nova Retrieval Eval (offline)
+    # A SIGNAL, not a gate, until branch protection on main requires this
+    # check: main has no protection rule (2026-11-03) and render.yaml's
+    # autoDeploy ships main whatever CI says. Making it blocking is an
+    # owner action, listed in docs/RETRIEVAL_EVAL.md.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,7 +100,8 @@ jobs:
         # vector_search + the eval harness are stdlib-only, so no install step.
         # Local BM25 / TF-IDF over the real KB; fails when recall@10 drops more
         # than 3 points below evals/nova_retrieval_baseline.json or a label no
-        # longer resolves. The Qdrant tiers are reported as skipped here.
+        # longer resolves (the check goes red; see the job comment for what
+        # that does and does not block). The Qdrant tiers report skipped here.
         run: python3 evals/nova_retrieval_eval.py --check --qdrant off --report evals/.cache/nova_retrieval_report.json
 
       - name: Upload retrieval report

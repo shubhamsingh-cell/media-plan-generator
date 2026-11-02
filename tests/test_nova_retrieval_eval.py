@@ -79,21 +79,78 @@ def test_every_label_resolves_in_the_current_kb(corpus: List[rev.Chunk]) -> None
     assert stale == [], f"labels no longer in the KB: {stale}"
 
 
-def test_query_set_names_no_client() -> None:
-    """The repo is public: no client identifier may appear in the query set.
+_CLIENT_KEYS = {"client", "client_name"}
 
-    Client identifiers are derived from the KB's own plan keys (never typed
-    here, which would commit them).
+
+def _client_strings() -> set:
+    """Every client string the KB names, read from the data (never typed here).
+
+    Sources: client_media_plans_kb.json plan keys, and the value of every
+    ``client`` / ``client_name`` key anywhere in data/*.json (plans[*].client,
+    example_brief.client, ``*_meta`` blocks, ...).
     """
-    plans = json.loads(
-        (PROJECT_ROOT / "data" / "client_media_plans_kb.json").read_text("utf-8")
-    )["plans"]
-    tokens = {k.split("_")[0].lower() for k in plans if len(k.split("_")[0]) >= 3}
-    assert tokens, "expected client plan keys to derive identifiers from"
-    text = nre.DEFAULT_QUERIES_PATH.read_text("utf-8").lower()
-    leaked = sorted(t for t in tokens if re.search(rf"\b{re.escape(t)}\b", text))
-    assert leaked == []
-    assert "client_media_plans_kb.json" not in text
+    out: set = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            for key, val in node.items():
+                if key.lower() in _CLIENT_KEYS and isinstance(val, str) and val.strip():
+                    out.add(val.strip())
+                walk(val)
+        elif isinstance(node, list):
+            for val in node:
+                walk(val)
+
+    for path in sorted((PROJECT_ROOT / "data").glob("*.json")):
+        try:
+            data = json.loads(path.read_text("utf-8"))
+        except (OSError, ValueError):
+            continue
+        walk(data)
+        if path.name == "client_media_plans_kb.json":
+            out.update(k.replace("_", " ") for k in (data.get("plans") or {}))
+    return out
+
+
+def _client_tokens(names: set) -> set:
+    """Full names plus each name's first word of 3+ letters (the brand)."""
+    tokens: set = set()
+    for name in names:
+        low = name.lower()
+        tokens.add(low)
+        words = re.findall(r"[a-z][a-z&]{2,}", low)
+        if words:
+            tokens.add(words[0])
+    return tokens
+
+
+def _leaks(text: str, tokens: set) -> list:
+    low = text.lower()
+    return sorted(t for t in tokens if re.search(rf"(?<![a-z]){re.escape(t)}(?![a-z])", low))
+
+
+def test_client_sources_cover_plans_and_example_briefs() -> None:
+    names = _client_strings()
+    raw_deck = json.loads((PROJECT_ROOT / "data" / "joveo_media_plan_deck_2026.json").read_text("utf-8"))
+    plans = json.loads((PROJECT_ROOT / "data" / "client_media_plans_kb.json").read_text("utf-8"))["plans"]
+    assert raw_deck["example_brief"]["client"] in names
+    assert all(p["client"] in names for p in plans.values() if p.get("client"))
+
+
+def test_query_set_names_no_client() -> None:
+    """The repo is public: no client identifier may appear in the query set."""
+    tokens = _client_tokens(_client_strings())
+    assert tokens
+    text = nre.DEFAULT_QUERIES_PATH.read_text("utf-8")
+    assert _leaks(text, tokens) == []
+    assert "client_media_plans_kb.json" not in text.lower()
+
+
+def test_client_check_would_catch_a_named_client() -> None:
+    """Planted defect: a query naming the deck's example client must be caught."""
+    deck = json.loads((PROJECT_ROOT / "data" / "joveo_media_plan_deck_2026.json").read_text("utf-8"))
+    planted = f"What CPA did {deck['example_brief']['client']} get?"
+    assert _leaks(planted, _client_tokens(_client_strings()))
 
 
 @pytest.mark.parametrize(
@@ -234,6 +291,28 @@ def test_main_check_fails_on_regression(tmp_path: Path) -> None:
     written = json.loads(report.read_text("utf-8"))
     assert written["tiers"]["local_bm25"]["status"] == "ok"
     assert "per_query" in written
+
+
+def test_main_check_fails_on_a_stale_label(tmp_path: Path) -> None:
+    queries = json.loads(nre.DEFAULT_QUERIES_PATH.read_text("utf-8"))
+    queries["rows"][0]["expected_ids"] = ["no_such_file.json#gone"]
+    queries["rows"][0].pop("expected_id_prefixes", None)
+    qpath = tmp_path / "queries.json"
+    qpath.write_text(json.dumps(queries), encoding="utf-8")
+    code = nre.main(
+        [
+            "--check",
+            "--qdrant",
+            "off",
+            "--queries",
+            str(qpath),
+            "--report",
+            str(tmp_path / "r.json"),
+        ]
+    )
+    assert code == nre.EXIT_FAIL
+    report = json.loads((tmp_path / "r.json").read_text("utf-8"))
+    assert report["corpus"]["stale_labels"]
 
 
 def test_main_check_errors_without_baseline(tmp_path: Path) -> None:
