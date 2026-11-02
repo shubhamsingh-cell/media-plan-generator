@@ -1103,33 +1103,41 @@ _blocks_cache: Optional[List[Dict[str, Any]]] = None
 
 def _load_platform_blocks() -> List[Dict[str, Any]]:
     """data/platform_market_blocks.json: platforms a market's government
-    blocks (TikTok in India).  Every block is {names -> keys, countries}."""
+    blocks (TikTok in India).  Every block is {names -> keys, countries}.
+
+    Block keys are built with :func:`_keys_for`, the function every lookup
+    uses, so an alias group in publisher_availability.json matches a block
+    whichever of its names the block lists.  A failed read is NOT cached: it
+    returns no blocks for this call (fail open) and the next call reads again,
+    so blocking does not stay off until a restart."""
     global _blocks_cache
     with _lock:
         if _blocks_cache is not None:
             return _blocks_cache
-        raw: Dict[str, Any] = {}
-        try:
-            with open(_BLOCKS_PATH, encoding="utf-8") as fh:
-                raw = json.load(fh)
-        except (OSError, ValueError) as exc:
-            logger.error(
-                "platform_market_blocks.json unreadable: %s", exc, exc_info=True
-            )
-        blocks: List[Dict[str, Any]] = []
-        for item in (raw.get("blocks") if isinstance(raw, dict) else None) or []:
-            if not isinstance(item, dict) or not item.get("name"):
-                continue
-            names = [item["name"]] + [
-                a for a in (item.get("aliases") or []) if isinstance(a, str)
-            ]
-            keys = frozenset(normalize(n) for n in names) - {""}
-            countries = frozenset(
-                canonical_country(c) for c in (item.get("countries") or [])
-            ) - {""}
-            if keys and countries:
-                blocks.append({**item, "_keys": keys, "_countries": countries})
-        _blocks_cache = blocks
+    try:
+        with open(_BLOCKS_PATH, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError) as exc:
+        logger.error("platform_market_blocks.json unreadable: %s", exc, exc_info=True)
+        return []
+    # keys are built OUTSIDE the module lock: _keys_for takes it (via
+    # _load_availability) and the lock is not re-entrant
+    blocks: List[Dict[str, Any]] = []
+    for item in (raw.get("blocks") if isinstance(raw, dict) else None) or []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        names = [item["name"]] + [
+            a for a in (item.get("aliases") or []) if isinstance(a, str)
+        ]
+        keys = frozenset(k for n in names for k in _keys_for(n)) - {""}
+        countries = frozenset(
+            canonical_country(c) for c in (item.get("countries") or [])
+        ) - {""}
+        if keys and countries:
+            blocks.append({**item, "_keys": keys, "_countries": countries})
+    with _lock:
+        if _blocks_cache is None:
+            _blocks_cache = blocks
         return _blocks_cache
 
 

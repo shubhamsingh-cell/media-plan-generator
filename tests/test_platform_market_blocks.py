@@ -127,6 +127,49 @@ def test_unreadable_block_file_fails_open_and_is_not_cached_forever(
     assert not publisher_filter.platform_runs_in("TikTok Ads", "India")
 
 
+def test_a_failed_read_is_retried_on_the_next_call_without_a_reset(
+    monkeypatch, tmp_path
+):
+    """A transient read failure must not switch blocking off until a restart:
+    nothing is cached, and the next call (no reset_caches) reads the file."""
+    real = publisher_filter._BLOCKS_PATH
+    publisher_filter.reset_caches()
+    monkeypatch.setattr(
+        publisher_filter, "_BLOCKS_PATH", str(tmp_path / "missing.json")
+    )
+    assert publisher_filter.platform_runs_in("TikTok Ads", "India")
+    assert publisher_filter._blocks_cache is None
+    monkeypatch.setattr(publisher_filter, "_BLOCKS_PATH", real)
+    assert not publisher_filter.platform_runs_in("TikTok Ads", "India")
+    assert publisher_filter._blocks_cache
+
+
+def test_block_keys_are_built_like_every_lookup(monkeypatch):
+    """Block keys go through publisher_filter._keys_for (the alias groups of
+    publisher_availability.json), the function lookups use: a block listing
+    one name of an alias group blocks every name of that group."""
+    publisher_filter.reset_caches()
+    blocks = publisher_filter._load_platform_blocks()
+    tiktok = next(b for b in blocks if b["name"] == "TikTok")
+    expected = {
+        k
+        for n in [tiktok["name"]] + list(tiktok.get("aliases") or [])
+        for k in publisher_filter._keys_for(n)
+    }
+    assert tiktok["_keys"] == frozenset(expected)
+    # an alias group whose canonical key is not the block's normalized name:
+    # lookups resolve "TikTok" to the group key, so the block must too
+    real_load = publisher_filter._load_availability
+    avail = dict(real_load())
+    avail["group_of"] = dict(avail["group_of"], tiktok="shortvideogroup")
+    monkeypatch.setattr(publisher_filter, "_load_availability", lambda: avail)
+    publisher_filter.reset_caches()
+    assert publisher_filter._keys_for("TikTok") == ["shortvideogroup"]
+    assert not publisher_filter.platform_runs_in("TikTok", "India")
+    monkeypatch.setattr(publisher_filter, "_load_availability", real_load)
+    publisher_filter.reset_caches()
+
+
 def test_block_lookup_is_thread_safe_under_reset():
     import threading
 
