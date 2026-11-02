@@ -232,16 +232,19 @@ def _tokens_key(text: str) -> str:
 
 
 # Boards matched by their exact name only: stripping the domain / corporate
-# suffix would leave another, different board's key ("Talent Inc." is not
-# Talent.com; "Recruit.net" is not Recruit, the Japanese Rikunabi owner).
-_EXACT_NAME_BOARDS = frozenset({"talentinc", "recruitnet"})
+# suffix / country would leave another, different board's key ("Talent Inc."
+# and "Talent Portugal" are not Talent.com; "Recruit.net" is not Recruit, the
+# Japanese Rikunabi owner; the Deactivated "Yolo" row is not YOLO JAPAN's
+# in-network record). Their key is "=" + the exact name, so it can never
+# equal a stripped key.
+_EXACT_NAME_BOARDS = frozenset({"talentinc", "recruitnet", "yolo", "talentportugal"})
 
 
 def _component_key(text: str) -> str:
     text = _PAREN_RE.sub(" ", text).strip()
     exact = re.sub(r"[^a-z0-9]", "", text)
     if exact in _EXACT_NAME_BOARDS:
-        return exact
+        return "=" + exact
     match = _DOMAIN_RE.match(text.replace(" ", "")) if " " not in text.strip() else None
     if match:
         return re.sub(r"[^a-z0-9]", "", _strip_tld(match.group(1)))

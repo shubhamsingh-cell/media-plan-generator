@@ -47,3 +47,25 @@ def test_recruit_compound_does_not_take_recruit_net_s_row():
     # Recruit.net still finds its own row, and only it
     assert pf.board_supply_record("Recruit.net", "Japan")["status"] == "Deactivated"
     assert not pf.names_match("Recruit.net", "Recruit")
+
+
+def test_the_deactivated_yolo_row_does_not_borrow_yolo_japan_s_record():
+    import channel_funding as cf
+
+    assert not pf.names_match("Yolo", "YOLO JAPAN")
+    rec = pf.board_supply_record("Yolo", "Japan")
+    assert rec["state"] == pf.SUPPLY_NOT_IN_NETWORK and rec["status"] == "Deactivated"
+    assert pf.board_supply_record("YOLO JAPAN", "Japan")["state"] == pf.SUPPLY_IN_NETWORK
+    data = {"locations": ["Tokyo, Japan"], "target_roles": ["Warehouse Associate"]}
+    rows = [b["row_name"] for b in cf.post_directly_boards(data, "Japan")] + [
+        b["row_name"] for b in cf.ranked_boards(data, "Japan")
+    ]
+    assert "Yolo" not in rows, rows
+
+
+def test_talent_portugal_is_its_own_board_not_talent_com():
+    assert not pf.names_match("Talent Portugal", "Talent.com")
+    # Talent.com's own Portugal market spelling still finds Talent.com
+    assert pf.names_match("Talent.com Portugal", "Talent.com")
+    names = [b["name"] for b in pf.in_network_job_boards("Portugal")]
+    assert "Talent Portugal" in names and "Talent.com" in names, names
