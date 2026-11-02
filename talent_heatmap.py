@@ -763,6 +763,59 @@ def _salary_sort_key(item: Dict[str, Any]) -> Tuple[int, str, float]:
     return (0 if code == "USD" else 1, code, -float(item.get("estimated_salary") or 0))
 
 
+def _salary_group(item: Dict[str, Any]) -> Tuple[str, str]:
+    """(group key, heading) for a salary row: one group per currency for rows
+    with an annual figure; one "not compared" group for the rest."""
+    if not item.get("salary_numeric", True) or item.get("estimated_salary") in (None, ""):
+        return ("~", "Published statistic or no local benchmark (not compared)")
+    code = str(item.get("currency") or "USD")
+    return (code, f"{'US$' if code == 'USD' else code} salaries")
+
+
+def _is_us_location(resolved: Dict[str, Any]) -> bool:
+    """A US metro / state / the US itself: its cost-of-living index and salary
+    are on the US scale the scores were built for."""
+    if resolved.get("type") in ("metro", "state"):
+        return True
+    return resolved.get("type") == "country" and resolved.get("key") == "United States"
+
+
+def _salary_is_scored(item: Dict[str, Any]) -> bool:
+    """Only a US$ annual figure enters a US$-scaled salary term."""
+    return (
+        bool(item.get("salary_numeric", True))
+        and str(item.get("currency") or "USD") == "USD"
+        and isinstance(item.get("estimated_salary"), (int, float))
+    )
+
+
+#: Shown beside a score whose salary and / or cost-of-living terms were left out.
+SALARY_NOT_SCORED = "Salary not scored"
+COL_NOT_SCORED = "cost of living not scored"
+SCORING_NOTE = (
+    "Scores use the salary term only for US$ annual figures and the cost-of-"
+    "living term only for US locations (the index is US-relative); for any other "
+    "market those terms are left out and the remaining weights are rescaled, so "
+    "no market is scored as if it paid a US salary. Locations scored on the "
+    "same terms are ranked together: fully scored locations first."
+)
+
+
+def _weighted(terms: List[Tuple[float, float]]) -> float:
+    """Weighted mean of (value, weight) pairs, rescaled over the weights used."""
+    total = sum(w for _, w in terms)
+    return sum(v * w for v, w in terms) / total if total else 0.0
+
+
+def _not_scored_text(salary_scored: bool, col_scored: bool) -> str:
+    parts = []
+    if not salary_scored:
+        parts.append(SALARY_NOT_SCORED)
+    if not col_scored:
+        parts.append(COL_NOT_SCORED if parts else COL_NOT_SCORED.capitalize())
+    return "; ".join(parts)
+
+
 def _salary_text(item: Dict[str, Any], value_key: str, display_key: str) -> str:
     """A salary cell: the precomputed display, else the value in the item's own
     currency (an analysis posted back by an older page), else "No local
@@ -1099,22 +1152,27 @@ def calculate_hiring_difficulty(
     # Competition directly maps to difficulty
     competition_difficulty = c.get("competition_score", 50)
 
-    # Salary premium (higher salary = harder/more expensive)
-    estimated_salary = s.get("estimated_salary", 50000)
-    salary_difficulty = min(100, max(0, (estimated_salary - 40000) / 1500))
-
-    # CoL factor
-    coli = l.get("coli", 100)
-    col_difficulty = min(100, max(0, (coli - 70) * 1.2))
-
-    # Weighted composite
-    difficulty = (
-        density_difficulty * 0.30
-        + competition_difficulty * 0.30
-        + salary_difficulty * 0.20
-        + col_difficulty * 0.20
+    # Salary premium (higher salary = harder/more expensive): a US$ scale, so
+    # only a US$ annual figure is scored; any other market leaves it out
+    estimated_salary = s.get("estimated_salary")
+    salary_scored = bool(s) and _salary_is_scored(s)
+    salary_difficulty = (
+        min(100, max(0, (estimated_salary - 40000) / 1500)) if salary_scored else None
     )
-    difficulty = round(min(100, max(0, difficulty)), 1)
+
+    # CoL factor: the index is US-relative, scored for US locations only
+    coli = l.get("coli", 100)
+    col_scored = _is_us_location(_resolve_location(location))
+    col_difficulty = min(100, max(0, (coli - 70) * 1.2)) if col_scored else None
+
+    # Weighted composite, rescaled over the terms that apply
+    terms = [(density_difficulty, 0.30), (competition_difficulty, 0.30)]
+    if salary_difficulty is not None:
+        terms.append((salary_difficulty, 0.20))
+    if col_difficulty is not None:
+        terms.append((col_difficulty, 0.20))
+    difficulty = round(min(100, max(0, _weighted(terms))), 1)
+    not_scored = _not_scored_text(salary_scored, col_scored)
 
     if difficulty >= 75:
         rating = "Very Hard"
@@ -1139,6 +1197,9 @@ def calculate_hiring_difficulty(
             "Abundant talent supply. Optimize for quality and cultural fit."
         )
 
+    if not_scored:
+        recommendation = f"{recommendation} {not_scored}: {SCORING_NOTE}"
+
     return {
         "location": location,
         "display_name": d.get("display_name", location),
@@ -1148,11 +1209,14 @@ def calculate_hiring_difficulty(
         "difficulty_rating": rating,
         "difficulty_color": color,
         "recommendation": recommendation,
+        "not_scored": not_scored,
         "components": {
             "talent_scarcity": round(density_difficulty, 1),
             "competition": round(competition_difficulty, 1),
-            "salary_pressure": round(salary_difficulty, 1),
-            "cost_of_living": round(col_difficulty, 1),
+            "salary_pressure": (
+                round(salary_difficulty, 1) if salary_difficulty is not None else None
+            ),
+            "cost_of_living": round(col_difficulty, 1) if col_difficulty is not None else None,
         },
         "details": {
             "talent_density_score": d.get("talent_density_score") or 0,
@@ -1360,28 +1424,27 @@ def compare_locations(
         density_score = d.get("talent_density_score", 50)
         comp_score = c.get("competition_score", 50)
         coli = l.get("coli", 100)
-        # The salary term is a US$ scale: only a US$ annual figure enters it.
-        # Any other currency (or no figure) scores neutral, so the score never
-        # compares a pound or franc figure with a dollar one.
-        if s.get("salary_numeric", True) and str(s.get("currency") or "USD") == "USD":
-            salary_term = max(0, 100 - (s.get("estimated_salary") or 50000) / 1500)
-        else:
-            salary_term = 50.0
-
-        # Higher density + lower competition + lower cost = better
-        rec_score = (
-            density_score * 0.4
-            + (100 - comp_score) * 0.3
-            + (200 - coli) * 0.15
-            + salary_term * 0.15
-        )
-        rec_score = round(min(100, max(0, rec_score)), 1)
+        # The salary term is a US$ scale and the cost-of-living index is
+        # US-relative: each applies only where it is on that scale (a US$ annual
+        # figure; a US location). Otherwise the term is LEFT OUT and the weights
+        # rescaled -- a neutral value would score the market as if it paid a US
+        # salary (SCORING_NOTE).
+        salary_scored = bool(s) and _salary_is_scored(s)
+        col_scored = _is_us_location(_resolve_location(loc))
+        terms = [(density_score, 0.4), (100 - comp_score, 0.3)]
+        if col_scored:
+            terms.append((200 - coli, 0.15))
+        if salary_scored:
+            terms.append((max(0, 100 - s["estimated_salary"] / 1500), 0.15))
+        rec_score = round(min(100, max(0, _weighted(terms))), 1)
+        not_scored = _not_scored_text(salary_scored, col_scored)
 
         comparisons.append(
             {
                 "location": loc,
                 "display_name": d.get("display_name", loc),
                 "recommendation_score": rec_score,
+                "not_scored": not_scored,
                 "talent_density": {
                     "score": density_score,
                     "pool": d.get("talent_pool_estimate", "N/A"),
@@ -1416,8 +1479,13 @@ def compare_locations(
             }
         )
 
-    # Sort by recommendation score
-    comparisons.sort(key=lambda x: x["recommendation_score"], reverse=True)
+    # Sort by recommendation score WITHIN a scoring basis: locations scored on
+    # every term first, then those whose salary / cost-of-living terms were left
+    # out (a score over fewer terms is not ranked against a full one), so
+    # "Best Match" is never a market scored on less than another.
+    comparisons.sort(
+        key=lambda x: (x["not_scored"], -x["recommendation_score"])
+    )
 
     # Mark the best option
     if comparisons:
@@ -1429,6 +1497,7 @@ def compare_locations(
         "industry_label": INDUSTRY_LABEL_MAP.get(industry, industry),
         "locations": comparisons,
         "best_location": comparisons[0]["location"] if comparisons else None,
+        "scoring_note": SCORING_NOTE,
     }
 
 
@@ -1560,7 +1629,10 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             value=f"{col.get('index', 100)} ({col.get('rating') or ''})",
         ).font = data_font
         rec = loc.get("recommendation_score") or 0
-        cell = ws1.cell(row=row, column=8, value=f"{rec}/100")
+        _ns = loc.get("not_scored") or ""
+        cell = ws1.cell(
+            row=row, column=8, value=f"{rec}/100" + (f" ({_ns})" if _ns else "")
+        )
         cell.font = (
             green_font if rec >= 60 else (orange_font if rec >= 40 else red_font)
         )
@@ -1570,6 +1642,9 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         for c in range(2, 10):
             ws1.cell(row=row, column=c).border = thin_border
         row += 1
+
+    if any(loc.get("not_scored") for loc in locations):
+        ws1.cell(row=row + 1, column=2, value=SCORING_NOTE).font = data_font
 
     ws1.column_dimensions["A"].width = 3
     ws1.column_dimensions["B"].width = 32
@@ -1600,9 +1675,17 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         cell.fill = hdr_fill
         cell.alignment = center_align
 
-    salary_data = analysis.get("salary_map") or []
+    salary_data = sorted(analysis.get("salary_map") or [], key=_salary_sort_key)
     row = 5
+    _group = None
     for s in salary_data:
+        _key, _heading = _salary_group(s)
+        if _key != _group:
+            # one heading per currency group: rows are compared within it only
+            ws2.cell(row=row, column=2, value=_heading).font = hdr_font
+            ws2.cell(row=row, column=2).fill = hdr_fill
+            _group = _key
+            row += 1
         ws2.cell(
             row=row, column=2, value=s.get("display_name", s.get("location") or "")
         ).font = bold_font
@@ -1692,10 +1775,22 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             row=row, column=6, value=f"{comps.get('competition') or 0}/100"
         ).font = data_font
         ws3.cell(
-            row=row, column=7, value=f"{comps.get('salary_pressure') or 0}/100"
+            row=row,
+            column=7,
+            value=(
+                f"{comps.get('salary_pressure')}/100"
+                if comps.get("salary_pressure") is not None
+                else "Not scored"
+            ),
         ).font = data_font
         ws3.cell(
-            row=row, column=8, value=f"{comps.get('cost_of_living') or 0}/100"
+            row=row,
+            column=8,
+            value=(
+                f"{comps.get('cost_of_living')}/100"
+                if comps.get("cost_of_living") is not None
+                else "Not scored"
+            ),
         ).font = data_font
         for c in range(2, 9):
             ws3.cell(row=row, column=c).border = thin_border
@@ -2063,6 +2158,19 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             bold=True,
             color=rec_color,
         )
+        if loc.get("not_scored"):
+            # beside its score: which terms the score leaves out
+            # under the location name (the salary text may wrap to two lines)
+            _add_text_box(
+                slide2,
+                x + 0.15,
+                y + 0.36,
+                3.2,
+                0.3,
+                str(loc["not_scored"]),
+                font_size=8,
+                color=WHITE,
+            )
         y += 0.72
 
     # ── Slide 3: Salary Comparison ──
@@ -2080,25 +2188,36 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         color=WHITE,
     )
 
-    salary_data = sorted(analysis.get("salary_map") or [], key=_salary_sort_key)
-    # bars are scaled within ONE currency: a pound bar is never measured
-    # against a dollar bar (SALARY_CURRENCY_NOTE)
-    max_by_currency: Dict[str, float] = {}
+    salary_data = sorted(analysis.get("salary_map") or [], key=_salary_sort_key)[:10]
+    # Bars are scaled within ONE currency group, and only where the group has
+    # two or more markets: a lone figure is its own maximum and a full-width
+    # bar would read as "same pay" as another currency's full-width bar.
+    groups: Dict[str, List[Dict[str, Any]]] = {}
     for s in salary_data:
-        est = s.get("estimated_salary")
-        if s.get("salary_numeric", True) and isinstance(est, (int, float)) and est > 0:
-            cur = str(s.get("currency") or "USD")
-            max_by_currency[cur] = max(max_by_currency.get(cur, 0.0), float(est))
+        groups.setdefault(_salary_group(s)[0], []).append(s)
 
-    y = 1.3
-    for s in salary_data[:10]:
+    y = 1.2
+    _shown_group = None
+    for s in salary_data:
+        if y > 6.1:  # keep the note on the slide
+            break
+        gkey, heading = _salary_group(s)
+        if gkey != _shown_group:
+            _add_text_box(
+                slide3, 0.8, y, 8, 0.3, heading, font_size=10, bold=True, color=DOWNY_TEAL
+            )
+            _shown_group = gkey
+            y += 0.34
         name = s.get("display_name", s.get("location") or "")
         est = s.get("estimated_salary")
-        cur = str(s.get("currency") or "USD")
         label = _salary_text(s, "estimated_salary", "estimated_display")
         _add_text_box(slide3, 0.8, y, 3, 0.35, name, font_size=10, color=WHITE)
-        if isinstance(est, (int, float)) and max_by_currency.get(cur):
-            bar_w = max(0.3, (est / max_by_currency[cur]) * 8)
+        members = groups.get(gkey) or []
+        group_max = max(
+            (float(m.get("estimated_salary") or 0) for m in members), default=0.0
+        )
+        if gkey != "~" and len(members) >= 2 and group_max > 0 and isinstance(est, (int, float)):
+            bar_w = max(0.3, (est / group_max) * 8)
             _add_shape(slide3, 4.0, y + 0.05, bar_w, 0.25, BLUE_VIOLET)
         else:
             bar_w = 0.0
@@ -2106,16 +2225,16 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             slide3,
             4.0 + bar_w + 0.2,
             y,
-            4,
+            4.5,
             0.35,
             label,
             font_size=10,
             bold=True,
             color=DOWNY_TEAL,
         )
-        y += 0.48
+        y += 0.4
     _add_text_box(
-        slide3, 0.8, 6.6, 11.5, 0.6, SALARY_CURRENCY_NOTE, font_size=9, color=WHITE
+        slide3, 0.8, max(y + 0.1, 6.5), 11.5, 0.6, SALARY_CURRENCY_NOTE, font_size=9, color=WHITE
     )
 
     # ── Slide 4: Optimal Locations ──

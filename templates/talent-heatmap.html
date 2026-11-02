@@ -570,6 +570,44 @@
         color: var(--text-muted);
         text-align: right;
       }
+      .salary-bar-label {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: var(--text-light);
+        white-space: nowrap;
+      }
+      .salary-group-heading {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+      }
+      @media (max-width: 640px) {
+        /* narrow screens: name and figure on one line, the bar full width
+           below them -- the figure never depends on the bar's width */
+        .salary-bar-item {
+          flex-wrap: wrap;
+          gap: 0.25rem 0.75rem;
+        }
+        .salary-bar-name {
+          width: auto;
+          flex: 1 1 auto;
+          text-align: left;
+        }
+        .salary-bar-label {
+          white-space: normal;
+        }
+        .salary-bar-track {
+          order: 4;
+          flex: 1 1 100%;
+          height: 12px;
+        }
+        .salary-bar-adjusted {
+          width: auto;
+        }
+      }
 
       /* Comparison cards */
       .comparison-grid {
@@ -1384,8 +1422,8 @@
               ' <span style="color:var(--text-muted);font-size:0.75rem;">' +
               escapeHtml(comp.rating || "") +
               "</span></td>" +
-              "<td>$" +
-              numberWithCommas(sal.estimated || 0) +
+              "<td>" +
+              escapeHtml(sal.estimated_display || "No local benchmark") +
               "</td>" +
               "<td>" +
               (col.index || 100) +
@@ -1397,6 +1435,11 @@
               "</td>" +
               "<td>" +
               recBadge +
+              (loc.not_scored
+                ? ' <span style="color:var(--text-muted);font-size:0.75rem;">' +
+                  escapeHtml(loc.not_scored) +
+                  "</span>"
+                : "") +
               "</td>" +
               "</tr>";
           });
@@ -1412,23 +1455,39 @@
             return;
           }
 
-          // Bars are scaled within ONE currency: a pound or franc figure is
-          // never measured against a dollar one (talent_heatmap.SALARY_CURRENCY_NOTE).
-          var maxByCurrency = {};
-          salaryData.forEach(function (s) {
-            var cur = s.currency || "USD";
-            if (s.salary_numeric !== false && s.estimated_salary > 0) {
-              maxByCurrency[cur] = Math.max(maxByCurrency[cur] || 0, s.estimated_salary);
+          // Bars are scaled within ONE currency group, and drawn only where the
+          // group has 2+ markets: a lone figure is its own maximum, and a
+          // full-width bar would read as "same pay" as another currency's
+          // (talent_heatmap.SALARY_CURRENCY_NOTE). Rows arrive grouped by
+          // currency from talent_heatmap.get_salary_map.
+          function groupOf(s) {
+            if (s.salary_numeric === false || s.estimated_salary == null) {
+              return ["~", "Published statistic or no local benchmark (not compared)"];
             }
+            var cur = s.currency || "USD";
+            return [cur, (cur === "USD" ? "US$" : cur) + " salaries"];
+          }
+          var groups = {};
+          salaryData.forEach(function (s) {
+            var g = groupOf(s)[0];
+            groups[g] = groups[g] || { count: 0, max: 0 };
+            groups[g].count += 1;
+            groups[g].max = Math.max(groups[g].max, s.estimated_salary || 0);
           });
           var html = "";
+          var shownGroup = null;
           salaryData.forEach(function (s) {
+            var g = groupOf(s);
+            if (g[0] !== shownGroup) {
+              html += '<div class="salary-group-heading">' + escapeHtml(g[1]) + "</div>";
+              shownGroup = g[0];
+            }
+            var info = groups[g[0]];
             var est = s.estimated_salary || 0;
-            var cur = s.currency || "USD";
-            var maxSalary = maxByCurrency[cur] || 0;
-            var pctW = maxSalary ? Math.max(3, (est / maxSalary) * 100) : 0;
-            var estText = s.estimated_display || ("$" + numberWithCommas(est));
-            var adjText = s.adjusted_display || ("$" + numberWithCommas(s.adjusted_salary || 0));
+            var drawBar = g[0] !== "~" && info.count >= 2 && info.max > 0;
+            var pctW = drawBar ? Math.max(3, (est / info.max) * 100) : 0;
+            var estText = s.estimated_display || "No local benchmark";
+            var adjText = s.adjusted_display || "\u2014";
             var name = s.display_name || s.location || "";
             if (name.length > 28) name = name.substring(0, 25) + "...";
 
@@ -1439,18 +1498,21 @@
               '">' +
               escapeHtml(name) +
               "</span>" +
-              '<div class="salary-bar-track"><div class="salary-bar-fill" style="width:' +
-              pctW +
-              '%;"><span class="salary-bar-value">' +
+              (drawBar
+                ? '<div class="salary-bar-track"><div class="salary-bar-fill" style="width:' +
+                  pctW +
+                  '%;"></div></div>'
+                : "") +
+              '<span class="salary-bar-label">' +
               escapeHtml(estText) +
-              "</span></div></div>" +
+              "</span>" +
               '<span class="salary-bar-adjusted" title="CoL-adjusted salary">adj: ' +
               escapeHtml(adjText) +
               "</span>" +
               "</div>";
           });
           html +=
-            '<p style="color:var(--text-muted);font-size:0.75rem;">Salaries are shown in each market\'s own currency and compared only within one currency.</p>';
+            '<p style="color:var(--text-muted);font-size:0.75rem;">Salaries are shown in each market\'s own currency and compared only within one currency; a currency with a single market gets no bar.</p>';
           container.innerHTML = html;
         }
 
@@ -1496,6 +1558,11 @@
               "</div>" +
               (isBest
                 ? '<div style="font-size:0.6875rem;color:var(--green-success);font-weight:700;text-transform:uppercase;margin-bottom:0.75rem;">Best Match</div>'
+                : "") +
+              (loc.not_scored
+                ? '<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem;">Score: ' +
+                  escapeHtml(loc.not_scored) +
+                  "</div>"
                 : "") +
               '<div class="metric-row"><span class="metric-label">Talent Density</span><span class="metric-value">' +
               (td.score || 0) +
