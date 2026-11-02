@@ -68,3 +68,23 @@ def test_plain_text_quality_pass_uses_the_same_rule() -> None:
     out = nova._enrich_response_quality({"response": body})["response"]
     assert "**-5%**" in out and "**$500**" in out and "**$209K**" in out
     assert "-**5%**" not in out and "**$209**K" not in out
+
+
+def test_percent_range_is_one_bold() -> None:
+    """Sweep: "Apply Rate: 3-6%" read "3-**6%**"."""
+    assert fmt("Apply Rate: 3-6% for engineering") == "Apply Rate: **3-6%** for engineering"
+    assert fmt("Apply rate 2.5–4.1% overall") == "Apply rate **2.5–4.1%** overall"
+
+
+def test_no_template_placeholder_reaches_follow_ups() -> None:
+    """Sweep: a salary answer offered "How does this compare to {nearby_city}?"."""
+    for qtype in list(nova._FOLLOW_UP_MAP):
+        for line in nova._generate_follow_ups("salary for a nurse in Houston", qtype):
+            assert "{" not in line and "}" not in line, (qtype, line)
+
+
+def test_plain_render_formats_forecast_money() -> None:
+    out = nova._render_tool_data_plain(
+        "CPC", {"forecast_30d": {"indeed": 1.31}, "currency": "EUR"}
+    )
+    assert "Indeed €1.31" in out

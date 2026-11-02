@@ -2266,6 +2266,11 @@ def _localize_publisher_names(
     return kept
 
 
+# A question about what is new right now (news, this week, today, latest).
+_RE_FRESHNESS_ASK = re.compile(
+    r"\b(news|headlines?|this week|today|yesterday|latest|breaking|just announced)\b"
+)
+
 def _currency_symbol(currency_code: Optional[str]) -> str:
     """Return display symbol for a currency code, defaulting to '$'."""
     if not currency_code:
@@ -3517,7 +3522,11 @@ def _generate_follow_ups(
         if len(combined) >= 3:
             break
 
-    return combined[:3]
+    # Templates name a city slot this path cannot fill: never show the brace.
+    return [
+        re.sub(r"\{[a-z_]+\}", "nearby cities", s.replace("{nearby_city}", "nearby cities"))
+        for s in combined[:3]
+    ]
 
 
 def _append_follow_ups_to_response(
@@ -6253,7 +6262,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "query_client_plans",
-                "description": "Reference client media plans from Joveo's portfolio: RTX (aerospace, NZ/Australia), BAE Systems (defense, Virginia), Amazon CS India (1,500 hires), Rolls-Royce Solutions America, RTX Poland, Peraton. Contains channel strategies, budget allocations, CPA/CPH benchmarks, hiring volumes, and aggregate patterns across 532 unique channels. Use when asked about 'how did we plan for similar clients', channel mix examples, budget allocation patterns, or real-world media plan references.",
+                "description": "Reference media plans from Joveo's portfolio (anonymised here: aerospace in NZ/Australia and Poland, defense in Virginia, a 1,500-hire customer-service program in India, industrial engineering in the US, government services). Contains channel strategies, budget allocations, CPA/CPH benchmarks, hiring volumes, and aggregate patterns across 532 unique channels. Use when asked about 'how did we plan for similar clients', channel mix examples, budget allocation patterns, or real-world media plan references.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -25302,6 +25311,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             sections.append(response_text)
 
         response = "\n\n".join(sections)
+        # This mode has no live web search: a news / "this week" question is
+        # told so instead of reading as answered by the knowledge base.
+        if _RE_FRESHNESS_ASK.search(msg_lower):
+            response = (
+                "_Live news search isn't available right now, so I couldn't "
+                "check current news; below is only what Nova's knowledge base "
+                "holds._\n\n" + response
+            )
         confidence = _estimate_confidence(tools_used, sources)
 
         # Lower confidence for fallback/off-topic/injection responses
@@ -25807,7 +25824,9 @@ _PLAIN_RENDER_SKIP_KEYS = frozenset(
         "industry",
     }
 )
-_PLAIN_RENDER_MONEY_HINTS = ("cpc", "cpa", "cph", "cost", "salary", "budget", "spend", "price", "cpm")
+_PLAIN_RENDER_MONEY_HINTS = (
+    "cpc", "cpa", "cph", "cost", "salary", "budget", "spend", "price", "cpm", "forecast"
+)
 _PLAIN_RENDER_NAMES = {
     "indeed": "Indeed",
     "linkedin": "LinkedIn",
@@ -26359,6 +26378,10 @@ def _extract_budget(text: str) -> float:
         r"([\d,.]+)\s*[kK]\s*(?:dollar|usd|budget)",  # 50K dollars
         r"\$\s*([\d,.]+)",  # $50,000
         r"([\d,.]+)\s*(?:dollar|usd)",  # 50000 dollars
+        # A bare figure tied to the word budget ("a 50000 budget", "budget of
+        # 50,000"): at least four digits, so a head count never reads as money.
+        r"(?<![\w.,])(\d{1,3}(?:,\d{3})+|\d{4,})\s*budget",
+        r"budget\s*(?:of|is|:|=)?\s*(\d{1,3}(?:,\d{3})+|\d{4,})(?![\d,])",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
@@ -28727,7 +28750,9 @@ _RE_BOLD_MONEY = re.compile(
     r"(?:\s?[-\u2013]\s?\$\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?)?)"
     r"(?![\d])"
 )
-_RE_BOLD_PERCENT = re.compile(r"(?<![\w.,%])([-+\u2212]?\d+(?:\.\d+)?%)")
+_RE_BOLD_PERCENT = re.compile(
+    r"(?<![\w.,%])(?<!\d[-\u2013])([-+\u2212]?\d+(?:\.\d+)?(?:\s?[-\u2013]\s?\d+(?:\.\d+)?)?%)"
+)
 _RE_PROTECTED_SPAN = re.compile(r"```.*?```|`[^`\n]*`|\*\*[^*\n]+?\*\*", re.S)
 
 
