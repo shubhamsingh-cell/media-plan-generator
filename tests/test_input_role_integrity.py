@@ -199,6 +199,8 @@ def test_a_role_dropped_after_intake_fails_the_bundle_loudly(
 
     payload = dict(_GEN_PAYLOAD)
     payload["client_name"] = "Role Integrity Test Co"
+    # the same intake also validates the wizard's category picks (pinned below)
+    payload["job_categories"] = ["warehouse_logistics", "not_a_category"]
     payload["target_roles"] = [
         "Maintenance Technician",
         "Drive Unit Supervisor",
@@ -218,6 +220,8 @@ def test_a_role_dropped_after_intake_fails_the_bundle_loudly(
         assert status == 200, raw[:400]
         result = _poll_until_done(live_server, json.loads(raw)["job_id"], timeout=60)
 
+    picks = [r.getMessage() for r in caplog.records if "Unknown job categories" in r.getMessage()]
+    assert picks and "not_a_category" in picks[-1], "intake did not validate the picks"
     intake = [r.getMessage() for r in caplog.records if "intake roles" in r.getMessage()]
     assert intake, "no intake roles log line"
     assert "4 role(s)" in intake[-1]
@@ -232,6 +236,15 @@ def test_a_role_dropped_after_intake_fails_the_bundle_loudly(
         if f.get("code") == "input_role_missing"
     ]
     assert msgs and all("Battery Supervisor" in m for m in msgs)
+
+
+def test_the_app_fallback_reports_a_missing_role_when_the_gate_itself_raises():
+    data = {"input_roles": list(FOUR_ROLES), "target_roles": FOUR_ROLES[:3]}
+    with mock.patch.object(bundle_qa, "gate_bundle", side_effect=RuntimeError("x")):
+        _p, _x, summary = app_module._run_bundle_qa_gate(None, None, data, "job-y")
+    assert summary is not None, "a raising gate hid a missing role as 'clean'"
+    assert summary["qa_status"] == "critical"
+    assert "input_role_missing" in summary["codes"]
 
 
 def test_client_cannot_supply_its_own_intake_list():
