@@ -176,9 +176,13 @@ def _run_deferred_startup() -> None:
         logger.warning("[wsgi] Dashboard widgets pre-warm failed: %s", widgets_err)
 
     # Retrieval warm-up, in the master BEFORE fork: build BM25 + TF-IDF over
-    # the KB (text only, ~0.1 s / ~40 MB, shared copy-on-write and frozen by
-    # gc.freeze below) and arm the Qdrant tier with one read-only GET that
-    # also runs the embedding-dimension guard. Workers inherit both, so
+    # the KB (text only, ~0.1 s) and arm the Qdrant tier with one read-only
+    # GET that also runs the embedding-dimension guard. MEMORY: the indexes
+    # retain ~30 MB, and that is PER PROCESS (master + each worker), not
+    # shared -- reference-count writes on read access copy the pages into
+    # each worker despite gc.freeze() below. The warm-up log line reports the
+    # measured keyword_index_mb_per_process for reading Render memory
+    # against. Workers inherit both the indexes and the armed tier, so
     # search() runs hybrid RRF (and keeps a keyword fallback if Voyage or
     # Qdrant fail) from the first request, and /api/deploy/ready reports the
     # same state on every worker instead of only on one that already served
@@ -207,7 +211,10 @@ def _run_deferred_startup() -> None:
     # shared pages anyway, giving back most of the pre-load saving over the
     # first few generations. gc.freeze() moves every live object into the
     # permanent generation, which later collections never traverse, so the
-    # pages stay shared. The collect() first clears what is already garbage
+    # pages stay shared FROM THE GC's SIDE. It does not stop reference-count
+    # writes: data that is read on hot paths (the retrieval keyword indexes
+    # above are the measured case, ~30 MB copied per worker) still gets
+    # privately copied as it is touched. The collect() first clears what is already garbage
     # so it is not frozen in place. Without --preload this runs per worker,
     # where it is harmless (the data is long-lived either way). Python 3.7+.
     try:

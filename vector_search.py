@@ -80,6 +80,7 @@ import logging
 import math
 import os
 import re
+import sys
 import ssl
 import tempfile
 import threading
@@ -483,12 +484,15 @@ _QDRANT_TIMEOUT = 15  # seconds
 _qdrant_available: bool = False  # set True after successful collection create/verify
 _qdrant_lock = threading.Lock()
 
-# ── Lazy per-process Qdrant attach ───────────────────────────────────────────
+# ── Per-process Qdrant attach ────────────────────────────────────────────────
 # gunicorn --preload forks workers from the master AFTER wsgi.py's startup
-# sequence has already run there; module globals (including _qdrant_available)
-# do not cross fork(), so a freshly forked worker's flag reads False even
-# though the collection is fully populated and shared. _qdrant_attach() lets
-# the FIRST search() in each process re-derive availability itself.
+# sequence has run there. Module globals DO cross fork(): each worker starts
+# with a copy of the master's values at fork time (and never sees the master's
+# later changes). wsgi.py relies on that: warm_retrieval() arms
+# _qdrant_available (and builds BM25/TF-IDF) in the master pre-fork, so every
+# worker inherits an armed tier. If the master's attach failed, the inherited
+# flag is False and _qdrant_attach() lets the first search()/probe in each
+# worker retry (the after-fork hook clears the inherited retry cooldown).
 _qdrant_attach_lock = threading.Lock()
 _qdrant_attach_last_attempt: float = 0.0
 _QDRANT_ATTACH_COOLDOWN_S = 60.0
@@ -502,6 +506,9 @@ _QDRANT_ATTACH_COOLDOWN_S = 60.0
 _qdrant_attach_pid: int | None = None
 _qdrant_attach_source: str | None = None
 _qdrant_attach_attempts: int = 0
+# search_method actually returned by search() in THIS process ("none" = empty
+# result); reset after fork so each worker reports only its own traffic.
+_search_methods_served: dict[str, int] = {}
 # Qdrant currently holds duplicate points per doc_id (build_index's point ids
 # are derived from abs(hash(entry["id"])), and str hashing is randomized
 # per-process with PYTHONHASHSEED unset) -- over-fetch then dedupe client-side
@@ -1379,12 +1386,11 @@ def _deterministic_point_id(doc_id: str) -> int:
 def _qdrant_attach(source: str = "search", timeout: int = _QDRANT_TIMEOUT) -> bool:
     """Arm THIS process's Qdrant tier (first search, probe, or boot warm-up). Read-only.
 
-    gunicorn --preload forks workers after wsgi.py has already run startup in
-    the master; module globals do not cross fork(), so a worker's
-    _qdrant_available stays False for its whole life while _get_vector_results
-    skips a collection that is fully populated and process-shared over HTTP.
-    Re-derive it here per process: one GET /collections, no embedding call,
-    no write, no rate-limit-window usage.
+    Normally the master arms the flag pre-fork (wsgi.warm_retrieval) and each
+    worker inherits it, since module globals are copied into the child at
+    fork. This is the fallback for a process that is not armed: a worker whose
+    master's warm-up attach failed, the dev server, or a test. One GET
+    /collections, no embedding call, no write, no rate-limit-window usage.
 
     Deliberately does NOT call _qdrant_ensure_collection() -- its create
     branch PUTs a brand-new EMPTY collection when the active name doesn't
@@ -1469,6 +1475,7 @@ def _after_fork_in_child() -> None:
     global _qdrant_attach_last_attempt, _qdrant_attach_attempts
     _qdrant_attach_last_attempt = 0.0
     _qdrant_attach_attempts = 0
+    _search_methods_served.clear()
 
 
 if hasattr(os, "register_at_fork"):  # POSIX; gunicorn forks workers this way
@@ -1482,7 +1489,9 @@ def qdrant_attach_state() -> dict[str, Any]:
     return {
         "pid": pid,
         "configured": _qdrant_is_configured(),
-        "attached_in_this_worker": attached,
+        # "armed", not "attached": true on a worker that has served zero
+        # requests when it inherited the master's pre-fork attach.
+        "armed_in_this_worker": attached,
         "attach_attempted_in_this_worker": _qdrant_attach_attempts > 0,
         "attempts_in_this_worker": _qdrant_attach_attempts,
         "attached_by_pid": _qdrant_attach_pid if attached else None,
@@ -3167,6 +3176,20 @@ def search_bounded(query: str, top_k: int = 5, timeout_s: float = 3.0) -> list[d
 
 
 def search(query: str, top_k: int = 5) -> list[dict]:
+    """Hybrid search (see _search_unrecorded) that records the method served.
+
+    Increments this process's ``_search_methods_served`` counter with the
+    ``search_method`` of the first result ("none" when empty), so
+    /api/deploy/ready can show what retrieval actually ran, not only what the
+    configured indexes would allow.
+    """
+    results = _search_unrecorded(query, top_k=top_k)
+    method = (results[0].get("search_method") if results else None) or "none"
+    _search_methods_served[method] = _search_methods_served.get(method, 0) + 1
+    return results
+
+
+def _search_unrecorded(query: str, top_k: int = 5) -> list[dict]:
     """Hybrid search across indexed documents (vector + BM25 via RRF).
 
     Combines semantic vector similarity with BM25 keyword matching using
@@ -3190,9 +3213,8 @@ def search(query: str, top_k: int = 5) -> list[dict]:
     """
     fetch_k = top_k * 2  # Fetch 2x from each source for better RRF fusion
 
-    # Lazy first-touch: a forked gunicorn worker's _qdrant_available starts
-    # False even though the collection is fully populated and shared over
-    # HTTP (module globals don't cross fork()). Cheap no-op once attached.
+    # Fallback first-touch for a process not armed by the pre-fork warm-up
+    # (master attach failed, dev server). Cheap no-op once attached.
     _qdrant_attach()
     qdrant_payloads: dict[str, dict] = {}
 
@@ -3363,6 +3385,45 @@ def index_knowledge_base() -> int:
     return len(documents)
 
 
+def _deep_sizeof(*roots: Any) -> int:
+    """Bytes held by ``roots`` and everything they reference (deduped by id).
+
+    Walks dicts, lists, tuples, sets and plain objects' ``__dict__``; locks
+    and other opaque objects count only their own size. Used once at boot.
+    """
+    seen: set[int] = set()
+    stack = list(roots)
+    total = 0
+    while stack:
+        obj = stack.pop()
+        oid = id(obj)
+        if oid in seen:
+            continue
+        seen.add(oid)
+        total += sys.getsizeof(obj)
+        if isinstance(obj, dict):
+            stack.extend(obj.keys())
+            stack.extend(obj.values())
+        elif isinstance(obj, (list, tuple, set, frozenset)):
+            stack.extend(obj)
+        elif hasattr(obj, "__dict__") and not isinstance(obj, type):
+            stack.append(vars(obj))
+    return total
+
+
+def keyword_index_footprint_mb() -> float:
+    """Retained size of the BM25 + TF-IDF indexes in THIS process, in MB."""
+    size = _deep_sizeof(
+        _bm25_index,
+        _tfidf_index,
+        _tfidf_idf,
+        _tfidf_doc_texts,
+        _tfidf_doc_ids,
+        _tfidf_doc_meta,
+    )
+    return round(size / (1024 * 1024), 1)
+
+
 # Keyword-index warm-up state (build_keyword_indexes), for health endpoints.
 _keyword_indexes_built_by: str | None = None  # "warmup" | "build_index" | None
 _keyword_indexes_error: str | None = None
@@ -3376,8 +3437,12 @@ def build_keyword_indexes(source: str = "warmup") -> int:
     ONLY place the keyword indexes were built -- so prod had no hybrid RRF,
     no BM25-only fallback when Voyage or Qdrant failed, and nothing for
     _resolve_doc to fall back on. This builds just the keyword side (~0.1 s
-    and ~40 MB for ~6.2k chunks). Run it in the gunicorn master before fork
-    (wsgi.py) so the workers share the pages copy-on-write.
+    for ~6.2k chunks; ~30 MB retained). Run in the gunicorn master before
+    fork (wsgi.py) so workers start with the indexes built -- but they are
+    NOT shared memory in practice: reference-count writes on read access
+    (one BM25 search touches ~16 MB of objects) copy the pages into each
+    worker, gc.freeze() notwithstanding. Budget ~30 MB PER PROCESS (master +
+    each worker); the warm-up log line reports the measured footprint.
 
     Returns:
         Number of documents in the BM25 index (0 on failure; never raises).
@@ -3403,7 +3468,8 @@ def warm_retrieval(attach_timeout: int = 5) -> dict[str, Any]:
     """Boot-time retrieval warm-up: keyword indexes, then a read-only attach.
 
     Called once from wsgi.py in the gunicorn master before fork, so every
-    worker starts with BM25/TF-IDF built and (when Qdrant is configured and
+    worker starts with BM25/TF-IDF built (each process then holds its own
+    ~30 MB copy, see build_keyword_indexes) and (when Qdrant is configured and
     the collection passes the dim guard) the Qdrant tier already armed --
     /api/deploy/ready then reports the same thing on every worker from the
     first request instead of only on one that has served a search. The dim
@@ -3424,6 +3490,8 @@ def warm_retrieval(attach_timeout: int = 5) -> dict[str, Any]:
     summary = {
         "bm25_documents": bm25_docs,
         "tfidf_built": _tfidf_built,
+        # Per process, not shared: see build_keyword_indexes.
+        "keyword_index_mb_per_process": keyword_index_footprint_mb(),
         "qdrant_configured": _qdrant_is_configured(),
         "qdrant_attached": attached,
         "dim_guard": _qdrant_dim_guard,
@@ -3795,8 +3863,18 @@ def get_status() -> dict:
         round(time.monotonic() - last_flush, 2) if last_flush > 0 else None
     )
 
+    # Vector/hybrid only run when a query can actually be embedded: an armed
+    # Qdrant tier with no embedding key serves BM25 on every request.
+    embedder_configured = (
+        bool(_get_gemini_api_key())
+        if get_embedding_provider() == EMBEDDING_PROVIDER_GEMINI
+        else has_key
+    )
+    vector_capable = (_index_built or _qdrant_available) and embedder_configured
     return {
         "voyage_configured": has_key,
+        "embedder_configured": embedder_configured,
+        "search_methods_served": dict(_search_methods_served),
         "qdrant_available": _qdrant_available,
         "index_size": len(_index),
         "index_built": _index_built,
@@ -3805,10 +3883,10 @@ def get_status() -> dict:
         "bm25_vocab_size": len(_bm25_index.doc_freqs),
         "search_mode": (
             "hybrid_rrf"
-            if (_index_built or _qdrant_available) and _bm25_index.is_built
+            if vector_capable and _bm25_index.is_built
             else (
                 "vector"
-                if _index_built or _qdrant_available
+                if vector_capable
                 else ("bm25" if _bm25_index.is_built else "tfidf")
             )
         ),

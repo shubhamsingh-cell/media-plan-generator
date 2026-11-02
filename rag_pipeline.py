@@ -942,8 +942,14 @@ class QdrantRESTStore(_VectorStore):
             size, _distance, _named = vector_search._qdrant_vector_params(
                 info.get("result")
             )
-            if size is None or size == self._dim:
+            if size is None:
+                # Unverifiable config is not a proven mismatch: serve, and
+                # leave _dim_ok None so the next search re-checks.
+                return
+            if size == self._dim:
                 self._dim_ok = True
+                if (_rag_dim_guard or {}).get("collection") == self._collection:
+                    _rag_dim_guard = None  # a matching store supersedes it
                 return
             self._dim_ok = False
             _rag_dim_guard = {

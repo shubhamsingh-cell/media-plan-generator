@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import logging
 import sys
 from pathlib import Path
@@ -50,6 +51,16 @@ def test_set_key_logs_nothing(
 
 
 def test_wsgi_boot_calls_it() -> None:
-    src = (PROJECT_ROOT / "wsgi.py").read_text("utf-8")
-    body = src[src.index("def _run_deferred_startup") : src.index("class _FakeSocket")]
-    assert "log_freshness_status_once()" in body
+    """A real call in _run_deferred_startup (AST: a commented-out call fails)."""
+    tree = ast.parse((PROJECT_ROOT / "wsgi.py").read_text("utf-8"))
+    fn = next(
+        n for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "_run_deferred_startup"
+    )
+    calls = [
+        n for n in ast.walk(fn)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == "log_freshness_status_once"
+    ]
+    assert len(calls) == 1

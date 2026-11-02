@@ -1861,7 +1861,13 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
                 "error": _status["keyword_indexes_error"],
                 "hybrid_id_text_mismatches": _status["hybrid_id_text_mismatches"],
             },
+            # search_mode is what the configured tiers allow (vector/hybrid
+            # need an armed tier AND an embedding key); search_methods_served
+            # is what THIS worker's search() calls actually returned since it
+            # forked, e.g. {"hybrid_rrf": 40, "bm25": 2, "none": 1}.
             "search_mode": _status["search_mode"],
+            "embedder_configured": _status["embedder_configured"],
+            "search_methods_served": _status["search_methods_served"],
             "can_retrieve": bool(
                 _vs._qdrant_available
                 or _vs._index

@@ -11,6 +11,7 @@ rag_pipeline.  No network: every Qdrant/Voyage boundary is faked.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import sys
@@ -79,6 +80,8 @@ def clean_retrieval_state(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(vs, "_last_qdrant_error", None)
     monkeypatch.setattr(vs, "_QDRANT_URL", "https://qdrant.invalid")
     monkeypatch.setattr(vs, "_QDRANT_API_KEY", "test-key")
+    monkeypatch.setattr(vs, "_get_api_key", lambda: "test-voyage-key")
+    monkeypatch.setattr(vs, "_search_methods_served", {})
 
 
 # ---------------------------------------------------------------------------
@@ -145,11 +148,30 @@ def test_keyword_build_failure_is_reported_not_raised(
     assert vs._bm25_index.is_built is False
 
 
+def _startup_call_lines(attr: str) -> List[int]:
+    """Line numbers of real calls ``<x>.<attr>(...)`` in _run_deferred_startup.
+
+    AST, not text: a commented-out or string-only mention does not count.
+    """
+    tree = ast.parse((PROJECT_ROOT / "wsgi.py").read_text("utf-8"))
+    fn = next(
+        n for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "_run_deferred_startup"
+    )
+    return [
+        n.lineno
+        for n in ast.walk(fn)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == attr
+    ]
+
+
 def test_wsgi_runs_retrieval_warm_up_before_gc_freeze() -> None:
-    src = (PROJECT_ROOT / "wsgi.py").read_text("utf-8")
-    body = src[src.index("def _run_deferred_startup") :]
-    warm = body.index("warm_retrieval(")
-    assert warm < body.index("_gc.freeze()"), "warm-up must run pre-fork, before freeze"
+    warm = _startup_call_lines("warm_retrieval")
+    freeze = _startup_call_lines("freeze")
+    assert len(warm) == 1, "wsgi startup must call warm_retrieval() exactly once"
+    assert freeze and warm[0] < min(freeze), "warm-up must run pre-fork, before freeze"
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +194,7 @@ def test_after_fork_resets_counters_and_keeps_inherited_attach(
     assert vs._qdrant_attach_last_attempt == 0.0
     assert state["attempts_in_this_worker"] == 0
     assert state["attach_attempted_in_this_worker"] is False
-    assert state["attached_in_this_worker"] is True
+    assert state["armed_in_this_worker"] is True
     assert state["inherited_from_parent"] is True
     assert state["attach_source"] == "warmup"
 
@@ -194,7 +216,8 @@ def test_fork_hook_is_registered_for_real_forks(
                 "attempts": st["attempts_in_this_worker"],
                 "last": vs._qdrant_attach_last_attempt,
                 "inherited": st["inherited_from_parent"],
-                "attached": st["attached_in_this_worker"],
+                "attached": st["armed_in_this_worker"],
+                "by_pid": st["attached_by_pid"],
             }
             os.write(w, json.dumps(payload).encode())
         finally:
@@ -209,7 +232,13 @@ def test_fork_hook_is_registered_for_real_forks(
     os.close(r)
     os.waitpid(pid, 0)
     child = json.loads(data)
-    assert child == {"attempts": 0, "last": 0.0, "inherited": True, "attached": True}
+    assert child == {
+        "attempts": 0,
+        "last": 0.0,
+        "inherited": True,
+        "attached": True,
+        "by_pid": os.getpid(),  # the parent ("master") pid, not the child's
+    }
     assert vs._qdrant_attach_attempts == 2  # parent untouched
 
 
@@ -239,7 +268,8 @@ def test_deploy_ready_on_a_warmed_worker_reports_inherited_hybrid(
     monkeypatch.setattr(vs, "_qdrant_request", fake)
     vs.warm_retrieval()
     # Pretend this request is served by a worker forked after that warm-up.
-    monkeypatch.setattr(vs, "_qdrant_attach_pid", os.getpid() + 1)
+    master_pid = os.getpid() + 1
+    monkeypatch.setattr(vs, "_qdrant_attach_pid", master_pid)
     vs._after_fork_in_child()
     fake.calls.clear()
 
@@ -250,9 +280,10 @@ def test_deploy_ready_on_a_warmed_worker_reports_inherited_hybrid(
     assert retrieval["search_mode"] == "hybrid_rrf"
     assert retrieval["can_retrieve"] is True
     attach = retrieval["qdrant_attach"]
-    assert attach["attached_in_this_worker"] is True
+    assert attach["armed_in_this_worker"] is True
     assert attach["inherited_from_parent"] is True
     assert attach["attach_source"] == "warmup"
+    assert attach["attached_by_pid"] == master_pid != attach["pid"]
     assert attach["attach_attempted_in_this_worker"] is False
     assert retrieval["keyword_indexes"]["built_by"] == "warmup"
     assert retrieval["keyword_indexes"]["error"] is None
@@ -455,3 +486,107 @@ def test_rag_retrieve_degrades_to_bm25_when_guard_refuses(rag_guard_reset: None)
         hits = pipe.retrieve("nursing cost per application", top_k=3)
     assert [h.doc_id for h in hits] == ["d1"]
     assert rp._rag_dim_guard is not None
+
+
+# ---------------------------------------------------------------------------
+# search_mode must reflect what can actually run; served methods are counted
+# ---------------------------------------------------------------------------
+
+
+def test_search_mode_is_bm25_when_no_embedding_key_even_if_qdrant_armed(
+    clean_retrieval_state: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(vs, "_qdrant_request", _FakeQdrant())
+    vs.warm_retrieval()
+    assert vs._qdrant_available is True
+    monkeypatch.setattr(vs, "_get_api_key", lambda: None)
+    status = vs.get_status()
+    assert status["embedder_configured"] is False
+    assert status["search_mode"] == "bm25"
+    # ...and that is what search() actually serves.
+    results = vs.search("LinkedIn sponsored jobs CPC", top_k=3)
+    assert results and {r["search_method"] for r in results} == {"bm25"}
+    assert vs.get_status()["search_methods_served"] == {"bm25": 1}
+
+
+def test_search_methods_served_counts_per_call_and_resets_after_fork(
+    clean_retrieval_state: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    text = "[f.json] nursing\nnote: nursing cpc benchmark is high"
+    _hybrid_search(monkeypatch, text, text)
+    vs.search("nursing cpc benchmark", top_k=5)
+    monkeypatch.setattr(vs, "_bm25_index", vs.BM25Index())
+    monkeypatch.setattr(vs, "_qdrant_search", lambda vec, top_k=5: [])
+    vs.search("zzzz qqqq", top_k=5)  # nothing anywhere
+    assert vs.get_status()["search_methods_served"] == {"hybrid_rrf": 2, "none": 1}
+    vs._after_fork_in_child()
+    assert vs.get_status()["search_methods_served"] == {}
+
+
+def test_deploy_ready_exposes_served_methods(
+    clean_retrieval_state: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(vs, "_qdrant_request", _FakeQdrant())
+    monkeypatch.setattr(vs, "_search_methods_served", {"bm25": 3})
+    retrieval = _probe(monkeypatch).payload["retrieval"]
+    assert retrieval["search_methods_served"] == {"bm25": 3}
+    assert retrieval["embedder_configured"] is True
+
+
+def test_warm_up_reports_the_per_process_index_footprint(
+    clean_retrieval_state: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(vs, "_qdrant_request", _FakeQdrant(down=True))
+    summary = vs.warm_retrieval()
+    assert 5.0 < summary["keyword_index_mb_per_process"] < 200.0
+
+
+# ---------------------------------------------------------------------------
+# RAG guard: transient and unreadable reads are retried, matches clear it
+# ---------------------------------------------------------------------------
+
+
+def test_rag_guard_retries_after_a_transient_read_error(rag_guard_reset: None) -> None:
+    store = rp.QdrantRESTStore(url="https://qdrant.invalid", api_key="k", dim=1024)
+    replies = [rp._RestError("HTTP 503"), _collection_info(1024)]
+    gets: List[str] = []
+
+    def _get(url, headers, method="GET", **_kw):
+        gets.append(method)
+        reply = replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    ok = {"result": {"points": [{"id": "a", "score": 0.5}]}}
+    with mock.patch.object(rp, "_http_json", _get), mock.patch.object(
+        rp, "_http_post_json", return_value=ok
+    ):
+        assert store.search([0.0] * 1024, 5) == [("a", 0.5)]  # fail open
+        assert store._dim_ok is None  # not latched by the transient error
+        assert store.search([0.0] * 1024, 5) == [("a", 0.5)]
+    assert gets == ["GET", "GET"] and store._dim_ok is True
+
+
+def test_rag_guard_unreadable_config_is_not_latched(rag_guard_reset: None) -> None:
+    store = rp.QdrantRESTStore(url="https://qdrant.invalid", api_key="k", dim=1024)
+    ok = {"result": {"points": []}}
+    with mock.patch.object(rp, "_http_json", return_value={"result": {}}), mock.patch.object(
+        rp, "_http_post_json", return_value=ok
+    ):
+        store.search([0.0] * 1024, 5)
+    assert store._dim_ok is None and rp._rag_dim_guard is None
+
+
+def test_rag_guard_is_cleared_by_a_later_matching_store(rag_guard_reset: None) -> None:
+    bad = rp.QdrantRESTStore(url="https://qdrant.invalid", api_key="k", dim=128)
+    good = rp.QdrantRESTStore(url="https://qdrant.invalid", api_key="k", dim=1024)
+    ok = {"result": {"points": []}}
+    with mock.patch.object(rp, "_http_json", return_value=_collection_info(1024)), mock.patch.object(
+        rp, "_http_post_json", return_value=ok
+    ):
+        with pytest.raises(rp._RestError):
+            bad.search([0.0] * 128, 5)
+        assert rp._rag_dim_guard is not None
+        good.search([0.0] * 1024, 5)
+    assert rp._rag_dim_guard is None
