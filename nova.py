@@ -2216,6 +2216,56 @@ def _kb_result_without_barred_boards(result: Any) -> Any:
     return out
 
 
+def _plan_money_formatter(result: Any) -> Any:
+    """Whole-unit money formatter in the currency a projection's figures are
+    in (``result["currency"]``), never a hardcoded "$"."""
+    code = (result or {}).get("currency") if isinstance(result, dict) else None
+    symbol = _currency_symbol(code)
+    return lambda v: f"{symbol}{v:,.0f}"
+
+def _localize_publisher_names(
+    result: Dict[str, Any], names: List[str], country: str, category: str
+) -> List[str]:
+    """``names`` cut to the boards the supply repository confirms as in the
+    Joveo network for ``country``, in the media plan's local-relevance order
+    (channel_funding). A category listing used to print the whole global
+    category for any market (US healthcare boards for the UAE).
+
+    Records on ``result``: ``country``; ``not_confirmed_for_country`` (how
+    many category boards were dropped); and, when none is left, a ``note``
+    plus ``best_local_boards`` (the market's top funded boards).
+    """
+    kept = [
+        n
+        for n in names
+        if publisher_filter.board_supply_record(n, country)["state"]
+        == publisher_filter.SUPPLY_IN_NETWORK
+    ]
+    try:
+        kept = channel_funding.rank_names(kept, country)
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        logger.error("local-relevance ordering failed", exc_info=True)
+    result["country"] = country
+    dropped = len(names) - len(kept)
+    if dropped:
+        result["not_confirmed_for_country"] = dropped
+    if not kept:
+        result["note"] = (
+            f"No {category} boards are confirmed in the Joveo network for "
+            f"{country}; the best general boards there are listed instead."
+        )
+        try:
+            result["best_local_boards"] = [
+                b["name"]
+                for b in channel_funding.funding_order({}, country)[
+                    : channel_funding.FUNDED_BOARD_COUNT
+                ]
+            ]
+        except (AttributeError, KeyError, OSError, TypeError, ValueError):
+            logger.error("best local boards unavailable", exc_info=True)
+    return kept
+
+
 def _currency_symbol(currency_code: Optional[str]) -> str:
     """Return display symbol for a currency code, defaulting to '$'."""
     if not currency_code:
@@ -9049,6 +9099,10 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     pubs_list, _pf_data, _pf_country
                 )
                 result["category"] = cat_key
+                if _pf_country:
+                    pubs_list = _localize_publisher_names(
+                        result, pubs_list, _pf_country, cat_key
+                    )
                 result["publishers"] = pubs_list
                 result["count"] = len(pubs_list)
             else:
@@ -9097,6 +9151,18 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _industry_matches = publisher_filter.clean_items(
                     _industry_matches, _pf_data, country=_pf_country
                 )
+                if _industry_matches and _pf_country:
+                    _keep = set(
+                        _localize_publisher_names(
+                            result,
+                            [m["name"] for m in _industry_matches],
+                            _pf_country,
+                            category,
+                        )
+                    )
+                    _industry_matches = [
+                        m for m in _industry_matches if m["name"] in _keep
+                    ]
                 if _industry_matches:
                     result["category"] = category
                     result["publishers"] = [m["name"] for m in _industry_matches]
@@ -9113,6 +9179,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 pubs = publisher_filter.clean_names(
                     by_country[country_resolved], _pf_data, country_resolved
                 )
+                # the media plan's local-relevance order (channel_funding)
+                try:
+                    pubs = channel_funding.rank_names(pubs, country_resolved)
+                except (AttributeError, KeyError, OSError, TypeError, ValueError):
+                    logger.error("local-relevance ordering failed", exc_info=True)
                 result["country"] = country_resolved
                 result["publishers"] = pubs
                 result["count"] = len(pubs)
@@ -10899,7 +10970,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 import channel_funding as _cf
 
                 _zero_note = _cf.zero_hire_summary(
-                    result, False, lambda v: f"${v:,.0f}"
+                    result, False, _plan_money_formatter(result)
                 )
                 if _zero_note:
                     result["zero_hire_channels_note"] = _zero_note
@@ -13068,15 +13139,31 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         def _run_search() -> None:
             """Execute search in thread for timeout control."""
             try:
-                from tavily_search import search as tavily_search_fn
+                import tavily_search as _ts
 
-                results = tavily_search_fn(query, max_results=5)
+                results = _ts.search(query, max_results=5)
                 if results:
-                    _search_result[0] = {
-                        "results": results,
-                        "source": "tavily",
-                        "query": query,
-                    }
+                    # tavily_search.search falls back to Jina AI / DuckDuckGo
+                    # on its own; without a key those are the only tiers that
+                    # can have answered, so the hits are not labelled Tavily.
+                    if _ts._get_api_key():
+                        _search_result[0] = {
+                            "results": results,
+                            "source": "tavily",
+                            "query": query,
+                        }
+                    else:
+                        _search_result[0] = {
+                            "results": results,
+                            "source": "web_fallback",
+                            "query": query,
+                            "provider_note": (
+                                "Tavily is not configured, so these results "
+                                "come from the Jina AI / DuckDuckGo fallback "
+                                "and may be thin or dated: say so when "
+                                "citing them."
+                            ),
+                        }
                     return
 
                 # Fallback to web scraper router
@@ -13123,7 +13210,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "results": [],
                 "source": "none",
                 "query": query,
-                "note": "Web search unavailable",
+                "note": (
+                    "Live web search is unavailable, so current information "
+                    "could not be retrieved. Say so plainly; do not present "
+                    "knowledge-base or remembered facts as current news."
+                ),
                 "error": "search_failed",
             }
 
@@ -13134,7 +13225,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "results": [],
             "source": "none",
             "query": query,
-            "note": "Web search returned no results",
+            "note": (
+                "Live web search returned nothing, so current information "
+                "could not be retrieved. Say so plainly; do not present "
+                "knowledge-base or remembered facts as current news."
+            ),
         }
 
     def _knowledge_search(self, params: dict) -> dict:
@@ -21155,14 +21250,18 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             _llm_model = _synth_result.get("model") or "unknown"
         except Exception as _llm_err:
             logger.warning("Direct dispatch: LLM synthesis failed: %s", _llm_err)
-            # Fallback: format the raw result
-            _synth_text = f"## {tool_label} Results\n\n```json\n{json.dumps(tool_result, indent=2)[:2000]}\n```"
+            _synth_text = ""
             _llm_provider = "none (raw)"
             _llm_model = "none"
 
-        if not _synth_text:
-            # LLM returned empty -- use raw format
-            _synth_text = f"## {tool_label} Results\n\n```json\n{json.dumps(tool_result, indent=2)[:2000]}\n```"
+        # No writing model: the tool's data as plain lines in the market's
+        # currency (never the raw JSON with its internal instructions), and the
+        # answer is not cached, so it is not replayed once a model is back.
+        _degraded = not _synth_text
+        if _degraded:
+            _synth_text = _render_tool_data_plain(tool_label, tool_result)
+            _llm_provider = "none (raw)"
+            _llm_model = "none"
 
         _elapsed = time.time() - t0
         logger.info(
@@ -21187,10 +21286,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # Verify BEFORE caching (see the router route in chat()).
         _result = self._apply_t3_postprocessing(_result, user_message) or _result
 
-        # Cache successful direct dispatch results
-        if cache_key:
+        # Cache successful direct dispatch results (never a degraded one)
+        if cache_key and not _degraded:
             _set_response_cache(cache_key, _result)
-        _intelligent_cache_set(user_message, _result, history)
+        if not _degraded:
+            _intelligent_cache_set(user_message, _result, history)
 
         return _append_follow_ups_to_response(
             _enrich_response_quality(
@@ -25691,6 +25791,100 @@ def _record_ab_test_result(
         logger.debug("AB Test: failed to record result: %s", e)
 
 
+# Keys a tool result carries for the model, never for the reader.
+_PLAIN_RENDER_SKIP_KEYS = frozenset(
+    {
+        "currency",
+        "currency_symbol",
+        "currency_note",
+        "usd_rate",
+        "presentation_note",
+        "plan_projection_note",
+        "source",
+        "sources",
+        "data_confidence",
+        "last_updated",
+        "industry",
+    }
+)
+_PLAIN_RENDER_MONEY_HINTS = ("cpc", "cpa", "cph", "cost", "salary", "budget", "spend", "price", "cpm")
+_PLAIN_RENDER_NAMES = {
+    "indeed": "Indeed",
+    "linkedin": "LinkedIn",
+    "ziprecruiter": "ZipRecruiter",
+    "glassdoor": "Glassdoor",
+    "cpc": "CPC",
+    "cpa": "CPA",
+    "cph": "CPH",
+    "30d": "30 days",
+}
+
+
+def _plain_label(key: Any) -> str:
+    words = str(key).replace("-", "_").split("_")
+    return " ".join(_PLAIN_RENDER_NAMES.get(w.lower(), w.capitalize()) for w in words if w)
+
+
+def _plain_value(value: Any, money: bool, symbol: str) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, (int, float)) and money:
+        return f"{symbol}{value:,.2f}" if abs(value) < 100 else f"{symbol}{value:,.0f}"
+    if isinstance(value, float):
+        return f"{value:,.2f}"
+    if isinstance(value, int):
+        return f"{value:,}"
+    return str(value)
+
+
+def _render_tool_data_plain(tool_label: str, tool_result: Any) -> str:
+    """A tool result as short markdown lines, for when no writing model is up.
+
+    Money fields carry the result's own currency symbol; fields meant for the
+    model (currency instructions, exchange rates, internal ``_`` keys) are left
+    out. Nested data is shown one level deep; at most 25 lines.
+    """
+    lines = [
+        f"**{tool_label or 'Tool'}**",
+        "",
+        "_Nova's writing model is unavailable right now, so this is the "
+        "tool's data without commentary._",
+        "",
+    ]
+    if not isinstance(tool_result, dict):
+        lines.append(str(tool_result)[:1500])
+        return "\n".join(lines)
+    symbol = str(tool_result.get("currency_symbol") or "") or _currency_symbol(
+        tool_result.get("currency")
+    )
+    shown = 0
+    for key, value in tool_result.items():
+        if shown >= 25:
+            break
+        k = str(key)
+        if k.startswith("_") or k in _PLAIN_RENDER_SKIP_KEYS or value in (None, "", [], {}):
+            continue
+        money = any(h in k.lower() for h in _PLAIN_RENDER_MONEY_HINTS)
+        if isinstance(value, dict):
+            parts = [
+                f"{_plain_label(sk)} {_plain_value(sv, money, symbol)}"
+                for sk, sv in value.items()
+                if not str(sk).startswith("_") and isinstance(sv, (str, int, float, bool))
+            ]
+            if not parts:
+                continue
+            lines.append(f"- {_plain_label(k)}: " + ", ".join(parts))
+        elif isinstance(value, list):
+            items = [str(v) for v in value if isinstance(v, (str, int, float))][:10]
+            if not items:
+                continue
+            lines.append(f"- {_plain_label(k)}: " + ", ".join(items))
+        else:
+            lines.append(f"- {_plain_label(k)}: {_plain_value(value, money, symbol)}")
+        shown += 1
+    return "\n".join(lines)
+
+
 def _enrich_response_quality(response: dict, user_message: str = "") -> dict:
     """Post-process LLM response to ensure quality formatting and data richness.
 
@@ -25745,23 +25939,10 @@ def _enrich_response_quality(response: dict, user_message: str = "") -> dict:
         marker in text for marker in ["##", "**", "- ", "| ", "```", "1. ", "2. "]
     )
     if not has_markdown and len(text) > 200:
-        # Add bold to numbers that look like metrics (e.g., $85,000 or 45%)
-        text = re.sub(
-            r"(\$[\d,]+(?:\.\d{2})?(?:K|M|B)?)",
-            r"**\1**",
-            text,
-        )
-        text = re.sub(
-            r"(\d+(?:\.\d+)?%)",
-            r"**\1**",
-            text,
-        )
-        # Add bold to CPC/CPA/CPH values
-        text = re.sub(
-            r"((?:CPC|CPA|CPH|CPM|ROI|ROAS)\s*(?:of|is|:)?\s*\$?[\d,.]+)",
-            r"**\1**",
-            text,
-        )
+        # Bold whole metric figures (e.g., $85,000 or 45%) -- the same
+        # span-aware rule as _enrich_markdown_formatting, so a sign, a K/M/B
+        # suffix or a range end is never split out of the bold.
+        text = _outside_code_and_bold(text, _bold_metric_figures)
         changed = True
 
     # 2. If tools were used but no source citations in text, append them
@@ -27459,6 +27640,7 @@ def _canonicalize_source(raw_source: str) -> str:
 # Marker used to keep _build_citations_block idempotent (so post-processing
 # doesn't double-append the block when chained through follow-ups + filters).
 _T3_CITATIONS_MARKER = "<!-- t3-citations -->"
+_RE_CITATIONS_BLOCK_HEAD = re.compile(r"^\*\*Sources\*\* _\(", re.M)
 
 
 def _build_citations_block(sources: Any, today_iso: str = "") -> str:
@@ -27957,14 +28139,27 @@ def _format_publisher_response(data: dict) -> str:
             parts.append(f"- *{m['name']}* (Category: {m['category']})")
     elif "publishers" in data:
         pubs = data["publishers"]
-        label = data.get("country", data.get("category") or "")
-        parts.append(
-            f"*Joveo Publishers{' in ' + label if label else ''} ({data.get('count', len(pubs))} publishers)*\n"
-        )
-        for p in pubs[:15]:
-            parts.append(f"- {p}")
-        if len(pubs) > 15:
-            parts.append(f"\n_...and {len(pubs) - 15} more publishers_")
+        country = data.get("country") or ""
+        category = data.get("category") or ""
+        if category and country:
+            label = f"{category} ({country})"
+        else:
+            label = country or category
+        if pubs:
+            parts.append(
+                f"*Joveo Publishers{' in ' + label if label else ''} ({data.get('count', len(pubs))} publishers)*\n"
+            )
+            for p in pubs[:15]:
+                parts.append(f"- {p}")
+            if len(pubs) > 15:
+                parts.append(f"\n_...and {len(pubs) - 15} more publishers_")
+        if data.get("note"):
+            parts.append(f"\n{data['note']}")
+        best = data.get("best_local_boards") or []
+        if best and not pubs:
+            parts.append(f"\n*Best boards in {country}:*")
+            for b in best:
+                parts.append(f"- {b}")
     elif "categories" in data:
         parts.append(f"*Joveo Publisher Network Overview*\n")
         parts.append(f"*Total Active Publishers*: {total:,}\n")
@@ -28524,6 +28719,36 @@ def _enrich_response(
     return enriched, sources, score
 
 
+# A money figure with an optional range end ("$15-$35", "$34.97–$58"), K/M/B
+# suffix and sign; a percentage with an optional sign. Neither may start or
+# end inside a longer number.
+_RE_BOLD_MONEY = re.compile(
+    r"(?<![\w$.,])([-+\u2212]?\$\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?"
+    r"(?:\s?[-\u2013]\s?\$\d+(?:,\d{3})*(?:\.\d+)?(?:[KMB](?![A-Za-z]))?)?)"
+    r"(?![\d])"
+)
+_RE_BOLD_PERCENT = re.compile(r"(?<![\w.,%])([-+\u2212]?\d+(?:\.\d+)?%)")
+_RE_PROTECTED_SPAN = re.compile(r"```.*?```|`[^`\n]*`|\*\*[^*\n]+?\*\*", re.S)
+
+
+def _outside_code_and_bold(text: str, fn: Any) -> str:
+    """Apply ``fn`` to the parts of ``text`` outside code and bold spans."""
+    out: List[str] = []
+    pos = 0
+    for m in _RE_PROTECTED_SPAN.finditer(text):
+        out.append(fn(text[pos : m.start()]))
+        out.append(m.group(0))
+        pos = m.end()
+    out.append(fn(text[pos:]))
+    return "".join(out)
+
+
+def _bold_metric_figures(segment: str) -> str:
+    segment = _RE_BOLD_MONEY.sub(r"**\1**", segment)
+    segment = _RE_BOLD_PERCENT.sub(r"**\1**", segment)
+    return _RE_DAY_DURATION.sub(r"**\1 \2**", segment)
+
+
 def _enrich_markdown_formatting(text: str) -> str:
     """Enforce rich markdown formatting on plain-text responses.
 
@@ -28538,24 +28763,12 @@ def _enrich_markdown_formatting(text: str) -> str:
     """
     has_markdown = "**" in text or "###" in text or "| " in text or "```" in text
 
-    # S50 FIX: Only bold values that are NOT already inside bold markers.
-    # Use negative lookbehind/lookahead to skip already-bolded content.
-    # This prevents double-bolding when _enrich_response_quality runs first.
-    text = re.sub(r"(?<!\*)\$(\d[\d,]*(?:\.\d+)?)(?!\*)", r"**$\1**", text)
-    text = re.sub(r"(?<!\*)(\d+(?:\.\d+)?)%(?!\*)", r"**\1%**", text)
-    text = _RE_DAY_DURATION.sub(r"**\1 \2**", text)
-    text = text.replace("****", "**")
-    # S27: Fix broken bold around comma-separated numbers
-    # e.g. **$200,**000** -> **$200,000**
-    text = re.sub(r"\*\*(\$[\d,]+),\*\*([\d,]+)\*\*", r"**\1,\2**", text)
-    # Fix triple-bold artifacts: ***$X*** -> **$X**
-    text = re.sub(r"\*{3,}(\$[\d,]+(?:\.\d+)?)\*{3,}", r"**\1**", text)
-    # Fix bold inside bold: **text **$X** more** -> **text $X more**
-    text = re.sub(
-        r"\*\*(\$[\d,]+(?:\.\d+)?)\*\*(\s*[-–])\s*\*\*(\$[\d,]+(?:\.\d+)?)\*\*",
-        r"**\1\2 \3**",
-        text,
-    )
+    # Bold whole money / percent / duration figures, and only outside code and
+    # outside spans that are already bold. The old per-character lookarounds
+    # backtracked into a number: "$500*" read "**$50**0", a bold "**45%**"
+    # read "**4**5%**", "-5%" read "-**5%**" (see
+    # tests/test_nova_markdown_number_bold.py).
+    text = _outside_code_and_bold(text, _bold_metric_figures)
 
     if has_markdown:
         return text
@@ -28619,8 +28832,14 @@ def _enrich_source_citations(
                 flags=re.IGNORECASE,
             )
 
-    # Sources footer
-    if tool_sources and "\n---\n**Sources:**" not in text:
+    # Sources footer -- unless the dated citations block (_build_citations_block,
+    # possibly with its marker already stripped) is there: one footer only.
+    if (
+        tool_sources
+        and "\n---\n**Sources:**" not in text
+        and _T3_CITATIONS_MARKER not in text
+        and not _RE_CITATIONS_BLOCK_HEAD.search(text)
+    ):
         sources_line = ", ".join(tool_sources)
         text = f"{text.rstrip()}\n\n---\n**Sources:** {sources_line}"
 
@@ -28813,6 +29032,35 @@ def _enrich_data_density(
     return text, sources
 
 
+_RE_KB_CHUNK_HEADER = re.compile(r"^\s*\[[\w.-]+\.json\][^\n]*\n?")
+_RE_KB_KEY_LINE = re.compile(r"^\s*([A-Za-z0-9_]+)\s*:\s*(.+)$")
+
+
+def _clean_kb_chunk(content: str, limit: int = 200) -> str:
+    """A retrieval chunk as one readable sentence for the user.
+
+    Chunks are indexed as "[file.json] dotted.key.path" plus "snake_key:
+    value" lines; neither the file, the key path nor snake case belongs in an
+    answer. Keeps up to two "Key: value" facts, cut on a word boundary.
+    """
+    text = _RE_KB_CHUNK_HEADER.sub("", str(content or ""), count=1)
+    facts: List[str] = []
+    for raw in text.splitlines():
+        m = _RE_KB_KEY_LINE.match(raw)
+        if m:
+            key = m.group(1).replace("_", " ").strip()
+            facts.append(f"{key[:1].upper()}{key[1:]}: {m.group(2).strip()}")
+        elif raw.strip():
+            facts.append(raw.strip())
+        if len(facts) >= 2:
+            break
+    out = "; ".join(facts)
+    if len(out) > limit:
+        cut = out[:limit].rsplit(" ", 1)[0].rstrip(",;:( ")
+        out = cut + "..."
+    return out
+
+
 def _fetch_kb_context_for_query(query: str) -> str:
     """Search the knowledge base for relevant facts to augment a thin response.
 
@@ -28838,8 +29086,9 @@ def _fetch_kb_context_for_query(query: str) -> str:
                     content = r.get("content") or r.get("text") or str(r)
                 elif isinstance(r, str):
                     content = r
-                if content:
-                    lines.append(f"- {content[:200].strip()}")
+                cleaned = _clean_kb_chunk(content)
+                if cleaned:
+                    lines.append(f"- {cleaned}")
             if lines:
                 return "\n".join(lines)
     except ImportError:
