@@ -144,6 +144,9 @@ _COUNTRY_TO_CODE: dict[str, str] = {
     "the netherlands": "EUR",
     "nl": "EUR",
     "nld": "EUR",
+    # Northern Ireland is the UK: listed so the word-boundary fallback below
+    # never reads "Belfast, Northern Ireland" as the Republic's euro
+    "northern ireland": "GBP",
     "ireland": "EUR",
     "republic of ireland": "EUR",
     "ie": "EUR",

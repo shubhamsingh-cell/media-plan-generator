@@ -45,6 +45,8 @@ CASES = [
     ("London, Ontario", CA),
     ("London, Canada", CA),
     ("Berlin, Germany", DE),
+    ("Belfast, Northern Ireland", UK),
+    ("Cardiff, Wales", UK),
     # with a US state suffix: the US place
     ("Birmingham, AL", US),
     ("Richmond, VA", US),
@@ -66,6 +68,8 @@ def test_every_resolver_agrees_on_the_country(loc, country):
     assert plan_geo.location_is_us(loc) is (country == US)
     expected_cur = plan_currency.currency_for_country(country)
     assert plan_currency.currency_for_country(detected or US) == expected_cur
+    # the raw string too: currency_for_country is read on locations directly
+    assert plan_currency.currency_for_country(loc) == expected_cur, loc
 
 
 @pytest.mark.parametrize("loc", ["Birmingham, United Kingdom", "Birmingham, UK"])
