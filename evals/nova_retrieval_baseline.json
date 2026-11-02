@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-03",
+  "metric_units": "percentage points (0-100); mrr = MRR@10 x 100",
+  "gate": {
+    "metric": "recall@10",
+    "max_drop_points": 3.0
+  },
+  "corpus": {
+    "chunks": 6228,
+    "kb_files": 37,
+    "queries": 72,
+    "in_scope_queries": 62,
+    "out_of_scope_queries": 10,
+    "queries_by_domain": {
+      "cpc_cpa_country": 10,
+      "cpc_cpa_industry": 12,
+      "job_boards_country": 14,
+      "out_of_scope": 10,
+      "plan_figures": 10,
+      "report_facts": 16
+    },
+    "stale_labels": []
+  },
+  "tiers": {
+    "local_bm25": {
+      "status": "ok",
+      "metrics": {
+        "recall@5": 90.32,
+        "recall@10": 96.77,
+        "mrr": 75.19
+      },
+      "by_domain": {
+        "cpc_cpa_country": {
+          "queries": 10,
+          "recall@5": 70.0,
+          "recall@10": 90.0,
+          "mrr": 60.58
+        },
+        "cpc_cpa_industry": {
+          "queries": 12,
+          "recall@5": 91.67,
+          "recall@10": 100.0,
+          "mrr": 72.04
+        },
+        "job_boards_country": {
+          "queries": 14,
+          "recall@5": 92.86,
+          "recall@10": 92.86,
+          "mrr": 68.57
+        },
+        "plan_figures": {
+          "queries": 10,
+          "recall@5": 100.0,
+          "recall@10": 100.0,
+          "mrr": 100.0
+        },
+        "report_facts": {
+          "queries": 16,
+          "recall@5": 93.75,
+          "recall@10": 100.0,
+          "mrr": 76.98
+        }
+      },
+      "out_of_scope": {
+        "queries": 10,
+        "oos_top1_score_mean": 9.5847,
+        "in_scope_top1_score_mean": 21.3487,
+        "note": "informational: retrieval never abstains today; use the separation to pick an abstain threshold"
+      }
+    },
+    "local_tfidf": {
+      "status": "ok",
+      "metrics": {
+        "recall@5": 93.55,
+        "recall@10": 95.16,
+        "mrr": 72.8
+      },
+      "by_domain": {
+        "cpc_cpa_country": {
+          "queries": 10,
+          "recall@5": 80.0,
+          "recall@10": 80.0,
+          "mrr": 67.5
+        },
+        "cpc_cpa_industry": {
+          "queries": 12,
+          "recall@5": 91.67,
+          "recall@10": 91.67,
+          "mrr": 57.64
+        },
+        "job_boards_country": {
+          "queries": 14,
+          "recall@5": 100.0,
+          "recall@10": 100.0,
+          "mrr": 69.52
+        },
+        "plan_figures": {
+          "queries": 10,
+          "recall@5": 100.0,
+          "recall@10": 100.0,
+          "mrr": 100.0
+        },
+        "report_facts": {
+          "queries": 16,
+          "recall@5": 93.75,
+          "recall@10": 100.0,
+          "mrr": 73.33
+        }
+      },
+      "out_of_scope": {
+        "queries": 10,
+        "oos_top1_score_mean": 0.2509,
+        "in_scope_top1_score_mean": 0.4754,
+        "note": "informational: retrieval never abstains today; use the separation to pick an abstain threshold"
+      }
+    },
+    "qdrant_vector": {
+      "status": "skipped",
+      "reason": "SKIPPED: needs QDRANT_URL, QDRANT_API_KEY, VOYAGE_API_KEY"
+    },
+    "qdrant_hybrid": {
+      "status": "skipped",
+      "reason": "SKIPPED: needs QDRANT_URL, QDRANT_API_KEY, VOYAGE_API_KEY"
+    }
+  }
+}
