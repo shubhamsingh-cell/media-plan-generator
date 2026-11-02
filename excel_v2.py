@@ -317,16 +317,33 @@ def _cpc_number_format(ch_data: Optional[dict]) -> str:
     return _usd2_fmt()
 
 
+def _plan_has_no_us_market(data: Any) -> bool:
+    """True when none of the plan's LOCATIONS is a US market
+    (``plan_projection.is_non_us_market``, the location-only test the budget
+    engine's cost-per-hire rule uses). The wizard's ``target_region`` default
+    ("us_only") is ignored: a Bengaluru plan left on it is not a US plan.
+    False for a plan with no locations (the legacy, domestic reading)."""
+    if not isinstance(data, dict):
+        return False
+    locations = data.get("locations")
+    if not locations:
+        return False
+    try:
+        import plan_projection
+
+        return bool(plan_projection.is_non_us_market(locations))
+    except Exception:  # noqa: BLE001 - classification is best-effort
+        return False
+
+
 def _us_benchmark_table(data: Any) -> bool:
     """True when a table of US-calibrated static figures (the ad-platform
     CPC / CPM / CPA benchmarks) is being shown on a plan that is not a US
-    plan: a non-USD plan, or a USD plan whose markets are outside the US."""
+    plan: a non-USD plan, or a USD plan whose markets are all outside the US
+    (:func:`_plan_has_no_us_market`)."""
     if _get_active_currency() != "USD":
         return True
-    try:
-        return not plan_geo.is_us_plan(data if isinstance(data, dict) else {})
-    except (TypeError, AttributeError, ValueError):
-        return False
+    return _plan_has_no_us_market(data)
 
 
 def _ad_platform_money_fmt(data: Any) -> str:
@@ -358,12 +375,7 @@ def _us_benchmark_cpc_channels(data: Any) -> Dict[str, str]:
     benchmark on a plan with NO US market (niche boards, employer branding).
     Empty for any plan with a US market, and for a channel whose CPC came from
     the market's own data (``cpc_source`` not ``static_benchmark*``)."""
-    if not isinstance(data, dict):
-        return {}
-    try:
-        if plan_geo.plan_has_us_market(data):
-            return {}
-    except (TypeError, AttributeError, ValueError):
+    if not _plan_has_no_us_market(data):
         return {}
     alloc = data.get("_budget_allocation")
     chans = alloc.get("channel_allocations") if isinstance(alloc, dict) else None
@@ -3739,6 +3751,19 @@ _SUPPRESSED_CPH_NOTE = (
     "are indicative)."
 )
 
+# The same note where hires are not projected at all (the Executive Summary's
+# decision): there are no hire counts to call indicative.
+_SUPPRESSED_CPH_NOTE_NO_HIRES = (
+    "Cost per hire: — (no verified local cost-per-hire benchmark for this "
+    "market, so hires and cost per hire are not projected)."
+)
+
+
+def _suppressed_cph_note(data: dict) -> str:
+    """:data:`_SUPPRESSED_CPH_NOTE`, or its no-hires form when hires are not
+    projected for this plan."""
+    return _SUPPRESSED_CPH_NOTE_NO_HIRES if _hires_off_for_plan(data) else _SUPPRESSED_CPH_NOTE
+
 
 def _fx_per_usd_phrase(cph_info: Dict[str, Any]) -> str:
     """ "US$1 = R$5.20 (ECB, 2026-09-30)" from the resolver's fx block, or
@@ -3820,7 +3845,7 @@ def _cph_anchor_clause(cph_info: Dict[str, Any]) -> str:
     return f"based on an assumed {noun} cost per hire{of} ({note})"
 
 
-def _roi_methodology_note(budget_alloc: Any) -> str:
+def _roi_methodology_note(budget_alloc: Any, hires_off: bool = False) -> str:
     """The ROI Projections methodology line, true to what drives the hire
     totals. With an industry cost per hire the totals are capped by its
     floor; WITHOUT one (suppressed claim) they are the funnel's projection
@@ -3833,6 +3858,15 @@ def _roi_methodology_note(budget_alloc: Any) -> str:
         "applications rate exactly per channel -- they explain the math, "
         "they do not drive it."
     )
+    if hires_off:
+        # hires are not projected (the Executive Summary's decision): no hire
+        # total, no cap and no hires-to-applications rate to explain
+        return (
+            "Methodology: hires are not projected for this market (no verified "
+            "local cost-per-hire benchmark); the App→Qualified and "
+            "Qualified→Interview rates above are planning assumptions within "
+            "the stated bands."
+        )
     info = _plan_industry_cph(budget_alloc)
     if info.get("claim_suppressed"):
         fx = _fx_per_usd_phrase(info)
@@ -9096,6 +9130,50 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _non_us_salary_country(country: Any) -> Optional[str]:
+    """``country`` as its research.COUNTRY_DATA key when it is a non-US
+    country with a row there, else None (the US, unknown countries)."""
+    try:
+        import research as _research_lib
+
+        name = str(country or "").strip()
+        key = name if name in _research_lib.COUNTRY_DATA else (
+            _research_lib._detect_country(name) if name else None
+        )
+    except Exception:  # noqa: BLE001 - classification is best-effort
+        return None
+    if not key or key == "United States" or key not in _research_lib.COUNTRY_DATA:
+        return None
+    return key
+
+
+def _median_salary_label(country: str) -> str:
+    """research.median_salary_display for ``country`` (a COUNTRY_DATA key)."""
+    try:
+        import research as _research_lib
+
+        return _research_lib.median_salary_display(country, _get_active_currency())
+    except Exception:  # noqa: BLE001
+        return "No local benchmark"
+
+
+def _plan_salary_footnote_markets(data: dict) -> Tuple[List[str], List[str]]:
+    """(markets with a sourced national median, markets without one) among the
+    plan's non-US markets: the city-salary footnote must agree with the
+    medians the Location tables print."""
+    sourced: List[str] = []
+    unsourced: List[str] = []
+    try:
+        names = plan_geo.non_us_market_names(data)
+    except Exception:  # noqa: BLE001
+        names = []
+    for name in names:
+        key = _non_us_salary_country(name)
+        label = _median_salary_label(key) if key else "No local benchmark"
+        (unsourced if label == "No local benchmark" else sourced).append(name)
+    return sourced, unsourced
+
+
 def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     """Build Sheet 3: Market Intelligence."""
     ws.title = "Market Intelligence"
@@ -9250,6 +9328,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         for idx, lc in enumerate(loc_contexts):
             if isinstance(lc, dict):
                 _lc_salary = _flatten_value(lc.get("median_salary") or "")
+                # a non-US country's median: the one label, written for this
+                # plan's currency (research.median_salary_display)
+                _lc_country = _non_us_salary_country(lc.get("country"))
+                if _lc_country and not lc.get("no_country_data"):
+                    _lc_salary = _median_salary_label(_lc_country)
                 # K-05b: research labels a US market's figure "$76,000 USD";
                 # on a non-USD plan the "$" must read "US$".
                 if _get_active_currency() != "USD" and re.search(r"\bUSD\b", _lc_salary):
@@ -9509,11 +9592,10 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # research.get_location_info's INTERNATIONAL branch, which returns
         # COUNTRY_DATA's median_salary and a "currency" key naming the
         # country's own currency. A bare "$" here rendered "$42,000" for the
-        # United Kingdom. SUPERSEDED 2026-10-18 (audit #4): that median is a
-        # US$ estimate for every country (research.MEDIAN_SALARY_BASIS), so
-        # the international branch now prints "US$42,000 (est.)"; the
-        # local-currency branch below remains for profiles that carry their
-        # own sourced local figure. The sibling "Location Economic Context" table
+        # United Kingdom. SUPERSEDED 2026-11-03: a non-US country's median is
+        # now printed by research.median_salary_display (below, after this
+        # block) -- the national statistics figure with its source, else "No
+        # local benchmark". The sibling "Location Economic Context" table
         # above (research.get_labour_market_intelligence) already fixed the
         # identical bug via plan_currency.symbol_for_code; resolve the SAME
         # way here (loc_data's own "currency" key first, else the country
@@ -9530,9 +9612,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             except Exception:  # noqa: BLE001 - resolution is best-effort
                 _income_code = None
         _income_code = (_income_code or "USD").strip().upper()
-        # research.COUNTRY_DATA's median salary is a US$ estimate whatever the
-        # country's own currency is (research.MEDIAN_SALARY_BASIS): printing it
-        # with that currency's symbol read a US$ figure as "VND 5,000".
+        # An unsourced research.COUNTRY_DATA median is a US$ estimate
+        # (research.MEDIAN_SALARY_BASIS): printing it with the country's symbol
+        # read a US$ figure as "VND 5,000".
         _income_is_usd_est = (
             isinstance(loc_data, dict)
             and loc_data.get("median_salary_basis") == "usd_estimate"
@@ -9553,6 +9635,15 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 income_str = _fmt_currency(median_income, prefix="$")
         else:
             income_str = _flatten_value(median_income)
+        # A non-US country's median is printed by ONE helper, the same one the
+        # Location Economic Context table above uses: the national statistics
+        # figure with its source, else "No local benchmark". The profile's own
+        # number has no stated basis (a US metro's household income on a
+        # "Birmingham, United Kingdom" row printed as "£55,000 (GBP)").
+        _income_country = _non_us_salary_country(country)
+        if _income_country:
+            income_str = _median_salary_label(_income_country)
+            _income_code = None
         # K-05b: a US market's income is US dollars; on a non-USD plan it
         # reads "US$" (it printed a bare "$76,000 USD" on a GBP plan).
         if _income_code == "USD" and _get_active_currency() != "USD":
@@ -12571,7 +12662,7 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
         roi_cell.fill = score_fill
 
     if _roi_cph_suppressed:
-        row = _write_footnote(ws, row, _SUPPRESSED_CPH_NOTE)
+        row = _write_footnote(ws, row, _suppressed_cph_note(data))
     if _roi_hire_bands and not _hires_off_for_plan(data):
         row = _write_footnote(ws, row, _hire_band_note(data, _roi_bands_range))
     row += 1
@@ -12702,7 +12793,7 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
     row = _write_footnote(
         ws,
         row,
-        _roi_methodology_note(budget_alloc),
+        _roi_methodology_note(budget_alloc, hires_off=_hires_off_for_plan(data)),
     )
     row = _write_footnote(
         ws,
@@ -13057,12 +13148,25 @@ def _build_sheet_quality_intelligence(
                     number_formats=[_city_row_fmts[i] for i in _city_keep],
                 )
             if _city_salary_withheld:
-                _city_footnote = (
-                    "Hiring difficulty: 1 (easy) to 10 (hardest). Market-level "
-                    "salary estimates are not available for "
-                    f"{plan_geo.join_market_names(plan_geo.non_us_market_names(data))} "
-                    "in our sourced data; US figures are not used for non-US markets."
-                )
+                _sal_sourced, _sal_unsourced = _plan_salary_footnote_markets(data)
+                _city_footnote = "Hiring difficulty: 1 (easy) to 10 (hardest)."
+                if _sal_sourced:
+                    # the Location tables print a sourced national median for
+                    # these markets: the footnote points to it, never denies it
+                    _city_footnote += (
+                        " City-level salary estimates are not available for "
+                        f"{plan_geo.join_market_names(_sal_sourced)}; the national "
+                        "median with its statistics-office source is in Location "
+                        "Economic Context."
+                    )
+                if _sal_unsourced or not _sal_sourced:
+                    _city_footnote += (
+                        " Market-level salary estimates are not available for "
+                        f"{plan_geo.join_market_names(_sal_unsourced or plan_geo.non_us_market_names(data))} "
+                        "in our sourced data"
+                    ) + "; US figures are not used for non-US markets."
+                else:
+                    _city_footnote += " US figures are not used for non-US markets."
             else:
                 _city_footnote = (
                     "Salary multipliers relative to national average. "
@@ -15138,7 +15242,7 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
 
     row += 1
     if _ci_cph_suppressed:
-        row = _write_footnote(ws, row, _SUPPRESSED_CPH_NOTE)
+        row = _write_footnote(ws, row, _suppressed_cph_note(data))
     if _ci_hire_bands and not _hires_off_for_plan(data):
         row = _write_footnote(ws, row, _hire_band_note(data, _ci_bands_range))
     row = _write_footnote(
@@ -15432,7 +15536,8 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
 
     total_qualified = sum(_channel_qualified(n) for n, _ in funded)
     avg_cpqa = round(total_spend / total_qualified, 2) if total_qualified > 0 else 0.0
-    # ad-platform CPCs on a non-US plan are the US benchmark: the rationale says so
+    # niche-board and employer-branding CPCs on a plan with no US market are
+    # the static US benchmark: those rows' rationale says so
     _us_cpc_labels = _us_benchmark_cpc_channels(data)
 
     industry = data.get("industry") or "general_entry_level"

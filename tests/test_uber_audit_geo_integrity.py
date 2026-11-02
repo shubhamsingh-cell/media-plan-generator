@@ -270,13 +270,14 @@ def test_fix4_median_salary_glyph_matches_currency_code():
         "hospitality_travel", ["UK", "Australia", "Mexico", "argentina"]
     )
     by_loc = {lc["location"]: lc["median_salary"] for lc in ctx["location_contexts"]}
-    # COUNTRY_DATA's median is a US$ estimate for every country
-    # (research.MEDIAN_SALARY_BASIS, audit 2026-10-18 #4), so it never wears a
-    # local symbol: "MX$9,500 (MXN)" was a US$-magnitude figure in pesos.
-    assert by_loc["UK"] == "US$42,000 (est.)"
-    assert by_loc["Australia"] == "US$55,000 (est.)"
-    assert by_loc["Mexico"] == "US$9,500 (est.)"
-    assert by_loc["argentina"] == "US$8,000 (est.)"
+    # Each row states its basis (research.median_salary_display, provenance
+    # pass 2026-11-03): the national statistics figure in the country's own
+    # currency with its source, or "No local benchmark" for an unsourced US$
+    # estimate -- "MX$9,500 (MXN)" was a US$-magnitude figure in pesos.
+    assert by_loc["UK"] == "£40,911 (ONS 2026, provisional)"
+    assert by_loc["Australia"] == "A$1,741 a week (ABS 2025)"
+    assert by_loc["Mexico"] == "No local benchmark"
+    assert by_loc["argentina"] == "No local benchmark"
     # The exact pre-fix defect strings must never appear again.
     for val in by_loc.values():
         assert val not in ("$42,000 (GBP)", "£42,000 (GBP)", "MX$9,500 (MXN)")

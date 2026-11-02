@@ -740,7 +740,9 @@ def get_salary_map(
         # Determine currency
         currency = "USD"
         if resolved["type"] == "country":
-            currency = data.get("currency", "USD")
+            # the row's median states its own currency (research.COUNTRY_DATA
+            # median_salary_currency): an unsourced row is a US$ estimate
+            currency = data.get("median_salary_currency") or data.get("currency", "USD")
 
         results.append(
             {

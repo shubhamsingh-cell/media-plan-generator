@@ -37,6 +37,7 @@ import openpyxl  # noqa: E402
 import excel_v2  # noqa: E402
 import gold_standard as gs  # noqa: E402
 import ppt_generator  # noqa: E402
+import plan_currency  # noqa: E402
 import research  # noqa: E402
 from tests.intl_plan_fixture import (
     _bundle,
@@ -83,8 +84,12 @@ def test_us_plan_ad_platform_table_is_unchanged():
 _LOCAL_SYMBOLS = re.compile(r"[₫₹¥£€]|R\$|MX\$|AED|A\$|C\$|NZ\$|AR\$")
 
 
-def test_no_country_median_salary_carries_a_local_currency_symbol():
-    checked = 0
+def test_every_country_median_salary_is_printed_in_its_stated_currency():
+    """Each non-US row states its basis: a national statistics figure in the
+    country's own currency (printed with that currency's symbol and its
+    source), or an unsourced US$ estimate (printed as "No local benchmark",
+    never as the market's median and never with a local symbol)."""
+    checked = sourced = 0
     for country, row in research.COUNTRY_DATA.items():
         if country == "United States":
             continue
@@ -93,12 +98,22 @@ def test_no_country_median_salary_carries_a_local_currency_symbol():
         if lc.get("no_country_data"):
             continue
         shown = lc["median_salary"]
-        assert not _LOCAL_SYMBOLS.search(shown), (country, shown)
-        assert re.fullmatch(r"US\$[\d,]+ \(est\.\)", shown), (country, shown)
-        assert lc.get("median_salary_basis") == "usd_estimate"
-        assert str(row["median_salary"]) in shown.replace(",", "")
+        entry = research.median_salary_entry(country)
+        if row.get("median_salary_source"):
+            assert entry, country
+            assert row["median_salary_currency"] == row["currency"] == entry["currency"]
+            symbol = plan_currency.symbol_for_code(row["median_salary_currency"])
+            assert shown.startswith(symbol), (country, shown)
+            assert entry["publisher_short"] in shown, (country, shown)
+            assert "US$" not in shown and "(est.)" not in shown, (country, shown)
+            assert lc["median_salary_basis"] == research.MEDIAN_SALARY_BASIS_SOURCED
+            sourced += 1
+        else:
+            assert row["median_salary_currency"] == "USD", country
+            assert shown == research.NO_LOCAL_SALARY_BENCHMARK, (country, shown)
+            assert lc["median_salary_basis"] == research.MEDIAN_SALARY_BASIS
         checked += 1
-    assert checked >= 35
+    assert checked >= 35 and sourced == 16, (checked, sourced)
 
 
 def test_us_row_keeps_its_dollar_figure():
@@ -121,43 +136,64 @@ _WAGE_ANCHORS = [
     ("Vietnam", "vietnam", "VND 8.4M/month", 8_400_000 * 12),
     ("Mexico", "mexico", "MXN 18,750/month", 18_750 * 12),
     ("Brazil", "brazil", "R$ 3,560/month", 3_560 * 12),
-    ("Singapore", "singapore", "S$5,775/month", 5_775 * 12),
 ]
 
 
 @pytest.mark.parametrize("country,key,needle,annual_local", _WAGE_ANCHORS)
-def test_country_median_salary_has_us_dollar_magnitude(
+def test_unsourced_median_salary_has_us_dollar_magnitude(
     country, key, needle, annual_local
 ):
-    """The table's median is a US$ estimate: it sits within 2x of the sourced
-    national wage converted to US$, and read as local currency it would be far
-    far below the same source (Vietnam VND 5,000 vs VND 100 million a year)."""
+    """An unsourced row is a US$ estimate: it states USD, sits within 2x of the
+    sourced national wage converted to US$, and read as local currency it would
+    be far below the same source (Vietnam VND 5,000 vs VND 100 million a year)."""
     entry = _anchors()[key]
     anchors = json.dumps(entry["official_wage_anchors"], ensure_ascii=False)
     assert needle in anchors, f"{country}: anchor text moved ({needle})"
+    row = research.COUNTRY_DATA[country]
+    assert row["median_salary_currency"] == "USD" and not row.get("median_salary_source")
     usd_annual = annual_local * float(entry["usd_rate"])
-    figure = float(research.COUNTRY_DATA[country]["median_salary"])
+    figure = float(row["median_salary"])
     assert usd_annual / 2 <= figure <= usd_annual * 2, (country, figure, usd_annual)
-    if (
-        country != "Singapore"
-    ):  # S$52,000 is merely low; VND / MXN / BRL are 4x-2000x off
-        assert figure < annual_local * 0.3, (country, figure, annual_local)
+    assert figure < annual_local * 0.3, (country, figure, annual_local)
+
+
+def test_singapore_median_is_the_sourced_local_figure_its_anchor_quotes():
+    """Singapore's row is the MOM figure in S$ (the same S$5,775 a month the
+    benchmark file's official wage anchor quotes), no longer a US$ estimate."""
+    anchors = json.dumps(_anchors()["singapore"]["official_wage_anchors"])
+    assert "S$5,775/month" in anchors
+    row = research.COUNTRY_DATA["Singapore"]
+    assert row["median_salary_currency"] == "SGD"
+    assert row["median_salary"] == 5_775 * 12
+    assert research.median_salary_display("Singapore").startswith("S$5,775 a month")
 
 
 @pytest.mark.parametrize(
-    "key,shown", [("vn", "US$5,000 (est.)"), ("in", "US$8,500 (est.)")]
+    "key,shown",
+    [
+        ("vn", research.NO_LOCAL_SALARY_BENCHMARK),
+        ("in", research.NO_LOCAL_SALARY_BENCHMARK),
+        ("uk", "£40,911 (ONS 2026, provisional)"),
+        ("fr", "€3,693 a month (INSEE 2025, mean, private sector)"),
+    ],
 )
-def test_workbook_median_salary_is_a_labelled_us_dollar_estimate(key, shown):
+def test_workbook_median_salary_states_its_basis(key, shown):
     text = _sheet_text(_bundle(key)["wb"], "Market Intelligence")
     assert shown in text
-    assert not re.search(r"[₫₹]\s?[\d,]+\s*\((?:VND|INR)\)", text)
+    assert "(est.)" not in text
+    assert not re.search(r"[₫₹£€]\s?[\d,]+\s*\((?:VND|INR|GBP|EUR)\)", text)
 
 
-def test_location_intelligence_income_is_a_us_dollar_estimate_too():
+def test_location_intelligence_income_states_its_basis_too():
     info = research.get_location_info("Hanoi, Vietnam")
     assert info["median_salary_basis"] == "usd_estimate"
     assert info["median_salary_currency"] == "USD"
+    assert info["median_salary_display"] == research.NO_LOCAL_SALARY_BENCHMARK
     assert info["currency"] == "VND"  # the country's own currency is untouched
+    info = research.get_location_info("Leeds, United Kingdom")
+    assert info["median_salary_basis"] == research.MEDIAN_SALARY_BASIS_SOURCED
+    assert info["median_salary_currency"] == "GBP"
+    assert info["median_salary_display"].startswith("£")
 
 
 @pytest.mark.parametrize("key", ["vn", "in", "fr", "jp"])
@@ -336,28 +372,29 @@ def _median_salary_values(ws) -> List[str]:
     return [v for v in found if re.search(r"\d", v)]
 
 
-def test_usd_magnitude_figures_never_carry_a_local_symbol_in_a_non_us_workbook():
-    """The magnitude guard: a COUNTRY_DATA median is a US$-scale number (every
-    row is under 100,000), so a median printed next to a non-US$ symbol is the
-    defect, whichever country prints it."""
-    local = re.compile(
-        r"(?<![A-Za-z])(?:₫|₹|¥|£|€|R\$|MX\$|AED ?|A\$|C\$|NZ\$|AR\$)\s?(\d[\d,]*)"
-    )
-    scale = {
+def test_median_figures_in_a_non_us_workbook_carry_their_stated_currency():
+    """Every median printed on Market Intelligence is either the plan country's
+    sourced label (its own currency, its source) or a US market's US$ figure;
+    an unsourced US$-estimate amount never appears, with any symbol."""
+    unsourced = {
         str(row["median_salary"])
         for name, row in research.COUNTRY_DATA.items()
-        if name != "United States"
+        if name != "United States" and not row.get("median_salary_source")
+    }
+    labels = {
+        research.median_salary_display(name)
+        for name, row in research.COUNTRY_DATA.items()
+        if row.get("median_salary_source")
     }
     checked = 0
     for key in _NON_US_KEYS:
         values = _median_salary_values(_bundle(key)["wb"]["Market Intelligence"])
-        assert values, f"{key}: no median salary figure found"
         for v in values:
             checked += 1
-            for amount in local.findall(v):
-                assert amount.replace(",", "") not in scale, (key, v)
-            assert v.startswith("US$") and v.endswith("(est.)"), (key, v)
-    assert checked >= len(_NON_US_KEYS), checked
+            for amount in re.findall(r"\d[\d,]*", v):
+                assert amount.replace(",", "") not in unsourced, (key, v)
+            assert v in labels, (key, v)
+    assert checked >= 4, checked
 
 
 @pytest.mark.parametrize("key", ["vn", "in"])

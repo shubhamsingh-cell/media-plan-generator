@@ -6434,10 +6434,17 @@ def build_linkedin_intelligence(data: dict) -> dict[str, Any]:
     _foreign_target = False
     # no US market in the plan: an unresolved first market ("Birmingham, UK")
     # still has no country row, so a global fallback is labelled global too
+    # location-only (plan_projection.is_non_us_market, the test the budget
+    # engine and the workbook apply): the wizard's "us_only" region default
+    # does not make a Berlin plan a US plan
     try:
-        import plan_geo as _plan_geo_li
+        import plan_projection as _plan_projection_li
 
-        _non_us_plan = not _plan_geo_li.plan_has_us_market(data)
+        _non_us_plan = bool(
+            locs and _plan_projection_li.is_non_us_market(
+                locs if isinstance(locs, list) else [locs]
+            )
+        )
     except (ImportError, AttributeError):
         _non_us_plan = False
     _first_text = ""

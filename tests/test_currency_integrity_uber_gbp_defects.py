@@ -75,19 +75,19 @@ UBER_GBP_BRIEF: dict = {
     "notes": "Global commercial driver supply across 6 non-US markets.",
 }
 
-# research.COUNTRY_DATA's median_salary for each of these 6 countries. The
-# 2026-10-18 international audit (#4) found the column is a US$ estimate, not
-# local currency (Mexico MX$9,500 / Argentina AR$8,000 were US$-magnitude
-# numbers wearing the local sign; see research.MEDIAN_SALARY_BASIS), so the cell
-# reads "US$<n> (est.)" for every country. The incident this test guards
-# (a bare "$" on a GBP plan) stays impossible: the figure carries "US$".
+# research.COUNTRY_DATA's median salary for each of these 6 countries, as the
+# Median Income cell prints it (research.median_salary_display, provenance pass
+# 2026-11-03): a national statistics figure in the country's own currency with
+# its source, or "No local benchmark" where the row is an unsourced US$
+# estimate (Mexico, Argentina). The incident this test guards (a bare "$" on a
+# GBP plan, or a US$ figure wearing a local sign) stays impossible.
 _EXPECTED_MEDIAN_INCOME = {
-    "UK": "US$42,000 (est.)",
-    "Australia": "US$55,000 (est.)",
-    "Mexico": "US$9,500 (est.)",
-    "argentina": "US$8,000 (est.)",
-    "canada": "US$52,000 (est.)",
-    "new zealand": "US$48,000 (est.)",
+    "UK": "£40,911 (ONS 2026, provisional)",
+    "Australia": "A$1,741 a week (ABS 2025)",
+    "Mexico": "No local benchmark",
+    "argentina": "No local benchmark",
+    "canada": "C$70,200 (Statistics Canada 2024, full-year full-time)",
+    "new zealand": "NZ$1,730 a week (Stats NZ 2026, mean, FTE)",
 }
 
 # Quality Intelligence's "Market" column is title-cased (excel_v2._title_case_city).
@@ -103,7 +103,9 @@ _EXPECTED_MEDIAN_INCOME = {
 _EXPECTED_MARKETS = ["Uk", "Australia", "Mexico", "Argentina", "Canada", "New Zealand"]
 
 
-def _assert_city_salary_withheld(ws, markets: list) -> None:
+def _assert_city_salary_withheld(
+    ws, markets: list, sourced: bool = False, unsourced: bool = True
+) -> None:
     header_row, cols = _find_table(ws, "Hiring Difficulty")
     assert header_row is not None, "City-Level Supply-Demand Data table not found"
     for dropped in ("Salary Multiplier", "Estimated Salary", "Salary Range"):
@@ -124,7 +126,17 @@ def _assert_city_salary_withheld(ws, markets: list) -> None:
     footnote = str(ws.cell(row=r, column=market_col).value or "") + " ".join(
         str(ws.cell(row=r + i, column=market_col).value or "") for i in range(1, 3)
     )
-    assert "Market-level salary estimates are not available" in footnote, footnote
+    # the footnote agrees with the medians the Location tables print: a market
+    # with a sourced national median is pointed to it, one without is told
+    # there is none -- never "not available" for a median printed above
+    if sourced:
+        assert "City-level salary estimates are not available" in footnote, footnote
+        assert "statistics-office source" in footnote, footnote
+    if unsourced:
+        assert "Market-level salary estimates are not available" in footnote, footnote
+    else:
+        assert "Market-level salary estimates are not available" not in footnote, footnote
+    assert "US figures are not used for non-US markets" in footnote, footnote
 
 
 def _generate_bundle(brief: dict) -> dict:
@@ -243,7 +255,9 @@ def test_defect1_usd_plan_median_income_unaffected(usd_bundle):
 
 def test_defect2_city_level_salary_range_uses_local_currency(gbp_bundle):
     wb = load_workbook(io.BytesIO(gbp_bundle["xlsx"]))
-    _assert_city_salary_withheld(wb["Quality Intelligence"], _EXPECTED_MARKETS)
+    _assert_city_salary_withheld(
+        wb["Quality Intelligence"], _EXPECTED_MARKETS, sourced=True, unsourced=True
+    )
 
 
 def test_defect2_usd_plan_salary_range_unaffected(usd_bundle):
@@ -423,7 +437,9 @@ def test_defect5_single_market_city_only_label_resolves_plan_currency_gbp(
     # sourced local salary exists, so the salary columns are withheld (and
     # dropped, design-judge 2026-10-01); never a bare "$".
     wb = load_workbook(io.BytesIO(pearson_uk_bundle["xlsx"]))
-    _assert_city_salary_withheld(wb["Quality Intelligence"], ["London"])
+    _assert_city_salary_withheld(
+        wb["Quality Intelligence"], ["London"], sourced=True, unsourced=False
+    )
 
 
 def test_defect5_second_market_sydney_au_resolves_plan_currency_aud(
@@ -433,7 +449,9 @@ def test_defect5_second_market_sydney_au_resolves_plan_currency_aud(
     # A$97,500 (AUD)" -- a US-derived figure wearing A$. Withheld (columns
     # dropped, design-judge 2026-10-01); never a bare "$".
     wb = load_workbook(io.BytesIO(aviva_au_bundle["xlsx"]))
-    _assert_city_salary_withheld(wb["Quality Intelligence"], ["Sydney"])
+    _assert_city_salary_withheld(
+        wb["Quality Intelligence"], ["Sydney"], sourced=True, unsourced=False
+    )
 
 
 def test_defect5_guard_zero_currency_symbol_mixing_single_market_uk_plan(

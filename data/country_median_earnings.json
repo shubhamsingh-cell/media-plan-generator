@@ -1,0 +1,359 @@
+{
+  "entries": [
+    {
+      "id": "ons_ashe_2026",
+      "country": "United Kingdom",
+      "currency": "GBP",
+      "value": 40911,
+      "unit": "year",
+      "statistic": "median",
+      "annual_equivalent": 40911,
+      "publisher_short": "ONS",
+      "period": "April 2026",
+      "label_year": "2026",
+      "label_qualifier": "provisional",
+      "measure": "Median gross annual earnings, full-time employees in the same job for at least a year (ASHE)",
+      "source": {
+        "publisher": "Office for National Statistics, Annual Survey of Hours and Earnings 2026",
+        "url": "https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours/bulletins/annualsurveyofhoursandearnings/2026",
+        "quote": "median gross annual earnings for full-time employees who had been in their job for at least a year were £40,911 in April 2026, compared with £39,157 in April 2025",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high",
+        "notes": "2026 estimates are provisional; revised April 2025 figure is £39,157."
+      }
+    },
+    {
+      "id": "cso_eaads_2025",
+      "country": "Ireland",
+      "currency": "EUR",
+      "value": 46305,
+      "unit": "year",
+      "statistic": "median",
+      "annual_equivalent": 46305,
+      "publisher_short": "CSO",
+      "period": "2025",
+      "label_year": "2025",
+      "label_qualifier": "all employees",
+      "measure": "Median gross annual earnings per employment, all employments (not restricted to full-time)",
+      "source": {
+        "publisher": "Central Statistics Office, Earnings Analysis using Administrative Data Sources 2025",
+        "url": "https://www.cso.ie/en/releasesandpublications/ep/p-eaads/earningsanalysisusingadministrativedatasources2025/annualearnings",
+        "quote": "Median annual earnings rose by 3.3% from €44,816 in 2024 to €46,305 in 2025.",
+        "retrieved_on": "2026-11-03",
+        "confidence": "medium",
+        "notes": "CSO publishes no full-time-only annual median; this all-employment median understates a full-time figure."
+      }
+    },
+    {
+      "id": "destatis_2025",
+      "country": "Germany",
+      "currency": "EUR",
+      "value": 54066,
+      "unit": "year",
+      "statistic": "median",
+      "annual_equivalent": 54066,
+      "publisher_short": "Destatis",
+      "period": "2025",
+      "label_year": "2025",
+      "label_qualifier": "",
+      "measure": "Median gross annual earnings including special payments, full-time employees",
+      "source": {
+        "publisher": "Statistisches Bundesamt (Destatis), press release 113 of 1 April 2026",
+        "url": "https://www.destatis.de/DE/Presse/Pressemitteilungen/2026/04/PD26_113_621.html",
+        "quote": "Der mittlere Bruttojahresverdienst, gemessen am Median, lag 2025 in Deutschland einschließlich Sonderzahlungen bei 54 066 Euro.",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high"
+      }
+    },
+    {
+      "id": "statistik_austria_2024",
+      "country": "Austria",
+      "currency": "EUR",
+      "value": 55678,
+      "unit": "year",
+      "statistic": "median",
+      "annual_equivalent": 55678,
+      "publisher_short": "Statistik Austria",
+      "period": "2024",
+      "label_year": "2024",
+      "label_qualifier": "",
+      "measure": "Median gross annual income of employees in full-time work for the full year (payroll tax data, excluding apprentices)",
+      "source": {
+        "publisher": "Statistik Austria, Jährliche Personeneinkommen",
+        "url": "https://www.statistik.at/statistiken/bevoelkerung-und-soziales/einkommen-und-soziale-lage/jaehrliche-personeneinkommen",
+        "quote": "Bruttojahreseinkommen (Median) der ganzjährig Vollzeitbeschäftigten 2024 55 678 Euro",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high"
+      }
+    },
+    {
+      "id": "bfs_lse_2024",
+      "country": "Switzerland",
+      "currency": "CHF",
+      "value": 7024,
+      "unit": "month",
+      "statistic": "median",
+      "annual_equivalent": 84288,
+      "publisher_short": "FSO",
+      "period": "2024",
+      "label_year": "2024",
+      "label_qualifier": "",
+      "measure": "Median standardised gross monthly wage for a full-time job, private and public sector (includes 1/12 of the 13th month salary)",
+      "source": {
+        "publisher": "Swiss Federal Statistical Office (FSO/BFS), Swiss Earnings Structure Survey 2024, first results 25 Nov 2025",
+        "url": "https://www.bfs.admin.ch/bfs/de/home/aktuell/neue-veroeffentlichungen.assetdetail.36195847.html",
+        "quote": "Im Jahr 2024 belief sich der monatliche Bruttomedianlohn für eine Vollzeitstelle (privater und öffentlicher Sektor zusammen) auf 7024 Franken pro Monat",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high",
+        "notes": "annual_equivalent is the published monthly median x12, the FSO's own rule for its standardised monthly wage."
+      }
+    },
+    {
+      "id": "cbs_81431ned_2025",
+      "country": "Netherlands",
+      "currency": "EUR",
+      "value": 69380,
+      "unit": "year",
+      "statistic": "mean",
+      "annual_equivalent": 69380,
+      "publisher_short": "CBS",
+      "period": "2025",
+      "label_year": "2025",
+      "label_qualifier": "mean",
+      "measure": "Mean gross annual wage per full-time job including special remuneration (holiday allowance, year-end bonus)",
+      "source": {
+        "publisher": "Statistics Netherlands (CBS), StatLine table 81431NED",
+        "url": "https://www.cbs.nl/nl-nl/cijfers/detail/81431ned",
+        "quote": "Dienstverband: voltijd | A-U Alle economische activiteiten | 2025 | ... | 69.380 | 59.050 | 10.320",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high",
+        "notes": "Column 'Jaarloon inclusief bijzondere beloning'; CBS publishes no full-time median annual wage, so this is a mean."
+      }
+    },
+    {
+      "id": "insee_ip2132_2025",
+      "country": "France",
+      "currency": "EUR",
+      "value": 3693,
+      "unit": "month",
+      "statistic": "mean",
+      "annual_equivalent": 44316,
+      "publisher_short": "INSEE",
+      "period": "2025",
+      "label_year": "2025",
+      "label_qualifier": "mean, private sector",
+      "measure": "Mean gross monthly wage in full-time equivalent, private sector",
+      "source": {
+        "publisher": "INSEE, Insee Première n° 2132 (Les salaires dans le secteur privé en 2025)",
+        "url": "https://www.insee.fr/fr/statistiques/9087193",
+        "quote": "En 2025, le salaire en équivalent temps plein (EQTP) dans le secteur privé s’établit en moyenne à 3 693 euros brut par mois",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high",
+        "notes": "INSEE's published median is net (2,238 EUR a month EQTP); the gross mean is used so the basis is gross like the other rows. annual_equivalent = monthly x12."
+      }
+    },
+    {
+      "id": "statbel_2022",
+      "country": "Belgium",
+      "currency": "EUR",
+      "value": 3728,
+      "unit": "month",
+      "statistic": "median",
+      "annual_equivalent": 44736,
+      "publisher_short": "Statbel",
+      "period": "2022",
+      "label_year": "2022",
+      "label_qualifier": "",
+      "measure": "Median gross monthly wage, full-time employees (surveyed sectors; excludes 13th-month and double holiday pay)",
+      "source": {
+        "publisher": "Statbel, Overview of Belgian wages and salaries",
+        "url": "https://statbel.fgov.be/en/themes/work-training/wages-and-labourcost/overview-belgian-wages-and-salaries",
+        "quote": "The median wage is lower than the average wage and was 3,728 euros gross per month.",
+        "retrieved_on": "2026-11-03",
+        "confidence": "medium",
+        "notes": "Latest edition found is 2022. annual_equivalent = monthly x12 and understates annual pay (13th month excluded)."
+      }
+    },
+    {
+      "id": "istat_retribuzioni_2022",
+      "country": "Italy",
+      "currency": "EUR",
+      "value": 37302,
+      "unit": "year",
+      "statistic": "mean",
+      "annual_equivalent": 37302,
+      "publisher_short": "Istat",
+      "period": "2022",
+      "label_year": "2022",
+      "label_qualifier": "mean",
+      "measure": "Mean gross annual earnings per employee, scaled to full year and full time, units with 10+ employees",
+      "source": {
+        "publisher": "Istat, La struttura delle retribuzioni in Italia - Anno 2022 (20 January 2025)",
+        "url": "https://www.istat.it/comunicato-stampa/la-struttura-delle-retribuzioni-in-italia-anno-2022",
+        "quote": "Nel 2022 la retribuzione lorda annua per dipendente, ricondotta ad anno intero e tempo pieno, è pari in media a 37.302 euro.",
+        "retrieved_on": "2026-11-03",
+        "confidence": "medium",
+        "notes": "Istat publishes only a median hourly wage; the annual figure is a mean."
+      }
+    },
+    {
+      "id": "ine_eaes_2024",
+      "country": "Spain",
+      "currency": "EUR",
+      "value": 33826.92,
+      "unit": "year",
+      "statistic": "mean",
+      "annual_equivalent": 33826.92,
+      "publisher_short": "INE",
+      "period": "2024",
+      "label_year": "2024",
+      "label_qualifier": "mean",
+      "measure": "Mean gross annual earnings per full-time worker (Encuesta Anual de Estructura Salarial)",
+      "source": {
+        "publisher": "INE Spain, Encuesta Anual de Estructura Salarial 2024 (table 28187)",
+        "url": "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/28187?nult=3",
+        "quote": "EAES353 Ambos sexos. Jornada a tiempo completo. Dato base. Total Nacional. Salario medio bruto. [(2024, 33826.92), ...]",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high",
+        "notes": "INE's published median (24,497.17) covers all workers including part-time."
+      }
+    },
+    {
+      "id": "ine_pt_0006915_2024",
+      "country": "Portugal",
+      "currency": "EUR",
+      "value": 1576,
+      "unit": "month",
+      "statistic": "mean",
+      "annual_equivalent": 18912,
+      "publisher_short": "INE",
+      "period": "2024",
+      "label_year": "2024",
+      "label_qualifier": "mean",
+      "measure": "Mean gross monthly earnings ('ganho médio mensal'), full-time employees with full pay",
+      "source": {
+        "publisher": "Statistics Portugal (INE), indicator 0006915 (MTSSS/GEP Quadros de Pessoal)",
+        "url": "https://www.ine.pt/ine/json_indicador/pindica.jsp?op=2&varcd=0006915&Dim1=T&Dim2=PT&lang=PT",
+        "quote": "\"UltimoPref\": \"2024\" ... \"geodsg\": \"Portugal\" ... \"ind_string\": \"1 576,03\"",
+        "retrieved_on": "2026-11-03",
+        "confidence": "medium",
+        "notes": "Published 1,576.03 EUR a month. annual_equivalent = monthly x12, a lower bound: INE does not state whether holiday and Christmas subsidies are included."
+      }
+    },
+    {
+      "id": "statfi_pra_2024",
+      "country": "Finland",
+      "currency": "EUR",
+      "value": 3615,
+      "unit": "month",
+      "statistic": "median",
+      "annual_equivalent": 43380,
+      "publisher_short": "Statistics Finland",
+      "period": "2024",
+      "label_year": "2024",
+      "label_qualifier": "",
+      "measure": "Median total gross monthly earnings of full-time wage and salary earners",
+      "source": {
+        "publisher": "Statistics Finland, Structure of earnings 2024 (released 8 June 2026)",
+        "url": "https://stat.fi/en/statistics/pra",
+        "quote": "Median for total earnings of full-time wage and salary earners 3,615 EUR per month 2024",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high",
+        "notes": "annual_equivalent = monthly x12; total earnings exclude holiday bonuses."
+      }
+    },
+    {
+      "id": "statcan_11100240_2024",
+      "country": "Canada",
+      "currency": "CAD",
+      "value": 70200,
+      "unit": "year",
+      "statistic": "median",
+      "annual_equivalent": 70200,
+      "publisher_short": "Statistics Canada",
+      "period": "2024",
+      "label_year": "2024",
+      "label_qualifier": "full-year full-time",
+      "measure": "Median employment income of full-year full-time workers (before tax; includes net self-employment income)",
+      "source": {
+        "publisher": "Statistics Canada, table 11-10-0240-01",
+        "url": "https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1110024001",
+        "quote": "\"2024\",\"Canada\",...,\"Full-year full-time workers\",\"Median employment income\",\"2024 constant dollars\",...,\"70200\"",
+        "retrieved_on": "2026-11-03",
+        "confidence": "medium",
+        "notes": "Read from the table's official CSV download (https://www150.statcan.gc.ca/n1/tbl/csv/11100240-eng.zip); the HTML table renders by script."
+      }
+    },
+    {
+      "id": "abs_ee_aug2025",
+      "country": "Australia",
+      "currency": "AUD",
+      "value": 1741,
+      "unit": "week",
+      "statistic": "median",
+      "annual_equivalent": 90532,
+      "publisher_short": "ABS",
+      "period": "August 2025",
+      "label_year": "2025",
+      "label_qualifier": "",
+      "measure": "Median weekly earnings in main job, full-time employees (persons)",
+      "source": {
+        "publisher": "Australian Bureau of Statistics, Employee earnings, August 2025",
+        "url": "https://www.abs.gov.au/statistics/labour/earnings-and-working-conditions/employee-earnings/latest-release",
+        "quote": "Median weekly earnings in main job | Aug-25 | ... Full-time employees ... Persons | $1,741",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high",
+        "notes": "annual_equivalent = weekly x52."
+      }
+    },
+    {
+      "id": "statsnz_lms_jun2026",
+      "country": "New Zealand",
+      "currency": "NZD",
+      "value": 1730,
+      "unit": "week",
+      "statistic": "mean",
+      "annual_equivalent": 89960,
+      "publisher_short": "Stats NZ",
+      "period": "June 2026 quarter",
+      "label_year": "2026",
+      "label_qualifier": "mean, FTE",
+      "measure": "Average weekly earnings (including overtime) for full-time equivalent employees, Quarterly Employment Survey",
+      "source": {
+        "publisher": "Stats NZ, Labour market statistics: June 2026 quarter",
+        "url": "https://www.stats.govt.nz/information-releases/labour-market-statistics-june-2026-quarter",
+        "quote": "Average weekly earnings (including overtime) for full-time equivalent employees (FTEs) in the QES also increased over the year – up 3.0 percent to $1,730.",
+        "retrieved_on": "2026-11-03",
+        "confidence": "medium",
+        "notes": "Stats NZ publishes no full-time weekly median and advises against annualising a weekly figure; annual_equivalent (weekly x52) is for magnitude checks only and is never displayed."
+      }
+    },
+    {
+      "id": "mom_income_2025",
+      "country": "Singapore",
+      "currency": "SGD",
+      "value": 5775,
+      "unit": "month",
+      "statistic": "median",
+      "annual_equivalent": 69300,
+      "publisher_short": "MOM",
+      "period": "2025",
+      "label_year": "2025",
+      "label_qualifier": "incl. employer CPF",
+      "measure": "Median gross monthly income from employment of full-time employed residents, including employer CPF contributions",
+      "source": {
+        "publisher": "Ministry of Manpower (Manpower Research & Statistics Department), Labour Force in Singapore 2025",
+        "url": "https://stats.mom.gov.sg/Pages/Income-Summary-Table.aspx",
+        "quote": "Median Gross Monthly Income From Employment (Including Employer/Platform Operator CPF Contributions) of Full-Time Employed Residents ... 2025 ... 5,775",
+        "retrieved_on": "2026-11-03",
+        "confidence": "high",
+        "notes": "annual_equivalent = monthly x12."
+      }
+    }
+  ],
+  "metadata": {
+    "description": "National statistics office earnings figures for COUNTRY_DATA.median_salary (research.py). One entry per country, each the office's latest published full-time earnings statistic in local currency, quoted from the office's own page. 'value' and 'unit' are as published; 'annual_equivalent' is the figure x12 / x52 where the office publishes monthly or weekly, used for magnitude checks only. A country with no entry has no sourced median and shows 'No local benchmark'.",
+    "retrieved_on": "2026-11-03",
+    "schema_version": 1
+  }
+}

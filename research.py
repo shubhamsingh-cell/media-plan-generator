@@ -55,24 +55,39 @@ except ImportError:
 # GLOBAL COUNTRY DATA - 40+ Countries
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# BASIS OF ``median_salary`` (audit 2026-10-18, #4): every row is an annual
-# **US$** estimate, NOT local currency -- the column was once read as local
-# (UK 42,000 -> "GBP 42,000", India 8,500 -> "INR 8,500"), which printed
-# Vietnam "VND 5,000" and Japan "JPY 38,000". Cross-check against the sourced
-# wage anchors in data/international_benchmarks_2026.json (``official_wage_
-# anchors``): Singapore S$5,775/month (MOM/SINGSTAT, mid-2025) = S$69,300 a
-# year = ~US$52,000 -- this table's 52000; Vietnam VND 8.4M/month (GSO) =
-# ~US$3,900 a year -- 5000; Mexico MXN 18,750/month (IMSS) = ~US$12,000 --
-# 9500; Brazil R$3,560/month (IBGE PNAD) = ~US$7,700 -- 10000. As local
-# currency those rows would be 10-1000x below the same sources. No sourced
-# per-country local median exists in the repo, so the figure is shown as what
-# it is: a US$ estimate (``median_salary_basis``), never converted.
+# BASIS OF ``median_salary`` (provenance pass 2026-11-03). The column was
+# authored on a MIXED basis, so every non-US row now states its own:
+#
+# * ``median_salary_currency`` -- the currency the figure is in;
+# * ``median_salary_source`` -- the id of a national statistics office entry in
+#   data/country_median_earnings.json, or absent.
+#
+# Sourced rows (UK, Ireland, Germany, Austria, Switzerland, Netherlands, France,
+# Belgium, Italy, Spain, Portugal, Finland, Canada, Australia, New Zealand,
+# Singapore -- the currencies near parity with US$) carry the office's latest
+# full-time earnings figure in LOCAL currency (``annual_equivalent`` of the
+# entry: the published annual figure, or the published monthly / weekly figure
+# x12 / x52). Every surface prints the PUBLISHED figure with its source through
+# :func:`median_salary_display` ("£40,911 (ONS 2026, provisional)").
+#
+# Every other non-US row is an UNSOURCED annual US$ estimate: read as local
+# currency it is absurd (Japan "JPY 38,000", India "INR 8,500", Vietnam
+# "VND 5,000"; data/international_benchmarks_2026.json's official wage anchors
+# confirm the US$ magnitude for Vietnam, Mexico and Brazil). It is kept as
+# data (``median_salary_currency`` "USD") but no client surface prints it as
+# the market's median: they show "No local benchmark".
 MEDIAN_SALARY_BASIS = "usd_estimate"
+MEDIAN_SALARY_BASIS_SOURCED = "national_statistics"
+NO_LOCAL_SALARY_BENCHMARK = "No local benchmark"
+_MEDIAN_EARNINGS_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "data", "country_median_earnings.json"
+)
 
 COUNTRY_DATA = {
     "United States": {
         "coli": 100,
         "median_salary": 65000,
+        "median_salary_currency": "USD",
         "population": "333M",
         "unemployment": "3.7%",
         "currency": "USD",
@@ -82,7 +97,9 @@ COUNTRY_DATA = {
     },
     "United Kingdom": {
         "coli": 105,
-        "median_salary": 42000,
+        "median_salary": 40911,
+        "median_salary_currency": "GBP",
+        "median_salary_source": "ons_ashe_2026",
         "population": "67M",
         "unemployment": "4.2%",
         "currency": "GBP",
@@ -92,7 +109,9 @@ COUNTRY_DATA = {
     },
     "Germany": {
         "coli": 95,
-        "median_salary": 50000,
+        "median_salary": 54066,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "destatis_2025",
         "population": "84M",
         "unemployment": "3.2%",
         "currency": "EUR",
@@ -102,7 +121,9 @@ COUNTRY_DATA = {
     },
     "France": {
         "coli": 96,
-        "median_salary": 40000,
+        "median_salary": 44316,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "insee_ip2132_2025",
         "population": "68M",
         "unemployment": "7.2%",
         "currency": "EUR",
@@ -112,7 +133,9 @@ COUNTRY_DATA = {
     },
     "Netherlands": {
         "coli": 102,
-        "median_salary": 48000,
+        "median_salary": 69380,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "cbs_81431ned_2025",
         "population": "18M",
         "unemployment": "3.6%",
         "currency": "EUR",
@@ -122,7 +145,8 @@ COUNTRY_DATA = {
     },
     "Japan": {
         "coli": 97,
-        "median_salary": 38000,
+        "median_salary": 38000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "125M",
         "unemployment": "2.6%",
         "currency": "JPY",
@@ -132,7 +156,9 @@ COUNTRY_DATA = {
     },
     "Italy": {
         "coli": 88,
-        "median_salary": 35000,
+        "median_salary": 37302,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "istat_retribuzioni_2022",
         "population": "59M",
         "unemployment": "7.8%",
         "currency": "EUR",
@@ -142,7 +168,8 @@ COUNTRY_DATA = {
     },
     "India": {
         "coli": 25,
-        "median_salary": 8500,
+        "median_salary": 8500,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "1.4B",
         "unemployment": "7.5%",
         "currency": "INR",
@@ -152,7 +179,9 @@ COUNTRY_DATA = {
     },
     "Australia": {
         "coli": 107,
-        "median_salary": 55000,
+        "median_salary": 90532,
+        "median_salary_currency": "AUD",
+        "median_salary_source": "abs_ee_aug2025",
         "population": "26M",
         "unemployment": "3.7%",
         "currency": "AUD",
@@ -162,7 +191,9 @@ COUNTRY_DATA = {
     },
     "Canada": {
         "coli": 98,
-        "median_salary": 52000,
+        "median_salary": 70200,
+        "median_salary_currency": "CAD",
+        "median_salary_source": "statcan_11100240_2024",
         "population": "40M",
         "unemployment": "5.4%",
         "currency": "CAD",
@@ -172,7 +203,9 @@ COUNTRY_DATA = {
     },
     "Ireland": {
         "coli": 108,
-        "median_salary": 48000,
+        "median_salary": 46305,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "cso_eaads_2025",
         "population": "5.1M",
         "unemployment": "4.3%",
         "currency": "EUR",
@@ -182,7 +215,8 @@ COUNTRY_DATA = {
     },
     "South Africa": {
         "coli": 38,
-        "median_salary": 12000,
+        "median_salary": 12000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "60M",
         "unemployment": "32.1%",
         "currency": "ZAR",
@@ -192,7 +226,8 @@ COUNTRY_DATA = {
     },
     "Kenya": {
         "coli": 32,
-        "median_salary": 6000,
+        "median_salary": 6000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "54M",
         "unemployment": "5.7%",
         "currency": "KES",
@@ -202,7 +237,8 @@ COUNTRY_DATA = {
     },
     "Argentina": {
         "coli": 35,
-        "median_salary": 8000,
+        "median_salary": 8000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "46M",
         "unemployment": "6.3%",
         "currency": "ARS",
@@ -212,7 +248,8 @@ COUNTRY_DATA = {
     },
     "Brazil": {
         "coli": 42,
-        "median_salary": 10000,
+        "median_salary": 10000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "214M",
         "unemployment": "7.9%",
         "currency": "BRL",
@@ -222,7 +259,9 @@ COUNTRY_DATA = {
     },
     "Singapore": {
         "coli": 115,
-        "median_salary": 52000,
+        "median_salary": 69300,
+        "median_salary_currency": "SGD",
+        "median_salary_source": "mom_income_2025",
         "population": "5.9M",
         "unemployment": "2.1%",
         "currency": "SGD",
@@ -232,7 +271,9 @@ COUNTRY_DATA = {
     },
     "Spain": {
         "coli": 82,
-        "median_salary": 33000,
+        "median_salary": 33827,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "ine_eaes_2024",
         "population": "47M",
         "unemployment": "11.7%",
         "currency": "EUR",
@@ -242,7 +283,8 @@ COUNTRY_DATA = {
     },
     "Mexico": {
         "coli": 38,
-        "median_salary": 9500,
+        "median_salary": 9500,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "130M",
         "unemployment": "2.8%",
         "currency": "MXN",
@@ -252,7 +294,8 @@ COUNTRY_DATA = {
     },
     "Poland": {
         "coli": 55,
-        "median_salary": 22000,
+        "median_salary": 22000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "38M",
         "unemployment": "2.9%",
         "currency": "PLN",
@@ -262,7 +305,9 @@ COUNTRY_DATA = {
     },
     "Switzerland": {
         "coli": 155,
-        "median_salary": 82000,
+        "median_salary": 84288,
+        "median_salary_currency": "CHF",
+        "median_salary_source": "bfs_lse_2024",
         "population": "8.8M",
         "unemployment": "2.0%",
         "currency": "CHF",
@@ -272,7 +317,8 @@ COUNTRY_DATA = {
     },
     "UAE": {
         "coli": 80,
-        "median_salary": 35000,
+        "median_salary": 35000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "10M",
         "unemployment": "2.9%",
         "currency": "AED",
@@ -282,7 +328,8 @@ COUNTRY_DATA = {
     },
     "Hong Kong": {
         "coli": 115,
-        "median_salary": 45000,
+        "median_salary": 45000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "7.5M",
         "unemployment": "2.9%",
         "currency": "HKD",
@@ -292,7 +339,9 @@ COUNTRY_DATA = {
     },
     "Belgium": {
         "coli": 102,
-        "median_salary": 48000,
+        "median_salary": 44736,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "statbel_2022",
         "population": "11.6M",
         "unemployment": "5.5%",
         "currency": "EUR",
@@ -302,7 +351,8 @@ COUNTRY_DATA = {
     },
     "Sweden": {
         "coli": 107,
-        "median_salary": 45000,
+        "median_salary": 45000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "10.5M",
         "unemployment": "7.5%",
         "currency": "SEK",
@@ -312,7 +362,8 @@ COUNTRY_DATA = {
     },
     "Denmark": {
         "coli": 120,
-        "median_salary": 55000,
+        "median_salary": 55000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "5.9M",
         "unemployment": "2.7%",
         "currency": "DKK",
@@ -322,7 +373,8 @@ COUNTRY_DATA = {
     },
     "Czech Republic": {
         "coli": 58,
-        "median_salary": 22000,
+        "median_salary": 22000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "10.8M",
         "unemployment": "2.5%",
         "currency": "CZK",
@@ -332,7 +384,8 @@ COUNTRY_DATA = {
     },
     "Philippines": {
         "coli": 30,
-        "median_salary": 5500,
+        "median_salary": 5500,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "115M",
         "unemployment": "4.3%",
         "currency": "PHP",
@@ -342,7 +395,8 @@ COUNTRY_DATA = {
     },
     "Malaysia": {
         "coli": 38,
-        "median_salary": 12000,
+        "median_salary": 12000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "33M",
         "unemployment": "3.4%",
         "currency": "MYR",
@@ -352,7 +406,9 @@ COUNTRY_DATA = {
     },
     "New Zealand": {
         "coli": 105,
-        "median_salary": 48000,
+        "median_salary": 89960,
+        "median_salary_currency": "NZD",
+        "median_salary_source": "statsnz_lms_jun2026",
         "population": "5.1M",
         "unemployment": "3.4%",
         "currency": "NZD",
@@ -362,7 +418,9 @@ COUNTRY_DATA = {
     },
     "Austria": {
         "coli": 105,
-        "median_salary": 48000,
+        "median_salary": 55678,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "statistik_austria_2024",
         "population": "9.1M",
         "unemployment": "5.0%",
         "currency": "EUR",
@@ -372,7 +430,9 @@ COUNTRY_DATA = {
     },
     "Portugal": {
         "coli": 72,
-        "median_salary": 22000,
+        "median_salary": 18912,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "ine_pt_0006915_2024",
         "population": "10.4M",
         "unemployment": "6.5%",
         "currency": "EUR",
@@ -382,7 +442,8 @@ COUNTRY_DATA = {
     },
     "Colombia": {
         "coli": 30,
-        "median_salary": 7000,
+        "median_salary": 7000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "52M",
         "unemployment": "10.0%",
         "currency": "COP",
@@ -392,7 +453,8 @@ COUNTRY_DATA = {
     },
     "Chile": {
         "coli": 45,
-        "median_salary": 12000,
+        "median_salary": 12000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "19M",
         "unemployment": "8.5%",
         "currency": "CLP",
@@ -402,7 +464,8 @@ COUNTRY_DATA = {
     },
     "Norway": {
         "coli": 130,
-        "median_salary": 62000,
+        "median_salary": 62000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "5.5M",
         "unemployment": "1.8%",
         "currency": "NOK",
@@ -412,7 +475,9 @@ COUNTRY_DATA = {
     },
     "Finland": {
         "coli": 108,
-        "median_salary": 42000,
+        "median_salary": 43380,
+        "median_salary_currency": "EUR",
+        "median_salary_source": "statfi_pra_2024",
         "population": "5.5M",
         "unemployment": "7.2%",
         "currency": "EUR",
@@ -422,7 +487,8 @@ COUNTRY_DATA = {
     },
     "South Korea": {
         "coli": 82,
-        "median_salary": 32000,
+        "median_salary": 32000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "52M",
         "unemployment": "2.6%",
         "currency": "KRW",
@@ -432,7 +498,8 @@ COUNTRY_DATA = {
     },
     "Israel": {
         "coli": 110,
-        "median_salary": 42000,
+        "median_salary": 42000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "9.8M",
         "unemployment": "3.5%",
         "currency": "ILS",
@@ -442,7 +509,8 @@ COUNTRY_DATA = {
     },
     "China": {
         "coli": 55,
-        "median_salary": 14000,
+        "median_salary": 14000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "1.4B",
         "unemployment": "5.2%",
         "currency": "CNY",
@@ -452,7 +520,8 @@ COUNTRY_DATA = {
     },
     "Indonesia": {
         "coli": 28,
-        "median_salary": 4500,
+        "median_salary": 4500,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "275M",
         "unemployment": "5.5%",
         "currency": "IDR",
@@ -462,7 +531,8 @@ COUNTRY_DATA = {
     },
     "Thailand": {
         "coli": 35,
-        "median_salary": 7500,
+        "median_salary": 7500,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "72M",
         "unemployment": "1.0%",
         "currency": "THB",
@@ -472,7 +542,8 @@ COUNTRY_DATA = {
     },
     "Vietnam": {
         "coli": 28,
-        "median_salary": 5000,
+        "median_salary": 5000,  # unsourced US$ estimate
+        "median_salary_currency": "USD",
         "population": "99M",
         "unemployment": "2.0%",
         "currency": "VND",
@@ -4628,6 +4699,74 @@ def _is_bare_state_location(location_str, state):
 NO_COUNTRY_DATA = "No country data"
 
 
+_median_earnings_cache: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+def _median_earnings_entries() -> Dict[str, Dict[str, Any]]:
+    """data/country_median_earnings.json entries keyed by id (lazily read;
+    an unreadable file gives no entries, so every row reads "No local
+    benchmark" -- never an unsourced figure)."""
+    global _median_earnings_cache
+    if _median_earnings_cache is not None:
+        return _median_earnings_cache
+    entries: Dict[str, Dict[str, Any]] = {}
+    try:
+        with open(_MEDIAN_EARNINGS_PATH, encoding="utf-8") as fh:
+            raw = json.load(fh)
+        for item in raw.get("entries") or []:
+            if isinstance(item, dict) and item.get("id"):
+                entries[str(item["id"])] = item
+    except (OSError, ValueError, AttributeError) as exc:
+        logger.error("country_median_earnings.json unreadable: %s", exc, exc_info=True)
+        return {}
+    _median_earnings_cache = entries
+    return entries
+
+
+def median_salary_entry(country: Any) -> Optional[Dict[str, Any]]:
+    """The national statistics office entry behind ``country``'s median salary,
+    or None when the row has no sourced figure (an unsourced US$ estimate, an
+    unknown country, the US)."""
+    row = COUNTRY_DATA.get(str(country or ""))
+    if not isinstance(row, dict) or not row.get("median_salary_source"):
+        return None
+    entry = _median_earnings_entries().get(str(row["median_salary_source"]))
+    if not entry or entry.get("currency") != row.get("median_salary_currency"):
+        return None
+    return entry
+
+
+_SALARY_UNIT_TEXT = {"year": "", "month": " a month", "week": " a week"}
+
+
+def median_salary_display(country: Any, plan_currency_code: Any = None) -> str:
+    """THE client-facing label for a non-US country's median salary: the
+    published figure in its own currency with its source ("£40,911 (ONS 2026,
+    provisional)", "CHF 7,024 a month (FSO 2024)", "€69,380 (CBS 2025, mean)"),
+    else :data:`NO_LOCAL_SALARY_BENCHMARK`. Never an unsourced figure and never
+    a figure in another currency's symbol.
+
+    ``plan_currency_code``: the plan's own currency. A bare-glyph currency
+    (£, €) that is NOT the plan's is written with its ISO code instead
+    ("GBP 40,911 ..." on a US$ plan), so a reader -- and bundle_qa's
+    currency-mixing rule -- never takes it for the plan's money."""
+    entry = median_salary_entry(country)
+    if not entry:
+        return NO_LOCAL_SALARY_BENCHMARK
+    code = str(entry["currency"])
+    symbol = plan_currency.symbol_for_code(code)
+    value = entry["value"]
+    foreign = bool(plan_currency_code) and str(plan_currency_code).upper() != code
+    if foreign and not re.match(r"[A-Za-z]", symbol):
+        amount = f"{code} {value:,.0f}"
+    else:
+        amount = f"{symbol}{value:,.0f}"
+    tags = [f"{entry['publisher_short']} {entry['label_year']}"]
+    if entry.get("label_qualifier"):
+        tags.append(str(entry["label_qualifier"]))
+    return f"{amount}{_SALARY_UNIT_TEXT.get(entry.get('unit'), '')} ({', '.join(tags)})"
+
+
 def _intl_dataset_entry(country):
     """The ``international_benchmarks_2026.json`` entry for ``country``, else {}."""
     countries = (_load_intl_benchmarks() or {}).get("countries", {})
@@ -4751,11 +4890,17 @@ def get_location_info(location_str, resolution=None):
             "coli": cd["coli"],
             "population": cd["population"],
             "median_salary": cd["median_salary"],
-            # the salary is a US$ estimate whatever the country's own currency
-            # is (see MEDIAN_SALARY_BASIS); ``currency`` below stays the
-            # country's, for the cost-per-click and cost figures that use it
-            "median_salary_currency": "USD",
-            "median_salary_basis": MEDIAN_SALARY_BASIS,
+            # the row states its own basis (see MEDIAN_SALARY_BASIS): a
+            # national statistics figure in local currency, or an unsourced US$
+            # estimate; ``currency`` below stays the country's, for the
+            # cost-per-click and cost figures that use it
+            "median_salary_currency": cd.get("median_salary_currency") or "USD",
+            "median_salary_basis": (
+                MEDIAN_SALARY_BASIS_SOURCED
+                if median_salary_entry(country)
+                else MEDIAN_SALARY_BASIS
+            ),
+            "median_salary_display": median_salary_display(country),
             "unemployment": cd["unemployment"],
             "currency": cd.get("currency", "USD"),
             "metro_name": f"{location_str} ({country})",
@@ -6051,11 +6196,13 @@ def get_market_trends(locations, industry, roles, enrichment_salary_data=None):
                     f"{' International hiring may require local recruitment partners, compliance with local labor laws, and localized job postings.' if is_intl else ''}"
                 )
             elif factor_name == "Median Salary / Compensation Benchmark":
-                sal_display = (
-                    f"{currency_sym}{sal:,}"
-                    if currency in ("USD", "GBP", "EUR")
-                    else f"{currency_sym}{sal:,} ({currency})"
-                )
+                if is_intl:
+                    # the same label every surface prints (median_salary_display)
+                    sal_display = str(
+                        info.get("median_salary_display") or NO_LOCAL_SALARY_BENCHMARK
+                    )
+                else:
+                    sal_display = f"{currency_sym}{sal:,}/year"
                 # Build location-adjusted salary ranges for each role
                 loc_role_salary_parts = []
                 for r in (roles or [])[:5]:
@@ -6074,7 +6221,7 @@ def get_market_trends(locations, industry, roles, enrichment_salary_data=None):
                     " (BLS-sourced, COLI-adjusted)" if enrichment_salary_data else ""
                 )
                 descs[loc] = (
-                    f"Regional median salary: {sal_display}/year. "
+                    f"Regional median salary: {sal_display}. "
                     f"Target role salary ranges{bls_note}: {loc_salary_summary}. "
                     f"{'Compensation packages should be above-market to attract top talent in this competitive metro.' if coli > 110 else 'Compensation aligned with market averages should be competitive.'} "
                     f"{'Consider currency exchange rates and local purchasing power parity when setting compensation.' if is_intl else 'Consider sign-on bonuses and relocation assistance for hard-to-fill positions.'}"
@@ -7955,18 +8102,22 @@ def get_labour_market_intelligence(industry, locations, location_resolutions=Non
 
         if is_intl and country and country in COUNTRY_DATA:
             c = COUNTRY_DATA[country]
-            # The country's median salary is a US$ estimate (see
-            # MEDIAN_SALARY_BASIS): printed as "US$5,000 (est.)". An earlier
-            # fix resolved the glyph from the country's own currency
-            # ("GBP 42,000"), which read a US$ figure as local currency and
-            # printed "VND 5,000" for Vietnam.
+            # The country's median salary is printed through ONE helper
+            # (median_salary_display): the national statistics figure in its
+            # own currency with its source, else "No local benchmark". An
+            # earlier fix resolved the glyph from the country's currency for
+            # every row, which read a US$ estimate as "VND 5,000".
             location_contexts.append(
                 {
                     "location": loc,
                     "country": country,
                     "unemployment_rate": c.get("unemployment", "N/A"),
-                    "median_salary": f"US${c.get('median_salary') or 0:,} (est.)",
-                    "median_salary_basis": MEDIAN_SALARY_BASIS,
+                    "median_salary": median_salary_display(country),
+                    "median_salary_basis": (
+                        MEDIAN_SALARY_BASIS_SOURCED
+                        if median_salary_entry(country)
+                        else MEDIAN_SALARY_BASIS
+                    ),
                     "population": c.get("population", "N/A"),
                     "top_industries": c.get("top_industries") or "",
                     "top_job_boards": c.get("top_boards") or "",
