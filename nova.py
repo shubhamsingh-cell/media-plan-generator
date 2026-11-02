@@ -33,6 +33,7 @@ from pathlib import Path
 import country_registry  # countries the datasets cover that COUNTRY_DATA has no row for
 import proof_claims  # public proof numbers: one source of truth, each with its artifact
 import channel_funding  # local-relevance board score shared with the media plan
+from us_only_markers import has_us_only_marker
 import publisher_filter  # client exclusions + availability: one matcher for every board list
 import nova_plan_figures as _plan_figs  # ONE source of plan applications / hires / CPA / CPH
 from nova_cache import normalize_number_tokens as _normalize_number_tokens
@@ -29091,14 +29092,73 @@ _RE_KB_CHUNK_HEADER = re.compile(r"^\s*\[[\w.-]+\.json\][^\n]*\n?")
 _RE_KB_KEY_LINE = re.compile(r"^\s*([A-Za-z0-9_]+)\s*:\s*(.+)$")
 
 
+# Path segments that only group data; never part of an entity label.
+_KB_PATH_FILLER = frozenset(
+    {"regional_data", "data", "datasets", "sources", "by_country", "countries",
+     "by_region", "regions", "key_concepts", "metrics", "details", "items"}
+)
+# US-only vocabulary beyond us_only_markers (KB keys, not workbook labels).
+_RE_KB_US_ONLY = re.compile(r"\b(nonfarm|payrolls?|jolts|bls|fed funds)\b", re.I)
+
+
+def _countries_named(text: str) -> set:
+    """Every country an alias in ``text`` names (word-bounded)."""
+    low = " " + re.sub(r"[_.]+", " ", str(text or "").lower()) + " "
+    found: set = set()
+    for alias, country in _COUNTRY_ALIASES.items():
+        if len(alias) < 2:
+            continue
+        if alias == "us" and not re.search(r"(?<![A-Za-z])US(?![A-Za-z])", str(text or "")):
+            continue  # the pronoun ("help us hire"), not the country
+        if re.search(rf"(?<![a-z]){re.escape(alias)}(?![a-z])", low):
+            found.add(country)
+    return found
+
+
+def _kb_chunk_parts(content: str) -> Tuple[str, str]:
+    """(dotted key path, body) of a retrieval chunk ("" path when none)."""
+    text = str(content or "")
+    m = re.match(r"^\s*\[[\w.-]+\.json\]\s*([^\n]*)\n?", text)
+    if not m:
+        return "", text
+    return m.group(1).strip(), text[m.end():]
+
+
+def _kb_entity_label(path: str) -> str:
+    """"united_kingdom.unemployment_rate" -> "United Kingdom · unemployment rate"."""
+    segs = [p for p in re.split(r"[.]", path or "") if p and p not in _KB_PATH_FILLER]
+    segs = segs[-2:]
+    if not segs:
+        return ""
+    words = [seg.replace("_", " ").strip() for seg in segs]
+    if len(words) == 2:
+        head = words[0].title() if _countries_named(words[0]) else words[0][:1].upper() + words[0][1:]
+        return f"{head} \u00b7 {words[1]}"
+    return words[0][:1].upper() + words[0][1:]
+
+
+def _kb_chunk_regions(content: str) -> set:
+    """Countries a chunk is about: named in its key path, or the US when its
+    text uses US-only statistics vocabulary."""
+    path, body = _kb_chunk_parts(content)
+    regions = _countries_named(path)
+    flat = re.sub(r"[_.]+", " ", path + " " + body)
+    if not regions and (_RE_KB_US_ONLY.search(flat) or has_us_only_marker(body)):
+        regions = {"United States"}
+    return regions
+
+
 def _clean_kb_chunk(content: str, limit: int = 200) -> str:
     """A retrieval chunk as one readable sentence for the user.
 
     Chunks are indexed as "[file.json] dotted.key.path" plus "snake_key:
-    value" lines; neither the file, the key path nor snake case belongs in an
-    answer. Keeps up to two "Key: value" facts, cut on a word boundary.
+    value" lines. The file and raw path never reach the answer, but the
+    path's entity does ("United Kingdom · unemployment rate: ..."), so a fact
+    is never shown without saying what it is about. Keeps up to two facts,
+    cut on a word boundary.
     """
-    text = _RE_KB_CHUNK_HEADER.sub("", str(content or ""), count=1)
+    path, text = _kb_chunk_parts(content)
+    label = _kb_entity_label(path)
     facts: List[str] = []
     for raw in text.splitlines():
         m = _RE_KB_KEY_LINE.match(raw)
@@ -29110,6 +29170,8 @@ def _clean_kb_chunk(content: str, limit: int = 200) -> str:
         if len(facts) >= 2:
             break
     out = "; ".join(facts)
+    if out and label:
+        out = f"{label}: {out}"
     if len(out) > limit:
         cut = out[:limit].rsplit(" ", 1)[0].rstrip(",;:( ")
         out = cut + "..."
@@ -29135,12 +29197,17 @@ def _fetch_kb_context_for_query(query: str) -> str:
         results = vector_search_fn(query, top_k=3, timeout_s=3.0)
         if results:
             lines: List[str] = []
+            asked = _countries_named(query)
             for r in results[:3]:
                 content = ""
                 if isinstance(r, dict):
                     content = r.get("content") or r.get("text") or str(r)
                 elif isinstance(r, str):
                     content = r
+                # a fact about another market never pads this answer
+                regions = _kb_chunk_regions(content)
+                if asked and regions and not (regions & asked):
+                    continue
                 cleaned = _clean_kb_chunk(content)
                 if cleaned:
                     lines.append(f"- {cleaned}")
