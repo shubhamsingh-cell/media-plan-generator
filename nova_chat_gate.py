@@ -164,7 +164,13 @@ def check(token: object, conversation_id: object, now: Optional[float] = None) -
     if not isinstance(token, str) or not token:
         return "missing"
     parts = token.split(".")
-    if len(parts) != 4 or parts[0] != _VERSION or not parts[2].isdigit():
+    # ASCII digits only and at most 12 of them: "²".isdigit() is True but
+    # int() rejects it (a 500), and a 4,300-digit field is a parse DoS.
+    if (
+        len(parts) != 4
+        or parts[0] != _VERSION
+        or not (parts[2].isascii() and parts[2].isdigit() and len(parts[2]) <= 12)
+    ):
         return "malformed"
     try:
         bound_id = _unb64(parts[1]).decode("utf-8")

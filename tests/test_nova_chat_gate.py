@@ -404,3 +404,78 @@ class TestWebSocketGate:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+# ---------------------------------------------------------------------------
+# Review 2026-11-03 (test adequacy): wrong gates that the cases above let
+# through -- a check() accepting any opaque string, a gate that locks out real
+# credentials, and replies that stop refreshing the token.
+# ---------------------------------------------------------------------------
+
+
+class TestGateAdequacy:
+    @pytest.mark.parametrize(
+        "forged",
+        [
+            "a" * 64,
+            "0123456789abcdef" * 4,
+            "v1." + gate._b64(CID.encode()) + ".9999999999." + "ab" * 32,
+        ],
+    )
+    def test_forged_tokens_401(self, server_port, signed, forged):
+        status, data = _post(
+            server_port,
+            "/api/chat",
+            _stop_body(),
+            {"Origin": LOCAL_ORIGIN, gate.WIDGET_TOKEN_HEADER: forged},
+        )
+        assert status == 401 and _code(data) == gate.TOKEN_REQUIRED_CODE
+
+    def test_signed_session_cookie_admitted_without_token(self, server_port, signed, monkeypatch):
+        import hashlib
+        import hmac as _hmac
+
+        monkeypatch.setenv("SESSION_SIGNING_SECRET", "test-only-session-secret")
+        email = "someone@joveo.com"
+        sig = _hmac.new(b"test-only-session-secret", email.encode(), hashlib.sha256).hexdigest()
+        status, _ = _post(
+            server_port,
+            "/api/chat",
+            _stop_body(),
+            {"Origin": "https://evil.com", "Cookie": f"nova_user_email={email}|{sig}"},
+        )
+        assert status == 400  # admitted, then stopped by validation
+
+    def test_nova_api_key_admitted_without_token(self, server_port, signed, monkeypatch):
+        monkeypatch.setenv("NOVA_API_KEYS", "test-only-widget-key")
+        status, _ = _post(
+            server_port,
+            "/api/chat/stream",
+            _stop_body(),
+            {"X-Nova-Api-Key": "test-only-widget-key"},
+        )
+        assert status == 400
+
+    def test_successful_turn_returns_a_fresh_token_for_its_conversation(self, server_port, signed):
+        """A greeting is answered by the rule-based path (no model call)."""
+        status, data = _post(
+            server_port,
+            "/api/chat",
+            {"conversation_id": CID, "message": "hi"},
+            {"Origin": LOCAL_ORIGIN, gate.WIDGET_TOKEN_HEADER: gate.mint(CID)},
+        )
+        assert status == 200, data
+        fresh = data.get(gate.WIDGET_TOKEN_FIELD)
+        assert fresh and gate.check(fresh, data["conversation_id"]) == "ok"
+
+    @pytest.mark.parametrize("exp", ["²", "1" * 4300, "12345678901234"])
+    def test_non_ascii_or_huge_expiry_is_malformed_not_500(self, server_port, signed, exp):
+        token = "v1." + gate._b64(CID.encode()) + "." + exp + "." + "ab" * 32
+        assert gate.check(token, CID) == "malformed"
+        status, _ = _post(
+            server_port,
+            "/api/chat",
+            _stop_body(),
+            {"Origin": LOCAL_ORIGIN, gate.WIDGET_TOKEN_HEADER: token.encode("utf-8").decode("latin-1")},
+        )
+        assert status == 401
