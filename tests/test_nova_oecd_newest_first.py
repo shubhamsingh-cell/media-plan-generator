@@ -52,3 +52,27 @@ def test_cached_result_is_ordered_too() -> None:
     res = _run(cached=cached)
     assert res["data"][0]["time_period"] == "2026-09"
     assert res["latest"][0]["country"] == "Germany"
+
+
+# Review 2026-11-03: one row per country dropped measure/unit/freq (so a
+# multi-series dataset picked an arbitrary series), and string sorting put
+# "2026-Q1" above "2026-09".
+TWO_SERIES = [
+    {"country": "Germany", "time_period": "2026-Q1", "value": 44.1, "measure": "Labour force", "unit": "Persons, millions", "freq": "Quarterly"},
+    {"country": "Germany", "time_period": "2025-Q4", "value": 44.0, "measure": "Labour force", "unit": "Persons, millions", "freq": "Quarterly"},
+    {"country": "Germany", "time_period": "2026-09", "value": 61.2, "measure": "Participation rate", "unit": "Percentage", "freq": "Monthly"},
+    {"country": "Germany", "time_period": "2026-08", "value": 61.0, "measure": "Participation rate", "unit": "Percentage", "freq": "Monthly"},
+]
+
+
+def test_latest_per_series_with_measure_and_parsed_periods() -> None:
+    res = nova._oecd_newest_first({"data": [dict(r) for r in TWO_SERIES]})
+    latest = res["latest"]
+    assert len(latest) == 2
+    by_measure = {r["measure"]: r for r in latest}
+    assert by_measure["Labour force"]["time_period"] == "2026-Q1"
+    assert by_measure["Labour force"]["unit"] == "Persons, millions"
+    assert by_measure["Participation rate"]["time_period"] == "2026-09"
+    assert by_measure["Participation rate"]["freq"] == "Monthly"
+    # parsed order: 2026-09 (Sep) is newer than 2026-Q1 (ends Mar)
+    assert [r["time_period"] for r in res["data"]][:2] == ["2026-09", "2026-08"]

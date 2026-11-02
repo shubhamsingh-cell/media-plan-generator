@@ -2272,35 +2272,64 @@ _RE_FRESHNESS_ASK = re.compile(
     r"\b(news|headlines?|this week|today|yesterday|latest|breaking|just announced)\b"
 )
 
+_OECD_SERIES_KEYS = ("measure", "unit", "freq")
+
+
+def _oecd_period_key(period: Any) -> Tuple[int, int, int]:
+    """Sortable (year, month, day-ish) for an SDMX period: "2026-09",
+    "2026-Q1" (ends in March), "2026-S1", "2026-W14", "2026", "2026-09-15"."""
+    text = str(period or "").strip().upper()
+    m = re.match(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?|-Q([1-4])|-S([12])|-W(\d{2}))?$", text)
+    if not m:
+        return (0, 0, 0)
+    year = int(m.group(1))
+    if m.group(2):
+        return (year, int(m.group(2)), int(m.group(3) or 0))
+    if m.group(4):
+        return (year, int(m.group(4)) * 3, 0)
+    if m.group(5):
+        return (year, int(m.group(5)) * 6, 0)
+    if m.group(6):
+        return (year, min(12, (int(m.group(6)) * 7) // 31 + 1), 0)
+    return (year, 12, 0)
+
+
 def _oecd_newest_first(result: Dict[str, Any]) -> Dict[str, Any]:
-    """OECD rows newest first, led by the latest value per country.
+    """OECD rows newest first, led by the latest value of every series.
 
     The API returns observations in no useful order (oldest first for some
     series) and tool results are cut before the model reads them, so a
-    "current rate" question could be answered from 2003 rows.
+    "current rate" question could be answered from 2003 rows. A series is
+    (country, measure, unit, freq): multi-series datasets (labour force,
+    wages, productivity) get one latest row per series, carrying what it
+    measures; periods are compared as dates ("2026-09" is newer than
+    "2026-Q1").
     """
     rows = result.get("data")
     if not isinstance(rows, list) or not rows:
         return result
     ordered = sorted(
         (r for r in rows if isinstance(r, dict)),
-        key=lambda r: str(r.get("time_period") or ""),
+        key=lambda r: _oecd_period_key(r.get("time_period")),
         reverse=True,
     )
     latest: List[Dict[str, Any]] = []
     seen: set = set()
     for r in ordered:
-        c = r.get("country")
-        if c in seen:
+        series = (r.get("country"),) + tuple(r.get(k) for k in _OECD_SERIES_KEYS)
+        if series in seen:
             continue
-        seen.add(c)
-        latest.append(
-            {"country": c, "time_period": r.get("time_period"), "value": r.get("value")}
-        )
+        seen.add(series)
+        row = {"country": r.get("country"), "time_period": r.get("time_period"), "value": r.get("value")}
+        for k in _OECD_SERIES_KEYS:
+            if r.get(k) not in (None, ""):
+                row[k] = r[k]
+        latest.append(row)
     out: Dict[str, Any] = {"latest": latest}
     out.update({k: v for k, v in result.items() if k != "latest"})
     out["data"] = ordered
     return out
+
 
 def _currency_symbol(currency_code: Optional[str]) -> str:
     """Return display symbol for a currency code, defaulting to '$'."""
