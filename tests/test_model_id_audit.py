@@ -7,8 +7,9 @@ stale id reintroduced anywhere fails here instead of 404-ing in production.
 Current ids (2026-11-03 audit):
   * Claude: the 5.5 family only.
   * DeepSeek: deepseek-v4-flash / deepseek-v4-pro (official API catalog), also
-    as OpenRouter's "deepseek/<id>" slugs; "deepseek/deepseek-r1" left
-    OpenRouter's public model catalog and "deepseek-v4-pro-max" never existed.
+    as OpenRouter's "deepseek/<id>" slugs. The bare "deepseek/deepseek-r1"
+    slug is not in OpenRouter's public catalog (the dated r1-0528 still is, but
+    the repo pins DeepSeek to V4); "deepseek-v4-pro-max" never existed.
   * Gemini: exactly the ids the router pins for its two Gemini providers.
 """
 
@@ -72,7 +73,31 @@ def test_openrouter_deepseek_route_is_a_current_slug_and_priced() -> None:
     cfg = lr.PROVIDER_CONFIG[lr.OPENROUTER_DEEPSEEK_R1]
     assert cfg["model"] in {f"deepseek/{m}" for m in DEEPSEEK_IDS}
     cost = lr._PROVIDER_COST_PER_M_TOKENS[lr.OPENROUTER_DEEPSEEK_R1]
-    assert cost["input"] > 0 and cost["output"] > 0  # paid route, never free
+    assert cost == lr._openrouter_deepseek_cost(cfg["model"])
+
+
+def test_openrouter_deepseek_prices_are_the_audited_catalog_values() -> None:
+    # USD per 1M tokens, GET https://openrouter.ai/api/v1/models, 2026-11-03.
+    assert lr._OPENROUTER_DEEPSEEK_PRICE_PER_M == {
+        "deepseek/deepseek-v4-flash": {"input": 0.091, "output": 0.182},
+        "deepseek/deepseek-v4-pro": {"input": 1.60, "output": 3.20},
+    }
+
+
+def test_cost_follows_the_model_override_and_never_understates() -> None:
+    assert lr._openrouter_deepseek_cost("deepseek/deepseek-v4-pro") == {"input": 1.60, "output": 3.20}
+    assert lr._openrouter_deepseek_cost("deepseek/deepseek-v4-flash") == {"input": 0.091, "output": 0.182}
+    # An unknown override is booked at the highest known price.
+    assert lr._openrouter_deepseek_cost("deepseek/some-future-model") == {"input": 1.60, "output": 3.20}
+
+
+def test_cost_table_is_built_from_the_configured_slug() -> None:
+    src = (PROJECT_ROOT / "llm_router.py").read_text("utf-8")
+    assert re.search(
+        r"OPENROUTER_DEEPSEEK_R1:\s*_openrouter_deepseek_cost\(\s*"
+        r"PROVIDER_CONFIG\[OPENROUTER_DEEPSEEK_R1\]\[\"model\"\]",
+        src,
+    )
 
 
 def test_official_deepseek_provider_pins() -> None:

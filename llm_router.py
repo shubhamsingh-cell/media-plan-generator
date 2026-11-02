@@ -961,11 +961,12 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # route so it actually resolves; kept as a valid paid reasoning
         # fallback. Cost metadata corrected below in _PROVIDER_COST_PER_M_TOKENS.
         # [openrouter.ai/deepseek, retrieved 2026-06-02]
-        # 2026-11-03 MODEL-ID AUDIT: "deepseek/deepseek-r1" is no longer in
-        # OpenRouter's public catalog (GET https://openrouter.ai/api/v1/models,
-        # 451 models; DeepSeek ids present include deepseek/deepseek-v4-flash
-        # and deepseek/deepseek-v4-pro, the same V4 pair the official API
-        # serves), so this fallback was a dead hop. Re-pointed to the V4 Flash
+        # 2026-11-03 MODEL-ID AUDIT: the bare "deepseek/deepseek-r1" slug is
+        # not in OpenRouter's public catalog (GET https://openrouter.ai/api/v1/
+        # models, 451 models), so this fallback was a dead hop. The dated
+        # "deepseek/deepseek-r1-0528" IS still listed, but this repo's rule is
+        # DeepSeek V4 only; deepseek/deepseek-v4-flash and deepseek/deepseek-
+        # v4-pro are listed too (the pair the official API serves). Re-pointed to the V4 Flash
         # route (reasoning-capable, cheapest valid DeepSeek id: $0.091 in /
         # $0.182 out per 1M at audit time). The constant keeps its historical
         # name to avoid churning every priority list. Override:
@@ -1805,6 +1806,28 @@ MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Estimated cost per 1M tokens (USD) -- input/output
+# OpenRouter DeepSeek route prices, USD per 1M tokens, from
+# GET https://openrouter.ai/api/v1/models on 2026-11-03. The cost entry for
+# OPENROUTER_DEEPSEEK_R1 follows the CONFIGURED slug (OPENROUTER_DEEPSEEK_MODEL
+# override included) so an override to v4-pro is not booked at flash prices
+# (~17x understatement). An unknown slug is booked at the highest known price.
+_OPENROUTER_DEEPSEEK_PRICE_PER_M: Dict[str, Dict[str, float]] = {
+    "deepseek/deepseek-v4-flash": {"input": 0.091, "output": 0.182},
+    "deepseek/deepseek-v4-pro": {"input": 1.60, "output": 3.20},
+}
+
+
+def _openrouter_deepseek_cost(model: str) -> Dict[str, float]:
+    """Per-1M-token price for an OpenRouter DeepSeek slug (conservative if unknown)."""
+    known = _OPENROUTER_DEEPSEEK_PRICE_PER_M.get(model)
+    if known is not None:
+        return dict(known)
+    return max(
+        (dict(v) for v in _OPENROUTER_DEEPSEEK_PRICE_PER_M.values()),
+        key=lambda v: v["input"] + v["output"],
+    )
+
+
 _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     GEMINI: {
         "input": 0.10,
@@ -1833,9 +1856,11 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     # S51 (Jun 2026): DeepSeek-R1 on OpenRouter is PAID, not free -- corrected
     # from 0.0/0.0 so cost accounting & routing reflect reality.
     # [openrouter.ai/deepseek, retrieved 2026-06-02]
-    # 2026-11-03: slug moved to deepseek/deepseek-v4-flash (R1 left the
-    # catalog); price from GET https://openrouter.ai/api/v1/models that day.
-    OPENROUTER_DEEPSEEK_R1: {"input": 0.091, "output": 0.182},
+    # 2026-11-03: slug moved to deepseek/deepseek-v4-flash; price follows the
+    # configured slug (see _openrouter_deepseek_cost).
+    OPENROUTER_DEEPSEEK_R1: _openrouter_deepseek_cost(
+        PROVIDER_CONFIG[OPENROUTER_DEEPSEEK_R1]["model"]
+    ),
     OPENROUTER_GEMMA: {"input": 0.0, "output": 0.0},
     # S50 ADDITION (May 2026): new free providers
     OPENROUTER_GPT_OSS: {"input": 0.0, "output": 0.0},
