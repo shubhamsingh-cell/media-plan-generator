@@ -872,4 +872,6 @@ def page_config() -> dict[str, Any]:
         "duration_months": dict(CAMPAIGN_DURATION_MONTHS),
         "period_months": dict(BUDGET_PERIOD_MONTHS),
         "default_months": DEFAULT_CAMPAIGN_MONTHS,
+        # the preview's line under an App Install goal (deck + workbook say it too)
+        "app_install_note": APP_INSTALL_NOTE,
     }

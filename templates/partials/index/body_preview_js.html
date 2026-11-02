@@ -979,9 +979,26 @@
       return floor;
     }
 
+    // An App Install goal: the projection counts applications, say so beside
+    // the outcomes (the deck and workbook print the same line; the text is
+    // wizard_inputs.APP_INSTALL_NOTE via NOVA_INPUTS).
+    function paintGoalNote() {
+      var el = $("npGoalNote");
+      if (!el) return;
+      var on = document.querySelector('input[name="campaignGoals"][value="App Install"]');
+      var note = (typeof NOVA_INPUTS !== "undefined" && NOVA_INPUTS && NOVA_INPUTS.app_install_note) || "";
+      var show = !!(on && on.checked && note);
+      el.textContent = show ? note : "";
+      el.style.display = show ? "" : "none";
+    }
+    document.addEventListener("change", function (e) {
+      if (e && e.target && e.target.name === "campaignGoals") paintGoalNote();
+    });
+
     function render() {
       var card = $("npCard");
       if (!card) return;
+      paintGoalNote();
       var m = gather();
       var hasBudget = m.total > 0;
 

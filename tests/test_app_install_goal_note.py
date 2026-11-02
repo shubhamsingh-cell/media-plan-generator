@@ -74,3 +74,19 @@ def test_without_app_install_there_is_no_note():
     deck, summary = _surfaces(["Direct Hiring"])
     assert not any(NOTE in t for t in deck)
     assert not any(NOTE in v for v in summary)
+
+
+def test_the_wizard_preview_shows_the_note_from_the_one_definition():
+    from tests.wizard_js_harness import PARTIALS
+
+    assert wizard_inputs.page_config()["app_install_note"] == NOTE
+    content = (PARTIALS / "body_content.html").read_text(encoding="utf-8")
+    assert 'id="npGoalNote"' in content
+    preview = (PARTIALS / "body_preview_js.html").read_text(encoding="utf-8")
+    assert "NOVA_INPUTS.app_install_note" in preview
+    assert 'input[name="campaignGoals"][value="App Install"]' in preview
+
+
+def test_the_workbook_names_the_goals_with_the_note():
+    _deck, summary = _surfaces(["App Install", "Direct Hiring"])
+    assert any("Client goals: App Install" in v and NOTE in v for v in summary), summary[-5:]

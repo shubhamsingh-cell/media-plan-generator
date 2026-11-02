@@ -16535,10 +16535,13 @@ def _apply_integrity_notes(wb, data: dict) -> None:
         # an App Install goal: the projection counts applications, say so
         import wizard_inputs as _wi
 
-        goal_note = _wi.goal_basis_note(data.get("campaign_goals"))
-        if goal_note and "Executive Summary" in wb.sheetnames:
+        goals = _wi.normalize_campaign_goals(data.get("campaign_goals"))
+        goal_note = _wi.goal_basis_note(goals)
+        if goals and "Executive Summary" in wb.sheetnames:
+            # the client's goals, as the deck's goal line names them
             ws = wb["Executive Summary"]
-            _write_footnote(ws, ws.max_row + 1, goal_note)
+            line = "Client goals: " + " \u00b7 ".join(goals) + "."
+            _write_footnote(ws, ws.max_row + 1, f"{line} {goal_note}".strip())
         if stamp:
             for title in ("Executive Summary", "Sources & Confidence"):
                 if title in wb.sheetnames and wb[title].cell(row=1, column=COL_START).value is None:
