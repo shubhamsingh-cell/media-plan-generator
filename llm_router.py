@@ -27,7 +27,7 @@ Provider priority (quality-first for substantive, free for simple):
     11. Cloudflare Workers AI -- free 10K neurons/day
     12. Together AI (Llama 3.3 70B Turbo) -- $25 free credit
     13-20. OpenRouter free routes (Nemotron/Cohere/Gemma 4/etc), xAI Grok 4.3, HuggingFace (various free)
-    21. OpenRouter (Nemotron 3.5 Super 120B) -- 2026-11-03: replaces delisted gpt-oss-120b:free; 131K ctx, tool use
+    21. OpenRouter (Nemotron 3.5 Super 120B) -- 2026-11-03: replaces delisted gpt-oss-120b:free; 1M ctx, tool use
     22. OpenRouter (DeepSeek V3.2) -- S50: unified chat+reasoning, 163K ctx, gold IMO/IOI
     23. Cerebras GPT-OSS-120B (CEREBRAS_SCOUT) -- free trial, 5 RPM, 8K total ctx cap (see config)
 
@@ -178,7 +178,7 @@ CLAUDE_OPUS = "claude_opus"
 # S50 ADDITION (May 2026): 2 new free-tier fallbacks
 # - OPENROUTER_GPT_OSS: originally GPT-OSS-120B; openai/gpt-oss-120b:free left the
 #   OpenRouter catalog (2026-11-03) and the route now serves Nemotron 3.5 Super
-#   120B (131K ctx, tool use, structured outputs). Constant name kept.
+#   120B (1M ctx per the catalog, tool use, structured outputs). Constant name kept.
 # - CEREBRAS_SCOUT: Cerebras free trial -- gpt-oss-120b (default) / zai-glm-4.7,
 #   5 RPM, 8,192-token TOTAL context cap (S51 re-label; the older
 #   "Qwen-3 235B, ~2,600 tok/s, 1M ctx" label was stale per live Cerebras docs
@@ -738,7 +738,8 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # max completion, reasoning, tool use) or qwen/qwen3.6-27b.
         # [console.groq.com/docs/deprecations + console.groq.com/docs/models,
         # retrieved 2026-11-03]
-        # Override via env: GROQ_MODEL=llama-3.3-70b-versatile (still listed).
+        # Override via env: GROQ_MODEL=<id>. llama-3.3-70b-versatile is Enterprise-only
+        # on Groq now, so it is not a drop-in fallback for this account.
         "name": "Groq GPT-OSS-120B",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.groq.com/openai/v1/chat/completions",
@@ -1046,7 +1047,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     # S50 ADDITION (May 2026): GPT-OSS-120B via OpenRouter free tier.
     # 2026-11-03 MODEL-ID AUDIT: "openai/gpt-oss-120b:free" left OpenRouter's
     # public catalog. Re-pointed to the nearest listed free equivalent:
-    # NVIDIA Nemotron 3.5 Super (120B MoE / 12B active, 131K ctx, tool use,
+    # NVIDIA Nemotron 3.5 Super (120B MoE / 12B active, 1M ctx, tool use,
     # structured outputs, reasoning; prompt/completion price "0"). Constant
     # name kept. Override via env: OPENROUTER_GPT_OSS_MODEL=<listed ":free" slug>
     OPENROUTER_GPT_OSS: {
@@ -1258,6 +1259,10 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CONVERSATIONAL: [
+        # 2026-11-03 review: OPENROUTER_LIQUID (LFM2.5 2.6B) is not in the
+        # conversational, complex or research chains: too small for tool use and
+        # it used to sit ahead of Claude Sonnet. It stays a structured / batch
+        # tail fallback.
         DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # S55: Quality-first -- user chat deserves Claude
         GEMINI,  # #2 free fallback
@@ -1278,7 +1283,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SILICONFLOW,
         OPENROUTER_ARCEE,
         OPENROUTER_GEMMA,
-        OPENROUTER_LIQUID,
         HUGGINGFACE,  # 10 RPM -- last free tier
         CLAUDE,
         CLAUDE_OPUS,
@@ -1306,7 +1310,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         NVIDIA_NIM,
         OPENROUTER_GEMMA,
         SILICONFLOW,
-        OPENROUTER_LIQUID,
         HUGGINGFACE,  # 10 RPM -- last free tier
         CLAUDE_OPUS,
     ],
@@ -1373,7 +1376,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_GEMMA,
         NVIDIA_NIM,
         SILICONFLOW,
-        OPENROUTER_LIQUID,
         CLOUDFLARE,
         HUGGINGFACE,
         CLAUDE_OPUS,

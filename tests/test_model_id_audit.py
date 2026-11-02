@@ -185,3 +185,37 @@ def test_groq_and_cerebras_use_gpt_oss_120b() -> None:
     # the deprecated Cerebras id must not survive as a quoted code literal
     stale = [n for n, code in _router_code_lines() if re.search(r"[\"']llama-3\.3-70b[\"']", code)]
     assert stale == []
+
+
+def test_small_liquid_route_is_not_a_chat_or_reasoning_fallback() -> None:
+    """Review 2026-11-03: liquid/lfm-2.5-2.6b:free (2.6B; OpenRouter's own
+    description advises against agentic use) sat ahead of Claude Sonnet in the
+    conversational, complex and research chains."""
+    import llm_router as r
+
+    for task in (r.TASK_CONVERSATIONAL, r.TASK_COMPLEX, r.TASK_RESEARCH):
+        assert r.OPENROUTER_LIQUID not in r.TASK_ROUTING[task], task
+
+
+def test_liveness_script_covers_every_free_openrouter_route() -> None:
+    """scripts/check_openrouter_free_routes.py (run on a schedule, needs
+    network) checks the catalog for exactly the router's free slugs."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "scripts" / "check_openrouter_free_routes.py"
+    spec = importlib.util.spec_from_file_location("check_or_free", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    import llm_router as r
+
+    expected = {
+        cfg["model"]
+        for cfg in r.PROVIDER_CONFIG.values()
+        if isinstance(cfg, dict) and "openrouter.ai" in str(cfg.get("endpoint", "")) and str(cfg.get("model", "")).endswith(":free")
+    }
+    assert set(mod.free_route_slugs()) == expected and expected
+    fake = {"data": [{"id": s, "pricing": {"prompt": "0", "completion": "0"}} for s in expected]}
+    assert mod.problems(fake) == []
+    fake["data"].pop()
+    assert len(mod.problems(fake)) == 1
