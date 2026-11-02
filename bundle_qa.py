@@ -2680,7 +2680,7 @@ def input_role_findings(
                     "input_role_missing",
                     f"Input role '{title}' was requested but is not in the "
                     f"plan's role set ({len(matched)} of {len(typed)} roles "
-                    "reached the plan)",
+                    f"reached the plan). {_ROLE_ACTION}",
                     "plan",
                 )
             )
@@ -2709,11 +2709,17 @@ def input_role_findings(
                     "critical",
                     "input_role_missing",
                     f"Input role '{typed[i]}' was requested but the {where} "
-                    "never names it",
+                    f"never names it. {_ROLE_ACTION}",
                     where,
                 )
             )
     return out
+
+
+_ROLE_ACTION = "Add the missing role or regenerate the plan."
+_DRAFT_ACTION = (
+    "Complete the salary, demand and location data, or share it as internal only."
+)
 
 
 def _names_role(text: str, name: str) -> bool:
@@ -2750,7 +2756,7 @@ def internal_draft_findings(data: dict) -> list[Finding]:
         return []
     if not stamp:
         return []
-    return [_finding("warn", "internal_draft_plan", stamp, "plan")]
+    return [_finding("warn", "internal_draft_plan", f"{stamp} {_DRAFT_ACTION}", "plan")]
 
 
 def _check_input_role_integrity(

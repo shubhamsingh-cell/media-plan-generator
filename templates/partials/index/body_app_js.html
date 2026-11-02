@@ -1120,6 +1120,17 @@
         "</div>";
     }
 
+    // Non-blocking QA warnings (an internal draft, ...): said here on the
+    // results screen; only critical findings open the gate dialog.
+    const qaWarnings = Array.isArray(payload._qa_warnings) ? payload._qa_warnings : [];
+    if (qaWarnings.length > 0) {
+      html +=
+        '<div class="plan-funded-channels plan-qa-warnings" role="status">' +
+        '<span class="plan-funded-label">Before you share:</span> ' +
+        qaWarnings.map((m) => escapeHtml(String(m))).join(" &middot; ") +
+        "</div>";
+    }
+
     // ── 2. Channel Allocation Chart (inline SVG) ──
     if (channels.length > 0) {
       html += '<div class="plan-section-label">Channel Budget Allocation</div>';
@@ -6725,6 +6736,7 @@
       // currency) -- every results-screen echo reads this, not the typed text.
       payload._plan_budget = initData.budget || null;
       payload._plan_results = null;
+      payload._qa_warnings = [];
       const jobId = initData.job_id;
       if (!jobId) throw new Error("Server did not return a job_id");
       genCurrentJobId = jobId;
@@ -6808,6 +6820,16 @@
       // for the results screen -- absent figures hide their tile.
       payload._plan_results =
         (_completedPollData && _completedPollData.results_summary) || null;
+      // the non-blocking QA findings, for the results screen
+      payload._qa_warnings = (
+        (_completedPollData && _completedPollData.qa_findings) || []
+      )
+        .filter(function (f) {
+          return f && f.severity === "warn" && f.message;
+        })
+        .map(function (f) {
+          return f.message;
+        });
 
       // ── Generation-time QA gate ──
       // The bundle already exists server-side either way -- this only

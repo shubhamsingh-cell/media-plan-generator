@@ -28,7 +28,7 @@ def test_a_low_confidence_plan_is_reported_as_an_internal_draft_with_the_reason(
     data = _draft(0.31)
     found = _draft_findings(bundle_qa.run_bundle_qa(None, None, data))
     assert len(found) == 1
-    assert found[0]["message"] == plan_validator.internal_draft_stamp(data)
+    assert found[0]["message"].startswith(plan_validator.internal_draft_stamp(data))
     assert "data confidence 31%" in found[0]["message"]
     summary = bundle_qa.summarize_findings(bundle_qa.run_bundle_qa(None, None, data))
     assert summary["qa_status"] != "clean"
