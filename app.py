@@ -25358,12 +25358,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 logger.info(
                                     "Enriched /api/talent-heatmap with adzuna job_count data"
                                 )
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _ae:
+                        except Exception as _ae:  # noqa: BLE001
+                            # optional live enrichment: any failure (a missing
+                            # client method included) is logged and skipped,
+                            # never the analysis
                             logger.error(
                                 "Adzuna enrichment for talent-heatmap failed: %s",
                                 _ae,
@@ -25378,37 +25376,20 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 logger.info(
                                     "Enriched /api/talent-heatmap with census population data"
                                 )
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _ce:
+                        except Exception as _ce:  # noqa: BLE001
+                            # optional live enrichment: any failure (a missing
+                            # client method included) is logged and skipped,
+                            # never the analysis
                             logger.error(
                                 "Census enrichment for talent-heatmap failed: %s",
                                 _ce,
                                 exc_info=True,
                             )
-                    # BEA regional employment
-                    if _api_bea:
-                        try:
-                            _bea_emp = _api_bea.get_regional_employment()
-                            if _bea_emp:
-                                _thm_live_data["bea_regional_employment"] = _bea_emp
-                                logger.info(
-                                    "Enriched /api/talent-heatmap with bea employment data"
-                                )
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _be:
-                            logger.error(
-                                "BEA enrichment for talent-heatmap failed: %s",
-                                _be,
-                                exc_info=True,
-                            )
+                    # BEA: no regional-employment call. BEAClient has never had a
+                    # get_regional_employment method (api_integrations.BEAClient);
+                    # the call raised AttributeError, escaped the handler's
+                    # except and failed the whole analysis, so it is removed
+                    # rather than guessed at.
                     if _thm_live_data:
                         result["live_market_data"] = _thm_live_data
 
