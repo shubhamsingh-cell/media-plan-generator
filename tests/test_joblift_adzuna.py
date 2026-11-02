@@ -103,3 +103,39 @@ def test_joblift_and_adzuna_are_never_funded_as_two_independent_boards():
     keys = [b["row_name"] for b in ranked]
     assert "Adzuna" in keys
     assert "Joblift" not in keys, "Joblift ranked beside its owner Adzuna"
+
+
+def test_the_deck_funded_line_keeps_the_note_and_the_workbook_names_it():
+    import io
+
+    import openpyxl
+    from pptx import Presentation
+
+    import excel_v2
+    import ppt_generator
+
+    data = dict(GERMANY, client_name="Acme", budget="250000")
+    data["_budget_allocation"] = {
+        "channel_allocations": {
+            "regional_boards": {"label": "Regional Job Boards", "dollar_amount": 86511.54}
+        }
+    }
+    ws = openpyxl.Workbook().active
+    excel_v2._build_sheet_channel_recommendations(ws, data)
+    cells = " ".join(str(c.value) for row in ws.iter_rows() for c in row if c.value)
+    assert f"Joblift ({NOTE})" in cells
+    prs = Presentation(io.BytesIO(ppt_generator.generate_pptx(dict(data))))
+    # the funded line wraps onto continuation text boxes on the same slide
+    funded = [
+        sh.text_frame.text
+        for sl in prs.slides
+        if any(
+            x.has_text_frame and "aggregator budget funds" in x.text_frame.text
+            for x in sl.shapes
+        )
+        for sh in sl.shapes
+        if sh.has_text_frame and "\u20ac" in sh.text_frame.text
+    ]
+    blob = " ".join(funded).replace("\n", " ")
+    assert "Joblift" in blob, funded
+    assert NOTE in blob, funded

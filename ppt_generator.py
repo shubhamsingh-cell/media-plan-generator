@@ -12102,6 +12102,9 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
         _pieces = []
         for b in _entry["boards"]:
             _short = re.sub(r"\s*\(.*?\)", "", b["name"]).strip() or b["name"]
+            # the shortened name keeps a sourced ownership note ("Joblift (now
+            # part of Adzuna, insolvency 2026)"), never a brand qualifier
+            _short = _pubfilter.display_name(_short, _entry["country"])
             _pieces.append(f"{_short} {_fmt_currency(b['amount'], compact=True)}")
         # wrap onto continuation lines so a long board name never runs past
         # the slide's right margin (7% slack: the ruler reads short of the
