@@ -580,3 +580,64 @@ def test_market_fetch_failure_still_returns_default_widgets(
     h = _get_widgets()
     assert h.status == 200
     assert h.body()["market"]["label"] == "Labor market trends steady"
+
+
+# ===========================================================================
+# 3. Why probes still waited: idle gap past the old 10 min window, cold workers
+# ===========================================================================
+
+
+def _get_widgets_in_thread(timeout: float) -> tuple[bool, _FakeHandler]:
+    """Run a request on a thread; report whether it returned within ``timeout``."""
+    h = _FakeHandler()
+    t = threading.Thread(
+        target=lambda: health_routes._handle_dashboard_widgets(
+            h, "/api/dashboard/widgets", None
+        ),
+        daemon=True,
+    )
+    t.start()
+    t.join(timeout=timeout)
+    return (not t.is_alive()), h
+
+
+def test_idle_worker_past_ten_minutes_does_not_wait_on_the_rebuild(
+    widgets_env: dict[str, Any],
+) -> None:
+    """A worker that saw no request for >10 min (probes go to one of two workers,
+    and a worker forked later inherits an old master entry) used to rebuild
+    synchronously and log SLOW ENDPOINT; it must serve the old payload instead."""
+    _get_widgets()  # warm
+    widgets_env["clock"].now += 700  # > the former 600 s stale window
+    widgets_env["gate"].clear()  # Supabase is slow (1-3.6 s in prod)
+    widgets_env["started"].clear()
+    try:
+        returned, h = _get_widgets_in_thread(timeout=2.0)
+        assert returned, "request blocked on a synchronous rebuild"
+        assert h.status == 200
+        assert widgets_env["started"].wait(timeout=5), "refresh still runs in bg"
+    finally:
+        widgets_env["gate"].set()
+
+
+def test_prewarm_makes_the_first_request_a_cache_hit(
+    widgets_env: dict[str, Any],
+) -> None:
+    assert health_routes.prewarm_dashboard_widgets() is True
+    assert widgets_env["calls"]["n"] == 1
+    widgets_env["gate"].clear()  # any further build would now hang
+    returned, h = _get_widgets_in_thread(timeout=2.0)
+    widgets_env["gate"].set()
+    assert returned and h.status == 200
+    assert widgets_env["calls"]["n"] == 1, "first request must not rebuild"
+
+
+def test_prewarm_never_raises_and_leaves_cold_path_intact(
+    widgets_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom() -> dict[str, Any]:
+        raise RuntimeError("supabase down")
+
+    monkeypatch.setattr(health_routes, "_build_dashboard_widgets", boom)
+    assert health_routes.prewarm_dashboard_widgets() is False
+    assert health_routes._widgets_entry["value"] is None

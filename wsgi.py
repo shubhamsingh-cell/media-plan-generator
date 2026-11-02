@@ -160,6 +160,21 @@ def _run_deferred_startup() -> None:
     except Exception as slot_err:
         logger.warning("[wsgi] SlotOps baselines pre-warm failed: %s", slot_err)
 
+    # Pre-warm the /api/dashboard/widgets cache so neither worker's first request
+    # (usually the AutoQC probe) builds it synchronously and logs a SLOW ENDPOINT
+    # warning. Runs in the master before fork; workers inherit the entry.
+    try:
+        from routes.health import prewarm_dashboard_widgets
+
+        _t_w = time.perf_counter()
+        if prewarm_dashboard_widgets():
+            logger.info(
+                "[wsgi] Dashboard widgets cache pre-warmed in %.2fs",
+                time.perf_counter() - _t_w,
+            )
+    except Exception as widgets_err:
+        logger.warning("[wsgi] Dashboard widgets pre-warm failed: %s", widgets_err)
+
     # Freeze the pre-loaded heap before fork. Everything loaded above (KB,
     # gazetteer, SlotOps baselines) is read-only reference data that the
     # workers inherit copy-on-write -- but CPython's cyclic GC writes into

@@ -275,10 +275,20 @@ def _handle_resilience_dashboard(handler, path: str, parsed: Any) -> None:
 #     background thread refreshes (nobody waits on Supabase in steady state);
 #   * cold or older than the stale window -> built synchronously, single-flight
 #     (concurrent cold requests share one build).
+# Why requests still waited (605 -> ~7 SLOW ENDPOINT warnings per 6 h): the cache
+# is per process and the only things that left a worker with no usable entry were
+# (1) a cold start -- after every deploy each of the 2 gunicorn workers' first
+# request (the AutoQC probe or a user) built synchronously, and (2) an idle gap
+# longer than the 10-minute stale window (probes land on one of the 2 workers, and
+# a worker forked later by the arbiter inherits an old master entry). Fixed by
+# pre-warming the entry in the gunicorn master before fork (see
+# prewarm_dashboard_widgets, called from wsgi) and by a stale window long enough
+# that an idle or freshly forked worker serves the old payload while ONE
+# background thread refreshes it.
 # A failed build is reported (500) and never cached. The liveness ping
 # (/api/health/ping) is a separate handler and is intentionally NOT cached.
 _WIDGETS_FRESH_TTL_S = 60.0
-_WIDGETS_STALE_MAX_S = 600.0
+_WIDGETS_STALE_MAX_S = 6 * 3600.0
 _widgets_lock = threading.Lock()
 _widgets_build_lock = threading.Lock()
 _widgets_entry: dict = {"ts": 0.0, "value": None, "refreshing": False}
@@ -339,6 +349,27 @@ def _refresh_dashboard_widgets() -> dict:
         _widgets_entry["ts"] = time.monotonic()
         _widgets_entry["refreshing"] = False
     return value
+
+
+def prewarm_dashboard_widgets() -> bool:
+    """Populate the widgets cache ahead of the first request. Never raises.
+
+    Called once from the deferred startup. Under ``gunicorn --preload`` that runs
+    in the master before fork, so every worker inherits the warm entry (the
+    ``time.monotonic`` stamp is system-wide on Linux, so its age stays valid in
+    the children). Without it, each worker's first request built the payload
+    synchronously (1-3.6 s) and logged a SLOW ENDPOINT warning.
+
+    Returns:
+        True when the cache now holds a value, False if the build failed (the
+        request path then builds on demand exactly as before).
+    """
+    try:
+        _refresh_dashboard_widgets()
+        return True
+    except Exception as e:
+        logger.warning("Dashboard widgets pre-warm failed (non-fatal): %s", e)
+        return False
 
 
 def _refresh_dashboard_widgets_bg() -> None:
