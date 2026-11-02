@@ -116,16 +116,23 @@ _adzuna_bench_cache: Optional[Dict[str, Any]] = None
 
 
 def default_campaign_month(month: int = 0) -> int:
-    """The campaign start month (1-12): ``month`` when valid, else today's month.
+    """The campaign start month (1-12): ``month`` when valid, else a default.
 
     The ONE place the projection/seasonality code falls back to the wall clock
     for an unspecified campaign month. Every seasonal default in the repo goes
-    through here (directly, or via a module-level ``_default_month`` shim), so
-    tests pin it in one spot (tests/conftest.py) instead of every month-reading
-    expectation going stale when the calendar rolls over.
+    through here (directly, or via a module-level ``_default_month`` shim).
+
+    Test hook: ``MPG_DEFAULT_CAMPAIGN_MONTH`` (an integer 1-12, read at call
+    time, anything else ignored) replaces today's month. tests/conftest.py sets
+    it to 10 for the whole pytest run so expected numbers captured in October do
+    not go stale when the calendar rolls over, and so every thread, fixture and
+    spawned subprocess agrees. It must never be set in production.
     """
     if month and 1 <= int(month) <= 12:
         return int(month)
+    raw = os.environ.get("MPG_DEFAULT_CAMPAIGN_MONTH", "").strip()
+    if raw.isdigit() and 1 <= int(raw) <= 12:
+        return int(raw)
     return datetime.datetime.now().month
 
 

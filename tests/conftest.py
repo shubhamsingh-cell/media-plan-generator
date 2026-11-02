@@ -112,40 +112,34 @@ socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign]
 # today's month (budget_engine.default_campaign_month). The owner-approved
 # expected numbers (CPA ranges, cost-per-hire floors, channel mix) were captured
 # in OCTOBER, so unpinned tests flip red whenever the calendar leaves October
-# (two such classes went red on 1 Nov 2026: RN Columbus CPA $34.97, and the
-# cph_benchmark $9,000 case). Pinning the ONE helper makes every default-month
-# read deterministic. A test that deliberately exercises the real-clock
-# fallback opts out with ``@pytest.mark.real_clock``.
+# (two such classes went red on 1 Nov 2026). The helper honours the
+# MPG_DEFAULT_CAMPAIGN_MONTH environment variable, which is set here, at conftest
+# import and for the whole run, rather than per test: module-scoped fixtures and
+# import-time caches (proof_claims, the hub grid) are built BEFORE any
+# function-scoped fixture runs, and a per-test patch left them on the real
+# month while the test body saw October (hub estimate 32.1 % vs 31.9 %). An
+# environment variable is also inherited by every subprocess a test spawns.
+# Hard assignment, like NOVA_DISABLE_AUTO_QC: an inherited value must not win.
+# A test that deliberately exercises the real-clock fallback opts out with
+# ``@pytest.mark.real_clock`` (the variable is removed for that test only).
 PINNED_CAMPAIGN_MONTH = 10
+os.environ["MPG_DEFAULT_CAMPAIGN_MONTH"] = str(PINNED_CAMPAIGN_MONTH)
 
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
-        "real_clock: opt out of the autouse October pin on "
-        "budget_engine.default_campaign_month (test exercises the real-month fallback)",
+        "real_clock: opt out of the October campaign-month pin "
+        "(MPG_DEFAULT_CAMPAIGN_MONTH) so the test exercises the real-month fallback",
     )
 
 
 @pytest.fixture(autouse=True)
-def _pin_default_campaign_month(
+def _real_clock_opt_out(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     if request.node.get_closest_marker("real_clock"):
-        return
-    try:
-        import budget_engine
-    except Exception:  # module unavailable in this environment: nothing to pin
-        return
-    real = budget_engine.default_campaign_month
-
-    def _pinned(month: int = 0) -> int:
-        # An explicit valid month still wins, exactly like the real helper.
-        return (
-            real(month) if (month and 1 <= int(month) <= 12) else PINNED_CAMPAIGN_MONTH
-        )
-
-    monkeypatch.setattr(budget_engine, "default_campaign_month", _pinned)
+        monkeypatch.delenv("MPG_DEFAULT_CAMPAIGN_MONTH", raising=False)
 
 
 @pytest.fixture(autouse=True)
