@@ -78,6 +78,11 @@ SUPABASE_KEY: str = (
 )
 _SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_KEY)
 _HTTP_TIMEOUT = 15
+# Per-cycle (non-boot) enrichment_log reads are best-effort: one retry, short
+# timeout, and a bounded look-back so a slow audit table cannot stall the thread.
+_STATE_BEST_EFFORT_TIMEOUT = 8
+_STATE_BEST_EFFORT_RETRIES = 1
+_STATE_LOOKBACK_DAYS = 14
 _SSL_CTX = ssl.create_default_context()
 _BATCH_SIZE = 100
 
@@ -127,6 +132,12 @@ FRESHNESS_THRESHOLDS: dict[str, int] = {
     # deleted in S72): live_market_data, firecrawl_news, compliance_updates,
     # firecrawl_salary, job_density, platform_ad_specs, competitor_analysis.
 }
+
+# The boot-time read must still see the slowest source's last run (quarterly
+# benchmark drift, monthly census), otherwise a redeploy would re-run it; the
+# per-cycle re-reads only need to catch sibling-worker refreshes, so they use
+# the short ``_STATE_LOOKBACK_DAYS`` window (in-memory state keeps older runs).
+_STATE_BOOT_LOOKBACK_DAYS = max(FRESHNESS_THRESHOLDS.values()) // 24 + 1
 
 # After a FAILED refresh attempt a source is retried after this many hours
 # (constant), not after its success threshold above. Persisting a failure for the
@@ -264,6 +275,8 @@ def _retry_with_backoff(
     fn: callable,
     max_retries: int = 3,
     base_delay: float = 2.0,
+    exhausted_level: int = logging.ERROR,
+    exhausted_label: str = "",
 ) -> Any:
     """Execute a callable with exponential backoff on transient failures.
 
@@ -280,6 +293,10 @@ def _retry_with_backoff(
         fn: Zero-argument callable to execute.
         max_retries: Maximum number of retry attempts (default 3).
         base_delay: Base delay in seconds before first retry (default 2.0).
+        exhausted_level: Log level for the "all retries exhausted" line. Callers
+            doing a degraded-mode, best-effort read pass ``logging.WARNING``.
+        exhausted_label: Optional text appended to that line (e.g.
+            "best-effort state read").
 
     Returns:
         The return value of fn on success, or None after all retries exhausted.
@@ -308,10 +325,13 @@ def _retry_with_backoff(
                 )
                 time.sleep(delay)
             else:
-                logger.error(
+                logger.log(
+                    exhausted_level,
                     f"All {max_retries} retries exhausted for "
-                    f"{fn.__name__ if hasattr(fn, '__name__') else 'callable'}: {_describe_exc(last_exc)}",
-                    exc_info=True,
+                    f"{fn.__name__ if hasattr(fn, '__name__') else 'callable'}"
+                    f"{' (' + exhausted_label + ')' if exhausted_label else ''}: "
+                    f"{_describe_exc(last_exc)}",
+                    exc_info=exhausted_level >= logging.ERROR,
                 )
                 return None
     return None  # pragma: no cover
@@ -746,11 +766,23 @@ class DataEnrichmentEngine:
             "stats": {"total_enrichments": 0, "total_failures": 0},
         }
 
-    def _load_state_from_supabase(self) -> Optional[dict]:
+    def _load_state_from_supabase(
+        self,
+        *,
+        best_effort: bool = False,
+    ) -> Optional[dict]:
         """Load enrichment state from the Supabase enrichment_log table.
 
         Queries the most recent log entry per source to reconstruct the
-        last_runs dict.
+        last_runs dict. The read is bounded by a ``created_at`` look-back
+        (14 days per cycle, the longest freshness threshold at boot) so it
+        stays cheap however large the append-only audit table grows.
+
+        Args:
+            best_effort: True for the per-cycle re-reads (``_adopt_persisted_state``).
+                Uses a single retry and a shorter timeout, and reports exhaustion
+                as a WARNING (a degraded-mode read, not an engine failure). The
+                boot-time read keeps the full retry/timeout budget.
 
         Returns:
             Reconstructed state dict, or None if Supabase is unavailable.
@@ -767,26 +799,55 @@ class DataEnrichmentEngine:
         # tiny, and a 50-row window let a chatty 12 h source push the weekly
         # sources (BLS, FRED, Adzuna) out of view, which made them look
         # never-refreshed after a redeploy.
+        # Bound the scan by time as well as by row count: the filter is computed
+        # at call time and URL-encoded (the "+" of a UTC offset must be %2B).
+        since = urllib.parse.quote(
+            (
+                datetime.now(timezone.utc)
+                - timedelta(
+                    days=(
+                        _STATE_LOOKBACK_DAYS
+                        if best_effort
+                        else _STATE_BOOT_LOOKBACK_DAYS
+                    )
+                )
+            ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            safe="",
+        )
+        # Root-cause fix lives DB-side (do NOT run from app code): without a
+        # composite index this filter+sort scans the whole append-only table.
+        #   CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_enrichment_log_table_created
+        #       ON enrichment_log (table_name, created_at DESC);
         url = (
             f"{base}/rest/v1/enrichment_log"
             f"?select={select_param}"
             "&table_name=eq.data_enrichment"
+            f"&created_at=gte.{since}"
             "&order=created_at.desc"
             "&limit=500"
         )
         headers = _build_supabase_headers()
+        timeout = _STATE_BEST_EFFORT_TIMEOUT if best_effort else _HTTP_TIMEOUT
 
         def _fetch_enrichment_log() -> list:
             """Fetch enrichment log rows from Supabase."""
             req = urllib.request.Request(url, method="GET", headers=headers)
             with urllib.request.urlopen(
-                req, timeout=_HTTP_TIMEOUT, context=_SSL_CTX
+                req, timeout=timeout, context=_SSL_CTX
             ) as resp:
                 raw = resp.read().decode("utf-8")
                 return json.loads(raw)
 
         try:
-            rows = _retry_with_backoff(_fetch_enrichment_log)
+            if best_effort:
+                rows = _retry_with_backoff(
+                    _fetch_enrichment_log,
+                    max_retries=_STATE_BEST_EFFORT_RETRIES,
+                    exhausted_level=logging.WARNING,
+                    exhausted_label="best-effort state read",
+                )
+            else:
+                rows = _retry_with_backoff(_fetch_enrichment_log)
             if not isinstance(rows, list) or not rows:
                 return None
 
@@ -871,7 +932,7 @@ class DataEnrichmentEngine:
         (or by the pre-deploy instance) instead of trusting a boot-time snapshot.
         Best-effort: any failure leaves the in-memory state untouched.
         """
-        persisted = self._load_state_from_supabase()
+        persisted = self._load_state_from_supabase(best_effort=True)
         if not persisted:
             return
         with self._lock:
