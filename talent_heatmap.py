@@ -1601,8 +1601,10 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         "Competition",
         "Estimated Salary",
         "Cost of Living",
-        "Hiring Difficulty",
-        "Recommendation",
+        # column H holds the recommendation score (higher = better) and I the
+        # best-location marker; hiring difficulty is its own sheet
+        "Recommendation Score",
+        "Best Location",
     ]
     row = 5
     for i, h in enumerate(headers1):
