@@ -6432,7 +6432,7 @@ def build_linkedin_intelligence(data: dict) -> dict[str, Any]:
     # United Kingdom, the name the dataset's rows use). A US first market keeps
     # the legacy reading above, so a US plan's output is unchanged.
     _foreign_target = False
-    # no US market in the plan: an unresolved first market ("Birmingham, UK")
+    # no US market in the plan: an unresolved first market ("Remote, Europe")
     # still has no country row, so a global fallback is labelled global too
     # location-only (plan_projection.is_non_us_market, the test the budget
     # engine and the workbook apply): the wizard's "us_only" region default

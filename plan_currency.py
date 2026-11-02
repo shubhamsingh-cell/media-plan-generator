@@ -473,6 +473,10 @@ def currency_for_country(country: str | None) -> str | None:
             return "CAD"
         if last in _COUNTRY_TO_CODE:
             return _COUNTRY_TO_CODE[last]
+    # "City (Country)": the bracketed country, as "City, Country" above
+    paren = re.search(r"\(([^()]+)\)\s*$", key)
+    if paren and paren.group(1).strip() in _COUNTRY_TO_CODE:
+        return _COUNTRY_TO_CODE[paren.group(1).strip()]
     # Substring fallback only for aliases >= 5 chars (avoid "ca"/"in" inside
     # unrelated words like "antarctica"), and only on WORD boundaries: a raw
     # substring test read "Indianapolis" and "Fort Wayne, Indiana" as India

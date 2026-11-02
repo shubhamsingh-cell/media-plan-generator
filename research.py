@@ -605,6 +605,45 @@ COUNTRY_ALIASES = {
 }
 
 
+# UK nations name the United Kingdom as a "City, Nation" suffix.
+_UK_NATION_SUFFIXES = frozenset(
+    {"england", "scotland", "wales", "northern ireland", "great britain", "u.k."}
+)
+
+
+def _explicit_country_suffix(loc_lower, us_state_abbrevs):
+    """Country named by the trailing ", X" or "(X)" part of a lower-cased
+    location: a COUNTRY_DATA name, a country alias that is not a US state
+    code, a UK nation, or a Canadian province (code or name). None otherwise
+    (no suffix, or a US state suffix)."""
+    tokens = []
+    if "," in loc_lower:
+        tokens.append(loc_lower.rsplit(",", 1)[-1].strip())
+    paren = re.search(r"\(([^()]+)\)\s*$", loc_lower)
+    if paren:
+        tokens.append(paren.group(1).strip())
+    for tok in tokens:
+        tok = tok.strip().rstrip(".") if tok != "u.k." else tok
+        if not tok or tok in us_state_abbrevs:
+            continue
+        for country in COUNTRY_DATA:
+            if country.lower() == tok:
+                return country
+        alias_country = COUNTRY_ALIASES.get(tok)
+        if alias_country:
+            return alias_country
+        if tok in _UK_NATION_SUFFIXES and "United Kingdom" in COUNTRY_DATA:
+            return "United Kingdom"
+        try:
+            import plan_currency
+
+            if plan_currency.is_canadian_province(tok) and "Canada" in COUNTRY_DATA:
+                return "Canada"
+        except ImportError:
+            pass
+    return None
+
+
 def _detect_country(location_str):
     """Detect if a location string refers to a country (non-US)."""
     loc_lower = location_str.strip().lower()
@@ -675,6 +714,12 @@ def _detect_country(location_str):
     _tail_country = country_registry.trailing_country(location_str)
     if _tail_country:
         return _tail_country
+    # An explicit country suffix ("Birmingham, UK", "Richmond, England",
+    # "London, ON") always wins over the US-metro guard below, which would
+    # read the city part as Birmingham, AL / Richmond, VA / London, UK.
+    _suffix_country = _explicit_country_suffix(loc_lower, _US_STATE_ABBREVS)
+    if _suffix_country:
+        return _suffix_country
     # Check if location matches a known US metro area — prevents "Indianapolis" matching "India"
     # Extract the city part (before comma or state abbreviation) for matching
     _city_part = loc_lower.split(",")[0].strip()

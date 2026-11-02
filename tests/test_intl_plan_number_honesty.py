@@ -425,8 +425,11 @@ def test_niche_board_matching_says_the_budget_line_is_an_estimate_and_quotes_no_
 
 
 def test_global_fallback_is_flagged_for_an_unresolved_non_us_first_market():
+    # "Remote, Europe": non-US, but no country. (This fixture used "Birmingham, UK",
+    # which only went unresolved through the Birmingham, AL bug fixed in
+    # tests/test_explicit_country_suffix_wins.py; it now resolves to the UK.)
     data = {
-        "locations": ["Birmingham, UK"],
+        "locations": ["Remote, Europe"],
         "_knowledge_base": {
             "slotops_benchmarks": json.loads(
                 (PROJECT_ROOT / "data" / "slotops_benchmarks_summary.json").read_text(

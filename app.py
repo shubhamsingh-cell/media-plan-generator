@@ -6169,9 +6169,17 @@ def _split_city_state_country(loc_str: str) -> dict:
                 is_us_state = False
         if is_us_state:
             return {"city": city, "state": second, "country": "United States"}
+        # "London, ON": a Canadian province is a state of Canada, not a country
+        if plan_currency is not None and plan_currency.is_canadian_province(second):
+            return {"city": city, "state": second, "country": "Canada"}
         # 2nd token isn't a recognizable US state -- it's most likely the
-        # country itself (e.g. "London, United Kingdom"), not a state.
-        return {"city": city, "state": "", "country": second}
+        # country itself (e.g. "London, United Kingdom"), not a state; named
+        # canonically ("Birmingham, England" -> United Kingdom).
+        return {
+            "city": city,
+            "state": "",
+            "country": research._detect_country(loc_str) or second,
+        }
     # A bare city: a well-known foreign one ("Istanbul", "Lima", "Dubai") is
     # not the United States; anything unrecognised keeps the domestic default.
     return {
