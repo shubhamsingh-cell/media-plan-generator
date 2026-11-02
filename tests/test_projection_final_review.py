@@ -269,6 +269,7 @@ def _top2_share(brief):
     return round(sum(pcts[:2]), 2)
 
 
+@pytest.mark.real_clock  # exercises the real default-month fallback, not the conftest pin
 @pytest.mark.parametrize("today_month", [1, 6, 11])
 def test_pinned_campaign_month_makes_the_channel_mix_clock_independent(
     monkeypatch, today_month

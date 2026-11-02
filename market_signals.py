@@ -45,6 +45,13 @@ _SALARY_CHANGE_THRESHOLD = 0.08  # 8% salary shift triggers signal
 # ---------------------------------------------------------------------------
 
 
+def _default_month() -> int:
+    """Today's month via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 class SignalType(str, Enum):
     """Market signal categories."""
 
@@ -405,8 +412,7 @@ def _compute_channel_performance_signals(
 def _compute_seasonal_signals() -> List[Signal]:
     """Detect seasonal trends based on current month."""
     signals: List[Signal] = []
-    now = datetime.datetime.now(datetime.timezone.utc)
-    current_month = now.month
+    current_month = _default_month()
     current_pattern = _SEASONAL_PATTERNS.get(current_month)
     if not current_pattern:
         return signals
@@ -1206,7 +1212,7 @@ def _generate_cpc_alert(trends: Dict[str, str], current_cpc: Dict[str, float]) -
             )
 
     # Seasonal check
-    month = datetime.datetime.now().month
+    month = _default_month()
     seasonal = _SEASONAL_PATTERNS.get(month, {})
     label = seasonal.get("label", "")
     mult = seasonal.get("demand_multiplier", 1.0)
@@ -1336,7 +1342,7 @@ def get_cpc_trends(
             current_cpc[platform] = adjusted
     else:
         # Fallback: apply seasonal multiplier to benchmarks
-        month = datetime.datetime.now().month
+        month = _default_month()
         seasonal_mult = _SEASONAL_PATTERNS.get(month, {}).get("demand_multiplier", 1.0)
         for platform, bench_val in benchmark_cpc.items():
             current_cpc[platform] = round(bench_val * seasonal_mult, 2)
@@ -1448,7 +1454,7 @@ def get_posting_volume(
     baseline = _POSTING_VOLUME_BASELINES.get(industry, 50000)
 
     # Apply seasonal adjustment to baseline for fair comparison
-    month = datetime.datetime.now().month
+    month = _default_month()
     seasonal_mult = _SEASONAL_PATTERNS.get(month, {}).get("demand_multiplier", 1.0)
     adjusted_baseline = int(baseline * seasonal_mult)
 

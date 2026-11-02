@@ -24,6 +24,13 @@ _collar_intel = None
 _init_lock = threading.Lock()
 
 
+def _default_month() -> int:
+    """Today's month via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 def _get_feature_store() -> Any:
     """Lazy-load the FeatureStore singleton (thread-safe)."""
     global _feature_store
@@ -446,7 +453,7 @@ def _optimize_impl(
     duration_months = max(1, min(duration_months, 24))
 
     now = datetime.datetime.now()
-    month = now.month
+    month = _default_month()
     data_sources: List[str] = []
     optimizations: List[str] = []
     warnings: List[str] = []

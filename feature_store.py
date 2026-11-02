@@ -361,6 +361,13 @@ _BASE_CPC: Dict[str, float] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _default_month() -> int:
+    """Today's month via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 class FeatureStore:
     """Pre-computed feature store for Plan Generator and Nova AI.
 
@@ -493,10 +500,8 @@ class FeatureStore:
             Dict with role_family, seasonal_factor, geo_index,
             and ranked channel allocations with adjusted CPCs.
         """
-        import datetime as _dt
-
         role_family = self.get_role_family(job_title)
-        current_month = _dt.datetime.now().month
+        current_month = _default_month()
         seasonal = self.get_seasonal_factor(current_month)
         geo_index = self.get_geo_cost_index(location)
 

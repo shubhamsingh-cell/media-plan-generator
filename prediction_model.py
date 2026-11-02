@@ -243,6 +243,13 @@ _BUDGET_PER_HIRE: dict[str, tuple[float, float]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _default_month() -> int:
+    """Today's month via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 def _classify_role(role_str: str) -> str:
     """Map a free-text role string to a role family key."""
     if not role_str:
@@ -402,7 +409,7 @@ def _extract_features(plan_data: dict[str, Any]) -> dict[str, Any]:
     location_tier = _classify_location_tier(locations)
 
     # -- Seasonal factor --
-    month = datetime.datetime.now().month
+    month = _default_month()
     seasonal_factor = _SEASONAL_FACTORS.get(month, 1.0)
 
     # -- Channel diversity (Shannon entropy) --
@@ -941,7 +948,7 @@ def _generate_suggestions(
 
     # Seasonal suggestions
     if scores.get("seasonal_advantage", 100) < 40:
-        month = datetime.datetime.now().month
+        month = _default_month()
         suggestions.append(
             f"Month {month} is traditionally slower for hiring. "
             "Consider boosting ad spend 15-20% to compensate for lower candidate activity."

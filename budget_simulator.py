@@ -270,6 +270,13 @@ _FALLBACK_HIRE_RATE: float = 0.02
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _default_month() -> int:
+    """Today's month via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 def _safe_div(num: float, den: float, default: float = 0.0) -> float:
     """Division that never raises ZeroDivisionError."""
     return num / den if den != 0 else default
@@ -348,7 +355,7 @@ def _get_channel_cpc(
 
     if _HAS_TREND_ENGINE and platform:
         try:
-            month = datetime.datetime.now().month
+            month = _default_month()
             result = _trend_engine.get_benchmark(
                 platform=platform,
                 industry=industry_key,

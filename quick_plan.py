@@ -325,6 +325,13 @@ _INDUSTRY_GROUP_MAP: Dict[str, str] = {
 }
 
 
+def _default_month() -> int:
+    """Today's month via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 def _resolve_industry_group(industry: str) -> str:
     """Map a granular industry key to a strategic industry group.
 
@@ -1286,7 +1293,7 @@ def _get_seasonal_advice(collar_type: str) -> Dict[str, Any]:
         }
     """
     try:
-        current_month = datetime.now().month
+        current_month = _default_month()
         collar = (
             collar_type
             if collar_type in ("blue_collar", "white_collar", "grey_collar")

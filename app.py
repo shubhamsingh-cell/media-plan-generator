@@ -4412,6 +4412,13 @@ def _normalize_dict_roles(data: dict) -> None:
             data[_rkey] = [(r.get("title") or r.get("role") or str(r)) for r in _rlist]
 
 
+def _default_month() -> int:
+    """Today's month via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 def _hire_goal_for_budget(data: dict) -> int:
     """The client's stated hiring goal, as budget_engine's ``target_hires``.
 
@@ -19681,9 +19688,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _csm_val = int(str(_csm_raw).strip())
                     if _csm_val == 0:
                         # 0 means "use current month" -- auto-set
-                        import datetime as _dt_fix
-
-                        data["campaign_start_month"] = _dt_fix.datetime.now().month
+                        data["campaign_start_month"] = _default_month()
                     elif _csm_val < 1 or _csm_val > 12:
                         _gen_timer.cancel()
                         self._send_error(
@@ -19695,9 +19700,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         return
                 except (ValueError, TypeError):
                     # Non-numeric -- default to current month silently
-                    import datetime as _dt_fix
-
-                    data["campaign_start_month"] = _dt_fix.datetime.now().month
+                    data["campaign_start_month"] = _default_month()
 
             # ── Gold Standard: Reject javascript:/vbscript:/data:/file: URLs ──
             # Only a scheme in URL form is rejected (_dangerous_url_scheme);
@@ -21413,9 +21416,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if campaign_start_month < 0 or campaign_start_month > 12:
                 campaign_start_month = 0
             if campaign_start_month == 0:
-                import datetime as _dt_csm
-
-                campaign_start_month = _dt_csm.datetime.now().month
+                campaign_start_month = _default_month()
             data["campaign_start_month"] = campaign_start_month
 
             # hire_volume: capture from form field or parse from notes

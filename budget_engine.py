@@ -115,6 +115,20 @@ _channel_bench_live_cache: Optional[Dict[str, Any]] = None
 _adzuna_bench_cache: Optional[Dict[str, Any]] = None
 
 
+def default_campaign_month(month: int = 0) -> int:
+    """The campaign start month (1-12): ``month`` when valid, else today's month.
+
+    The ONE place the projection/seasonality code falls back to the wall clock
+    for an unspecified campaign month. Every seasonal default in the repo goes
+    through here (directly, or via a module-level ``_default_month`` shim), so
+    tests pin it in one spot (tests/conftest.py) instead of every month-reading
+    expectation going stale when the calendar rolls over.
+    """
+    if month and 1 <= int(month) <= 12:
+        return int(month)
+    return datetime.datetime.now().month
+
+
 def _load_channel_benchmarks_live() -> Dict[str, Any]:
     """Load channel_benchmarks_live.json, caching only a successful,
     non-empty read at module level.
@@ -907,11 +921,7 @@ def _get_trend_engine_cpc(
     if not platform_keys:
         return None
 
-    import datetime
-
-    current_month = (
-        month if (month and 1 <= month <= 12) else datetime.datetime.now().month
-    )
+    current_month = default_campaign_month(month)
 
     cpcs: List[float] = []
     best_meta: Dict[str, Any] = {}
@@ -6089,11 +6099,7 @@ def calculate_budget_allocation(
             "collar_type_used": collar_type
             or _classify_roles_collar(role_budgets, industry),
             "primary_location": primary_location,
-            "campaign_start_month": (
-                campaign_start_month
-                if campaign_start_month
-                else datetime.datetime.now().month
-            ),
+            "campaign_start_month": default_campaign_month(campaign_start_month),
             # S91 metadata
             "channel_reweight": _reweight_meta,
             "vendor_gate": _vendor_gate_meta,

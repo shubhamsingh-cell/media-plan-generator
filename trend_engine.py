@@ -1843,6 +1843,13 @@ COLLAR_CPC_DIFFERENTIALS: Dict[str, Dict[str, float]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _default_month() -> int:
+    """Today's month via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 def _normalize_industry(industry: str) -> str:
     """Normalize industry key to match our canonical keys."""
     if not industry:
@@ -2222,7 +2229,7 @@ def get_seasonal_adjustment(
         Dict with: multiplier, month, collar_type, description, full_year (all 12 months)
     """
     if month is None:
-        month = datetime.now().month
+        month = _default_month()
 
     collar = collar_type.lower().replace("-", "_").replace(" ", "_")
     seasonal = SEASONAL_MULTIPLIERS.get(collar, SEASONAL_MULTIPLIERS["mixed"])
@@ -2423,7 +2430,7 @@ def calculate_dynamic_cpc(
         # -----------------------------------------------------------------
         # 2. Seasonal factor
         # -----------------------------------------------------------------
-        effective_month = month if month > 0 else datetime.now().month
+        effective_month = month if month > 0 else _default_month()
         if "seasonal_factor" in mc:
             seasonal_factor: float = float(mc["seasonal_factor"])
         else:
@@ -2621,7 +2628,7 @@ def calculate_dynamic_cpc(
             "industry": industry,
             "collar_type": collar_type,
             "location": location,
-            "month": month if month > 0 else datetime.now().month,
+            "month": month if month > 0 else _default_month(),
         }
 
 
@@ -2683,6 +2690,6 @@ def get_dynamic_cpc_summary(
                 "industry": industry,
                 "collar_type": collar_type,
                 "location": location,
-                "month": datetime.now().month,
+                "month": _default_month(),
             }
     return results

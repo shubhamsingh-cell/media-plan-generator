@@ -107,6 +107,47 @@ socket.socket.connect = _guarded_connect  # type: ignore[method-assign]
 socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign]
 
 
+# ── Calendar-month pin ──────────────────────────────────────────────────────
+# The projection/seasonality code defaults an unspecified campaign month to
+# today's month (budget_engine.default_campaign_month). The owner-approved
+# expected numbers (CPA ranges, cost-per-hire floors, channel mix) were captured
+# in OCTOBER, so unpinned tests flip red whenever the calendar leaves October
+# (two such classes went red on 1 Nov 2026: RN Columbus CPA $34.97, and the
+# cph_benchmark $9,000 case). Pinning the ONE helper makes every default-month
+# read deterministic. A test that deliberately exercises the real-clock
+# fallback opts out with ``@pytest.mark.real_clock``.
+PINNED_CAMPAIGN_MONTH = 10
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "real_clock: opt out of the autouse October pin on "
+        "budget_engine.default_campaign_month (test exercises the real-month fallback)",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _pin_default_campaign_month(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if request.node.get_closest_marker("real_clock"):
+        return
+    try:
+        import budget_engine
+    except Exception:  # module unavailable in this environment: nothing to pin
+        return
+    real = budget_engine.default_campaign_month
+
+    def _pinned(month: int = 0) -> int:
+        # An explicit valid month still wins, exactly like the real helper.
+        return (
+            real(month) if (month and 1 <= int(month) <= 12) else PINNED_CAMPAIGN_MONTH
+        )
+
+    monkeypatch.setattr(budget_engine, "default_campaign_month", _pinned)
+
+
 @pytest.fixture(autouse=True)
 def _allow_net_for_live_tests(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
