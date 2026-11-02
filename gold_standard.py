@@ -3496,10 +3496,29 @@ def _lookup_role_difficulty(role_title: str) -> dict[str, Any] | None:
     # Senior 9/10 / Executive Search on a Hershey plant plan (2026-09-24).
     # Unmatched titles fall through to the caller's seniority-keyword
     # detection, which still rates Director/VP/Chief titles as senior.
+    # A title the standardizer files under an occupation listed in
+    # _STANDARDIZED_ROLE_PROFILES ("Spray Painter", "Paint Line Operator" ->
+    # industrial_painter) scores as that occupation, not as the generic
+    # "operator" / "technician" row or an unclassified default.
+    try:
+        from standardizer import normalize_role as _std_role
+
+        canon = _STANDARDIZED_ROLE_PROFILES.get(_std_role(role_title) or "")
+    except ImportError:
+        canon = None
+    if canon and canon in _ROLE_DIFFICULTY_MAP:
+        return dict(_ROLE_DIFFICULTY_MAP[canon])
     pattern = match_role_phrase(title_lower, _ROLE_DIFFICULTY_MAP)
     if pattern is not None:
         return dict(_ROLE_DIFFICULTY_MAP[pattern])
     return _frontline_head_noun_profile(title_lower)
+
+
+# Standardizer occupation key -> _ROLE_DIFFICULTY_MAP profile, for titles the
+# phrase match above misses.
+_STANDARDIZED_ROLE_PROFILES: dict[str, str] = {
+    "industrial_painter": "industrial painter",
+}
 
 
 # Head nouns that make an otherwise-unknown title an hourly/frontline role

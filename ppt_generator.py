@@ -26,7 +26,7 @@ import plan_trust
 import plan_validator
 import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -9628,49 +9628,14 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # byte-identical boilerplate -- so when a bullet must be dropped
     # entirely, prefer dropping a GENERIC one (identical on every plan)
     # over a PERSONALIZED one, so the degrade never undoes that fix first.
-    _pt_personalized_markers = ("campaign setup", "scale top performers")
-
-    def _pt_is_personalized(b: str) -> bool:
-        low = b.lower()
-        return any(m in low for m in _pt_personalized_markers)
-
     for ph in phases:
-        bullets = list(ph.get("bullets") or [])
-        for _ in range(10):  # bounded -- at most 3 bullets, converges fast
-            if not bullets or _pt_bullets_h_in(bullets) <= _pt_bullets_box_h_in + 0.01:
-                break
-            longest_i = max(
-                range(len(bullets)),
-                key=lambda i: _estimate_lines(
-                    f"✓  {bullets[i]}", _pt_bullets_w_in, _pt_font_pt
-                ),
-            )
-            if len(bullets[longest_i]) > 40 and not _pt_is_personalized(
-                bullets[longest_i]
-            ):
-                bullets[longest_i] = _trunc_clause(
-                    bullets[longest_i], len(bullets[longest_i]) - 12
-                )
-                continue
-            if len(bullets) <= 1:
-                break
-            generic_idx = next(
-                (
-                    i
-                    for i in range(len(bullets) - 1, -1, -1)
-                    if not _pt_is_personalized(bullets[i])
-                ),
-                None,
-            )
-            if generic_idx is not None:
-                bullets.pop(generic_idx)
-            elif len(bullets[longest_i]) > 40:
-                bullets[longest_i] = _trunc_clause(
-                    bullets[longest_i], len(bullets[longest_i]) - 12
-                )
-            else:
-                bullets.pop(longest_i)
-        ph["bullets"] = bullets
+        ph["bullets"] = _fit_timeline_bullets(
+            list(ph.get("bullets") or []),
+            _pt_bullets_h_in,
+            _pt_bullets_box_h_in,
+            _pt_bullets_w_in,
+            _pt_font_pt,
+        )
 
     for i, ph in enumerate(phases):
         px = Inches(0.55) + i * (phase_w + phase_gap)
@@ -13572,6 +13537,73 @@ def _timeline_phase_bounds(campaign_weeks: Any) -> List[Tuple[int, int]]:
 
 def _week_range_label(first: int, last: int) -> str:
     return f"Week {first}" if first == last else f"Weeks {first}-{last}"
+
+
+# Timeline bullets the fit loop keeps longest: a cost-per-qualified-application
+# bullet carries the plan's quality KPI (reviewer 2026-10-16: volume, not
+# quality), then the bullets naming this plan's client / top channels.
+_TIMELINE_KPI_MARKERS = ("cpqa",)
+_TIMELINE_PERSONALIZED_MARKERS = ("campaign setup", "scale top performers")
+
+
+def _timeline_bullet_keep_rank(bullet: str) -> int:
+    """0 = keep longest (CPQA), 1 = plan-specific, 2 = generic boilerplate."""
+    low = bullet.lower()
+    if any(m in low for m in _TIMELINE_KPI_MARKERS):
+        return 0
+    if any(m in low for m in _TIMELINE_PERSONALIZED_MARKERS):
+        return 1
+    return 2
+
+
+def _fit_timeline_bullets(
+    bullets: List[str],
+    height_in: Callable[[List[str]], float],
+    box_h_in: float,
+    width_in: float,
+    font_pt: float,
+) -> List[str]:
+    """Degrade a phase card's bullets until ``height_in(bullets)`` fits
+    ``box_h_in``: trim the longest non-personalised bullet at a clause
+    boundary, and only drop a bullet once trimming cannot help -- generic
+    boilerplate first, then the plan-specific bullets, the CPQA bullet last
+    (it used to be dropped first, so Phase 2's "steered by CPQA" never
+    rendered). Never truncates mid-word, never overprints.
+
+    visual: render-verified against a real Keynote export -- an extremely
+    long client name, or a comparison panel with a realistic row count, can
+    leave the card less height than its bullets need, and PowerPoint does not
+    clip a textbox's own overflow."""
+    bullets = list(bullets)
+    for _ in range(10):  # bounded -- at most 3 bullets, converges fast
+        if not bullets or height_in(bullets) <= box_h_in + 0.01:
+            break
+        longest_i = max(
+            range(len(bullets)),
+            key=lambda i: _estimate_lines(f"\u2713  {bullets[i]}", width_in, font_pt),
+        )
+        if len(bullets[longest_i]) > 40 and _timeline_bullet_keep_rank(
+            bullets[longest_i]
+        ) != 1:
+            bullets[longest_i] = _trunc_clause(
+                bullets[longest_i], len(bullets[longest_i]) - 12
+            )
+            continue
+        if len(bullets) <= 1:
+            break
+        drop_i = max(
+            range(len(bullets)),
+            key=lambda i: (_timeline_bullet_keep_rank(bullets[i]), i),
+        )
+        if _timeline_bullet_keep_rank(bullets[drop_i]) == 0 and len(
+            bullets[longest_i]
+        ) > 40:
+            bullets[longest_i] = _trunc_clause(
+                bullets[longest_i], len(bullets[longest_i]) - 12
+            )
+            continue
+        bullets.pop(drop_i)
+    return bullets
 
 
 def _timeline_phases(campaign_weeks: Any) -> List[Dict[str, Any]]:

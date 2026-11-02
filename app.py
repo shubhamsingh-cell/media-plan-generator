@@ -11564,7 +11564,7 @@ def _run_bundle_qa_gate(
         )
         # A crash must not read "clean" while an input role is missing.
         try:
-            _role_findings = bundle_qa.input_role_findings(data)
+            _role_findings = bundle_qa.data_only_findings(data)
         except Exception:  # noqa: BLE001
             _role_findings = []
         if not _role_findings:

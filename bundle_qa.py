@@ -2700,6 +2700,22 @@ def input_role_findings(
     return out
 
 
+def internal_draft_findings(data: dict) -> list[Finding]:
+    """A ``warn`` ``internal_draft_plan`` finding whose message is the
+    deck's and workbook's own internal-draft stamp (that the plan is a draft
+    and why: data confidence below the line, or a core section at 0%), so the
+    gate never reports such a plan as "clean". Empty when not a draft."""
+    try:
+        import plan_validator
+
+        stamp = plan_validator.internal_draft_stamp(data if isinstance(data, dict) else {})
+    except Exception:  # noqa: BLE001
+        return []
+    if not stamp:
+        return []
+    return [_finding("warn", "internal_draft_plan", stamp, "plan")]
+
+
 def _check_input_role_integrity(
     pptx_units: list[_TextUnit],
     xlsx_units: list[_TextUnit],
@@ -2741,6 +2757,7 @@ def run_bundle_qa(
             )
 
     all_units = pptx_units + xlsx_units
+    findings.extend(internal_draft_findings(data))
     try:
         _check_input_role_integrity(
             pptx_units, xlsx_units, pptx_bytes, xlsx_bytes, data, findings
@@ -3268,7 +3285,7 @@ def gate_bundle(
         )
         out = dict(original)
         out["summary"] = _timeout_summary(elapsed, budget)
-        _merge_role_findings(out["summary"], data)
+        _merge_data_findings(out["summary"], data)
         out["findings"] = list(out["summary"]["findings"])
         out["error"] = "qa_gate_timeout"
         return out
@@ -3282,35 +3299,42 @@ def gate_bundle(
         )
         out = dict(original)
         out["error"] = f"{type(exc).__name__}: {exc}"[:300]
-        role_findings = _safe_role_findings(data)
-        if role_findings:  # a crash must not read "clean" with a role gone
-            out["summary"] = summarize_findings(role_findings)
-            out["findings"] = role_findings
+        data_findings = data_only_findings(data)
+        if data_findings:  # a crash must not read "clean" with a role gone
+            out["summary"] = summarize_findings(data_findings)
+            out["findings"] = data_findings
         return out
     return box.get("result") or original
 
 
-def _safe_role_findings(data: Any) -> list[Finding]:
-    """Plan-role-set check only (no bundle parsing): cheap enough to run on
-    the timeout and crash paths, so neither can hide a missing role."""
+def data_only_findings(data: Any) -> list[Finding]:
+    """The plan-role-set check alone (no bundle parsing): cheap enough to run
+    on the timeout and crash paths, so neither can hide a missing role as
+    "clean". (A crashed gate otherwise stays unreported by policy.)"""
     try:
         return input_role_findings(data if isinstance(data, dict) else {})
     except Exception:  # noqa: BLE001
         return []
 
 
-def _merge_role_findings(summary: dict, data: Any) -> None:
-    role_findings = _safe_role_findings(data)
-    if not role_findings:
+
+def _merge_data_findings(summary: dict, data: Any) -> None:
+    extra = data_only_findings(data)
+    if not extra:
         return
-    summary["findings"] = list(summary.get("findings") or []) + role_findings
+    critical = [f for f in extra if f.get("severity") == "critical"]
+    summary["findings"] = list(summary.get("findings") or []) + extra
     summary["critical_count"] = int(summary.get("critical_count") or 0) + len(
-        role_findings
+        critical
     )
-    summary["codes"] = sorted(set(summary.get("codes") or []) | {"input_role_missing"})
+    summary["warn_count"] = int(summary.get("warn_count") or 0) + (
+        len(extra) - len(critical)
+    )
+    summary["codes"] = sorted(
+        set(summary.get("codes") or []) | {f["code"] for f in critical}
+    )
     summary["critical_ids"] = (
-        list(summary.get("critical_ids") or [])
-        + [finding_id(f) for f in role_findings]
+        list(summary.get("critical_ids") or []) + [finding_id(f) for f in critical]
     )[:25]
 
 
@@ -3320,7 +3344,9 @@ __all__ = [
     "finding_id",
     "gate_budget_s",
     "gate_bundle",
+    "data_only_findings",
     "input_role_findings",
+    "internal_draft_findings",
     "repair_bundle",
     "run_bundle_qa",
     "summarize_findings",
