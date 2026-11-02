@@ -11,13 +11,57 @@ Usage:
 
 import argparse
 import json
+import contextlib
 import logging
+import os
 import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:  # POSIX only; without it the backup simply runs unlocked
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
+
+
+class BackupInProgressError(RuntimeError):
+    """Another process/worker holds the backup lock; this run was skipped."""
+
+
+@contextlib.contextmanager
+def _exclusive_backup_lock(backup_path: Path):
+    """Non-blocking exclusive flock so concurrent backup runs cannot collide.
+
+    The scheduler's jitter is computed once in the gunicorn master and the timer
+    is re-run in every forked worker, so N workers can fire the same backup in
+    the same second. Without a lock they open the same archive for write, and a
+    failing one deletes its siblings' file. The lock is taken on a freshly opened
+    file per attempt so it contends correctly across fork.
+
+    Raises:
+        BackupInProgressError: if another holder has the lock.
+    """
+    if fcntl is None:
+        yield
+        return
+    lock_file = backup_path / ".kb_backup.lock"
+    fd = os.open(str(lock_file), os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise BackupInProgressError(
+                "another knowledge-base backup is already running"
+            ) from None
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
 
 # Directories to exclude from backups
 _EXCLUDE_DIRS = {"api_cache", "backups", "generated_docs", "__pycache__"}
@@ -50,6 +94,7 @@ def backup_knowledge_base(
     Raises:
         FileNotFoundError: If data_dir does not exist.
         RuntimeError: If no files were added to the backup.
+        BackupInProgressError: If another process holds the backup lock.
     """
     data_path = Path(data_dir).resolve()
     if not data_path.is_dir():
@@ -58,44 +103,45 @@ def backup_knowledge_base(
     backup_path = Path(backup_dir).resolve() if backup_dir else data_path / "backups"
     backup_path.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    zip_name = f"kb_backup_{timestamp}.zip"
-    zip_path = backup_path / zip_name
+    with _exclusive_backup_lock(backup_path):
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        zip_name = f"kb_backup_{timestamp}_{os.getpid()}.zip"
+        zip_path = backup_path / zip_name
 
-    file_count = 0
-    try:
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            for item in sorted(data_path.rglob("*")):
-                # Skip excluded directories and their contents
-                rel = item.relative_to(data_path)
-                if any(part in _EXCLUDE_DIRS for part in rel.parts):
-                    continue
-                # Skip lock files and temporary files
-                if item.suffix in (".lock", ".tmp"):
-                    continue
-                if item.is_file():
-                    zf.write(item, arcname=str(rel))
-                    file_count += 1
+        file_count = 0
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                for item in sorted(data_path.rglob("*")):
+                    # Skip excluded directories and their contents
+                    rel = item.relative_to(data_path)
+                    if any(part in _EXCLUDE_DIRS for part in rel.parts):
+                        continue
+                    # Skip lock files and temporary files
+                    if item.suffix in (".lock", ".tmp"):
+                        continue
+                    if item.is_file():
+                        zf.write(item, arcname=str(rel))
+                        file_count += 1
 
-        if file_count == 0:
+            if file_count == 0:
+                zip_path.unlink(missing_ok=True)
+                raise RuntimeError(f"No files found in {data_path} to back up")
+
+            logger.info(
+                "Backup created: %s (%d files, %.1f KB)",
+                zip_path.name,
+                file_count,
+                zip_path.stat().st_size / 1024,
+            )
+        except Exception:
+            # Clean up partial ZIP on failure
             zip_path.unlink(missing_ok=True)
-            raise RuntimeError(f"No files found in {data_path} to back up")
+            raise
 
-        logger.info(
-            "Backup created: %s (%d files, %.1f KB)",
-            zip_path.name,
-            file_count,
-            zip_path.stat().st_size / 1024,
-        )
-    except Exception:
-        # Clean up partial ZIP on failure
-        zip_path.unlink(missing_ok=True)
-        raise
+        # Prune old backups, keeping only the most recent _MAX_BACKUPS
+        _prune_old_backups(backup_path)
 
-    # Prune old backups, keeping only the most recent _MAX_BACKUPS
-    _prune_old_backups(backup_path)
-
-    return str(zip_path)
+        return str(zip_path)
 
 
 def _prune_old_backups(backup_path: Path) -> None:

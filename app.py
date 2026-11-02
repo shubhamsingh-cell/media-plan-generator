@@ -10548,10 +10548,14 @@ def _scheduled_kb_backup() -> None:
     matching the existing pattern for background tasks.
     """
     try:
-        from scripts.backup_kb import backup_knowledge_base
+        from scripts.backup_kb import BackupInProgressError, backup_knowledge_base
 
         result = backup_knowledge_base(DATA_DIR)
         logger.info("Scheduled KB backup succeeded: %s", Path(result).name)
+    except BackupInProgressError:
+        # The timer is inherited by every forked worker; the one holding the
+        # lock does the backup, the rest skip.
+        logger.debug("Scheduled KB backup skipped: another worker is running it")
     except Exception as bk_err:
         logger.error("Scheduled KB backup failed: %s", bk_err, exc_info=True)
     finally:
