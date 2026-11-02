@@ -59,10 +59,38 @@ class _FakeQdrant:
         return [c for c in self.calls if c[0] == "GET"]
 
 
+@pytest.fixture(autouse=True)
+def _isolate_vector_search_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reset every piece of vector_search state these tests read, per test.
+
+    vector_search keeps process-wide globals, and other modules in the same
+    pytest process leave them set: tests/test_qdrant_point_id.py,
+    tests/test_qdrant_dim_guard.py and tests/test_voyage_4_lite_upgrade.py
+    run build_index(), which leaves ``_index_built`` True (and entries in
+    ``_index``). get_status() then reports a vector-capable tier, so
+    search_mode read ``hybrid_rrf`` in a test whose Qdrant tier was down --
+    the full-suite failure this pins. Everything is restored on teardown.
+    """
+    monkeypatch.setattr(vs, "_index", [])
+    monkeypatch.setattr(vs, "_index_built", False)
+    monkeypatch.setattr(vs, "_qdrant_available", False)
+    monkeypatch.setattr(vs, "_qdrant_attach_last_attempt", 0.0)
+    monkeypatch.setattr(vs, "_qdrant_attach_attempts", 0)
+    monkeypatch.setattr(vs, "_qdrant_attach_pid", None)
+    monkeypatch.setattr(vs, "_qdrant_attach_source", None)
+    monkeypatch.setattr(vs, "_qdrant_dim_guard", None)
+    monkeypatch.setattr(vs, "_last_qdrant_error", None)
+    monkeypatch.setattr(vs, "_search_methods_served", {})
+    monkeypatch.setattr(vs, "_hybrid_id_text_mismatches", 0)
+    monkeypatch.setattr(vs, "_retrieval_dead_logged", True)  # no log noise
+    monkeypatch.delenv("EMBEDDING_PROVIDER", raising=False)  # voyage default
+
+
 @pytest.fixture
 def clean_retrieval_state(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fresh, unbuilt local tiers and an unattached, configured Qdrant tier."""
     monkeypatch.setattr(vs, "_index", [])
+    monkeypatch.setattr(vs, "_index_built", False)
     monkeypatch.setattr(vs, "_bm25_index", vs.BM25Index())
     for name in ("_tfidf_index", "_tfidf_doc_texts", "_tfidf_doc_ids", "_tfidf_doc_meta"):
         monkeypatch.setattr(vs, name, [])
@@ -118,6 +146,7 @@ def test_warm_retrieval_survives_qdrant_down(
     summary = vs.warm_retrieval()
     assert summary["qdrant_attached"] is False
     assert summary["bm25_documents"] > 0  # keyword fallback still built
+    assert vs._qdrant_available is False and vs._index_built is False
     assert vs.get_status()["search_mode"] == "bm25"
     assert vs.qdrant_attach_state()["attach_attempted_in_this_worker"] is True
 
@@ -590,3 +619,8 @@ def test_rag_guard_is_cleared_by_a_later_matching_store(rag_guard_reset: None) -
         assert rp._rag_dim_guard is not None
         good.search([0.0] * 1024, 5)
     assert rp._rag_dim_guard is None
+
+
+def test_every_test_here_starts_from_unbuilt_vector_state() -> None:
+    """Guard for the isolation itself: every test here starts unbuilt."""
+    assert vs._index_built is False and vs._index == [] and vs._qdrant_available is False
