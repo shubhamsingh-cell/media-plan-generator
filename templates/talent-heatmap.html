@@ -414,6 +414,33 @@
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
         gap: 0.75rem;
       }
+      .tier-divider {
+        grid-column: 1 / -1;
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+      }
+      .tier-divider-row td {
+        padding-top: 1rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+      }
+      .scoring-note {
+        margin-top: 0.75rem;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+      .cell-partial {
+        margin-top: 0.25rem;
+        font-size: 0.6875rem;
+        opacity: 0.85;
+      }
       .heatmap-cell {
         border-radius: var(--radius-sm);
         padding: 1rem;
@@ -1037,6 +1064,7 @@
             scarcity, competition, salary pressure, and cost of living.
           </p>
           <div class="heatmap-grid" id="heatmapGrid"></div>
+          <p class="scoring-note" id="heatmapNote" hidden></p>
         </div>
 
         <!-- Location Rankings -->
@@ -1058,6 +1086,7 @@
               <tbody id="rankingsBody"></tbody>
             </table>
           </div>
+          <p class="scoring-note" id="rankingsNote" hidden></p>
         </div>
 
         <!-- Salary Comparison -->
@@ -1083,6 +1112,7 @@
             class="comparison-grid reveal-on-scroll"
             id="comparisonGrid"
           ></div>
+          <p class="scoring-note" id="comparisonNote" hidden></p>
         </div>
 
         <!-- Optimal Locations -->
@@ -1315,7 +1345,7 @@
           downloadExcel.disabled = false;
           downloadPpt.disabled = false;
 
-          renderHeatmap(data.difficulties || []);
+          renderHeatmap(data.difficulties || [], data.scoring_note);
           renderRankings(data);
           renderSalaryBars(data.salary_map || []);
           renderComparison(data.comparison || {});
@@ -1326,7 +1356,19 @@
         }
 
         // ── Heatmap Grid ──
-        function renderHeatmap(difficulties) {
+        // Rows scored over fewer terms (salary / cost of living left out) are a
+        // separate tier: never ranked against fully scored rows
+        // (talent_heatmap.PARTIAL_TIER_HEADING / SCORING_NOTE).
+        var PARTIAL_TIER_HEADING = "Scored without salary / cost of living (not ranked against the rows above)";
+        function showScoringNote(id, rows, note) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          var partial = rows.some(function (r) { return !!r.not_scored; });
+          el.hidden = !(partial && note);
+          el.textContent = partial && note ? note : "";
+        }
+
+        function renderHeatmap(difficulties, note) {
           var grid = document.getElementById("heatmapGrid");
           if (!difficulties.length) {
             grid.innerHTML =
@@ -1335,7 +1377,13 @@
           }
 
           var html = "";
+          var dividedTiles = false;
           difficulties.forEach(function (d) {
+            if (d.not_scored && !dividedTiles) {
+              html +=
+                '<div class="tier-divider">' + escapeHtml(PARTIAL_TIER_HEADING) + "</div>";
+              dividedTiles = true;
+            }
             var score = d.difficulty_score || 0;
             var diffClass =
               score >= 75
@@ -1369,9 +1417,13 @@
               '<div class="cell-label">' +
               escapeHtml(d.difficulty_rating || "") +
               "</div>" +
+              (d.not_scored
+                ? '<div class="cell-partial">Partial: ' + escapeHtml(d.not_scored) + "</div>"
+                : "") +
               "</div>";
           });
           grid.innerHTML = html;
+          showScoringNote("heatmapNote", difficulties, note);
         }
 
         // ── Rankings Table ──
@@ -1394,7 +1446,15 @@
           });
 
           var html = "";
+          var dividedRows = false;
           locations.forEach(function (loc) {
+            if (loc.not_scored && !dividedRows) {
+              html +=
+                '<tr class="tier-divider-row" data-divider="1"><td colspan="7">' +
+                escapeHtml(PARTIAL_TIER_HEADING) +
+                "</td></tr>";
+              dividedRows = true;
+            }
             var td = loc.talent_density || {};
             var comp = loc.competition || {};
             var sal = loc.salary || {};
@@ -1408,7 +1468,9 @@
             var recBadge = scoreBadge(rec);
 
             html +=
-              "<tr>" +
+              '<tr data-tier="' +
+              (loc.not_scored ? "1" : "0") +
+              '">' +
               "<td><strong>" +
               escapeHtml(loc.display_name || loc.location || "") +
               "</strong></td>" +
@@ -1444,6 +1506,7 @@
               "</tr>";
           });
           body.innerHTML = html;
+          showScoringNote("rankingsNote", locations, comparison.scoring_note);
         }
 
         // ── Salary Bars ──
@@ -1520,6 +1583,7 @@
         function renderComparison(comparison) {
           var grid = document.getElementById("comparisonGrid");
           var locations = comparison.locations || [];
+          showScoringNote("comparisonNote", locations, comparison.scoring_note);
           if (!locations.length) {
             grid.innerHTML =
               '<p style="color:var(--text-muted);font-size:0.875rem;">No comparison data.</p>';
@@ -1741,9 +1805,14 @@
           sortDir[colIdx] = !(sortDir[colIdx] || false);
           var table = document.getElementById("rankingsTable");
           var tbody = document.getElementById("rankingsBody");
-          var rows = Array.from(tbody.querySelectorAll("tr"));
+          var divider = tbody.querySelector("tr[data-divider]");
+          var rows = Array.from(tbody.querySelectorAll("tr:not([data-divider])"));
 
           rows.sort(function (a, b) {
+            // never mix tiers: fully scored rows stay above the divider
+            var ta = a.getAttribute("data-tier") || "0";
+            var tb = b.getAttribute("data-tier") || "0";
+            if (ta !== tb) return ta < tb ? -1 : 1;
             var aText = a.cells[colIdx].textContent.trim();
             var bText = b.cells[colIdx].textContent.trim();
             var aNum = parseFloat(aText.replace(/[^0-9.\-]/g, ""));
@@ -1756,7 +1825,12 @@
               : bText.localeCompare(aText);
           });
 
+          if (divider) delete divider.dataset.placed;
           rows.forEach(function (row) {
+            if (divider && row.getAttribute("data-tier") === "1" && !divider.dataset.placed) {
+              tbody.appendChild(divider);
+              divider.dataset.placed = "1";
+            }
             tbody.appendChild(row);
           });
         };

@@ -801,6 +801,20 @@ SCORING_NOTE = (
 )
 
 
+#: The divider before the partially scored rows of a ranking (sheet, slide,
+#: page): their score is over fewer terms, so it is not ranked against the
+#: fully scored rows above it.
+PARTIAL_TIER_HEADING = (
+    "Scored without salary / cost of living (not ranked against the rows above)"
+)
+
+
+def _tier_key(item: Dict[str, Any], score_key: str) -> Tuple[bool, float]:
+    """Sort key: fully scored rows first, then partially scored ones, each
+    tier by ``score_key`` descending."""
+    return (bool(item.get("not_scored")), -float(item.get(score_key) or 0))
+
+
 def _weighted(terms: List[Tuple[float, float]]) -> float:
     """Weighted mean of (value, weight) pairs, rescaled over the weights used."""
     total = sum(w for _, w in terms)
@@ -1483,9 +1497,7 @@ def compare_locations(
     # every term first, then those whose salary / cost-of-living terms were left
     # out (a score over fewer terms is not ranked against a full one), so
     # "Best Match" is never a market scored on less than another.
-    comparisons.sort(
-        key=lambda x: (x["not_scored"], -x["recommendation_score"])
-    )
+    comparisons.sort(key=lambda x: _tier_key(x, "recommendation_score"))
 
     # Mark the best option
     if comparisons:
@@ -1498,6 +1510,7 @@ def compare_locations(
         "locations": comparisons,
         "best_location": comparisons[0]["location"] if comparisons else None,
         "scoring_note": SCORING_NOTE,
+        "partial_tier_heading": PARTIAL_TIER_HEADING,
     }
 
 
@@ -1601,7 +1614,14 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     comparison = analysis.get("comparison", {})
     locations = comparison.get("locations") or []
     row = 6
+    locations = sorted(locations, key=lambda x: _tier_key(x, "recommendation_score"))
+    _divided = False
     for loc in locations:
+        if loc.get("not_scored") and not _divided:
+            ws1.cell(row=row, column=2, value=PARTIAL_TIER_HEADING).font = hdr_font
+            ws1.cell(row=row, column=2).fill = hdr_fill
+            _divided = True
+            row += 1
         ws1.cell(
             row=row, column=2, value=loc.get("display_name", loc.get("location") or "")
         ).font = bold_font
@@ -1753,9 +1773,17 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         cell.fill = hdr_fill
         cell.alignment = center_align
 
-    difficulties = analysis.get("difficulties") or []
+    difficulties = sorted(
+        analysis.get("difficulties") or [], key=lambda x: _tier_key(x, "difficulty_score")
+    )
     row = 5
+    _divided = False
     for d in difficulties:
+        if d.get("not_scored") and not _divided:
+            ws3.cell(row=row, column=2, value=PARTIAL_TIER_HEADING).font = hdr_font
+            ws3.cell(row=row, column=2).fill = hdr_fill
+            _divided = True
+            row += 1
         ws3.cell(
             row=row, column=2, value=d.get("display_name", d.get("location") or "")
         ).font = bold_font
@@ -1795,6 +1823,9 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         for c in range(2, 9):
             ws3.cell(row=row, column=c).border = thin_border
         row += 1
+
+    if _divided:
+        ws3.cell(row=row + 1, column=2, value=SCORING_NOTE).font = data_font
 
     ws3.column_dimensions["A"].width = 3
     ws3.column_dimensions["B"].width = 32
@@ -2090,13 +2121,30 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     )
 
     comparison = analysis.get("comparison", {})
-    locations = comparison.get("locations") or []
+    locations = sorted(
+        comparison.get("locations") or [],
+        key=lambda x: _tier_key(x, "recommendation_score"),
+    )
 
-    y = 1.3
+    y = 1.2
+    _divided = False
+    _shown = 0
     for i, loc in enumerate(locations[:8]):
+        if y > 6.2:
+            break
+        if loc.get("not_scored") and not _divided:
+            # partially scored rows are a separate tier, not ranked against
+            # the fully scored rows above
+            _add_text_box(
+                slide2, 0.8, y, 11.5, 0.3, PARTIAL_TIER_HEADING,
+                font_size=10, bold=True, color=DOWNY_TEAL,
+            )
+            _divided = True
+            y += 0.34
+        _shown += 1
         x = 0.8
         card_w = 11.5
-        _add_shape(slide2, x, y, card_w, 0.65, CARD_BG)
+        _add_shape(slide2, x, y, card_w, 0.62, CARD_BG)
 
         name = loc.get("display_name", loc.get("location") or "")
         td = loc.get("talent_density", {})
@@ -2171,7 +2219,20 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
                 font_size=8,
                 color=WHITE,
             )
-        y += 0.72
+        y += 0.68
+
+    if len(locations) > _shown:
+        _add_text_box(
+            slide2, 0.8, y, 11.5, 0.3,
+            f"+{len(locations) - _shown} more location(s) in the workbook",
+            font_size=9, color=WHITE,
+        )
+        y += 0.3
+    if _divided:
+        _add_text_box(
+            slide2, 0.8, max(y + 0.05, 6.55), 11.5, 0.6, SCORING_NOTE,
+            font_size=9, color=WHITE,
+        )
 
     # ── Slide 3: Salary Comparison ──
     slide3 = prs.slides.add_slide(prs.slide_layouts[6])
@@ -2188,7 +2249,9 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
         color=WHITE,
     )
 
-    salary_data = sorted(analysis.get("salary_map") or [], key=_salary_sort_key)[:10]
+    salary_data_all = sorted(analysis.get("salary_map") or [], key=_salary_sort_key)
+    salary_data = salary_data_all[:10]
+    _shown3 = 0
     # Bars are scaled within ONE currency group, and only where the group has
     # two or more markets: a lone figure is its own maximum and a full-width
     # bar would read as "same pay" as another currency's full-width bar.
@@ -2233,6 +2296,15 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
             color=DOWNY_TEAL,
         )
         y += 0.4
+        _shown3 += 1
+    _left3 = len(salary_data_all) - _shown3
+    if _left3 > 0:
+        _add_text_box(
+            slide3, 0.8, y, 11.5, 0.3,
+            f"+{_left3} more location(s) in the workbook's Salary Comparison sheet",
+            font_size=9, color=WHITE,
+        )
+        y += 0.3
     _add_text_box(
         slide3, 0.8, max(y + 0.1, 6.5), 11.5, 0.6, SALARY_CURRENCY_NOTE, font_size=9, color=WHITE
     )
@@ -2500,8 +2572,12 @@ def run_heatmap_analysis(
         for loc in locations:
             diff = calculate_hiring_difficulty(role, loc, industry)
             difficulties.append(diff)
-        difficulties.sort(key=lambda x: x.get("difficulty_score") or 0, reverse=True)
+        # tiered like the rankings: a difficulty over fewer terms is not
+        # ranked against a four-term one
+        difficulties.sort(key=lambda x: _tier_key(x, "difficulty_score"))
         result["difficulties"] = difficulties
+        result["scoring_note"] = SCORING_NOTE
+        result["partial_tier_heading"] = PARTIAL_TIER_HEADING
     except Exception as exc:
         result["difficulties"] = []
         result["errors"].append(f"Hiring difficulty failed: {exc}")

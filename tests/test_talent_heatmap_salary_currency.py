@@ -287,3 +287,117 @@ def test_cost_of_living_rows_carry_their_currency():
     assert rows["Sydney, Australia"]["median_salary_display"] == "A$1,741 a week (ABS 2025)"
     assert rows["London, UK"]["median_salary_currency"] == "GBP"
     assert rows["Dallas, TX"]["median_salary_currency"] == "USD"
+
+
+# ---------------------------------------------------------------------------
+# exact scores (a planted un-rescaled mean or a changed weight must fail)
+# ---------------------------------------------------------------------------
+
+_SIX = [
+    "Dallas, TX",
+    "London, UK",
+    "Zurich, Switzerland",
+    "Sydney, Australia",
+    "Mumbai, India",
+    "Berlin, Germany",
+]
+
+
+@pytest.fixture(scope="module")
+def six_result() -> Dict[str, Any]:
+    return th.run_heatmap_analysis(
+        role=ROLE, industry="tech_engineering", locations=_SIX, budget=250000, num_hires=3
+    )
+
+
+def test_partial_recommendation_score_is_the_rescaled_two_term_mean(six_result):
+    for loc in six_result["comparison"]["locations"]:
+        d = loc["talent_density"]["score"]
+        c = loc["competition"]["score"]
+        if loc["location"] == "Dallas, TX":
+            continue
+        expected = round(min(100, max(0, (d * 0.4 + (100 - c) * 0.3) / 0.7)), 1)
+        assert loc["recommendation_score"] == expected, loc["location"]
+
+
+def test_difficulty_scores_are_the_exact_weighted_formulas(six_result):
+    for d in six_result["difficulties"]:
+        comps = d["components"]
+        if d["location"] == "Dallas, TX":
+            expected = (
+                comps["talent_scarcity"] * 0.30
+                + comps["competition"] * 0.30
+                + comps["salary_pressure"] * 0.20
+                + comps["cost_of_living"] * 0.20
+            )
+        else:
+            expected = (comps["talent_scarcity"] * 0.30 + comps["competition"] * 0.30) / 0.60
+        # components are rounded to 0.1, so allow that rounding only
+        assert abs(d["difficulty_score"] - expected) <= 0.1, (d["location"], expected)
+
+
+def test_difficulties_are_tiered_by_scoring_basis(six_result):
+    tiers = [bool(d["not_scored"]) for d in six_result["difficulties"]]
+    assert tiers == sorted(tiers), tiers  # fully scored first
+    for flag in (False, True):
+        scores = [
+            d["difficulty_score"] for d in six_result["difficulties"] if bool(d["not_scored"]) is flag
+        ]
+        assert scores == sorted(scores, reverse=True)
+
+
+# ---------------------------------------------------------------------------
+# the tier rule is shown wherever the tiers are
+# ---------------------------------------------------------------------------
+
+
+def test_tier_divider_and_rule_appear_on_sheet_slide_and_page(six_result):
+    wb = openpyxl.load_workbook(io.BytesIO(th.generate_heatmap_excel(six_result)))
+    for sheet in ("Location Rankings", "Hiring Difficulty"):
+        text = _workbook_text_of(wb[sheet])
+        assert th.PARTIAL_TIER_HEADING in text, sheet
+        assert th.SCORING_NOTE in text, sheet
+    prs = Presentation(io.BytesIO(th.generate_heatmap_ppt(six_result)))
+    slide2 = "\n".join(
+        sh.text_frame.text for sh in prs.slides[1].shapes if sh.has_text_frame
+    )
+    assert th.PARTIAL_TIER_HEADING in slide2 and th.SCORING_NOTE in slide2
+    # the page renders the payload's note and its own copy of the heading
+    assert six_result["scoring_note"] == th.SCORING_NOTE
+    assert six_result["comparison"]["scoring_note"] == th.SCORING_NOTE
+    page = (Path(th.__file__).parent / "templates" / "talent-heatmap.html").read_text(
+        encoding="utf-8"
+    )
+    assert f'var PARTIAL_TIER_HEADING = "{th.PARTIAL_TIER_HEADING}";' in page
+    for note_id in ("rankingsNote", "comparisonNote", "heatmapNote"):
+        assert f'id="{note_id}"' in page and f'showScoringNote("{note_id}"' in page
+
+
+def _workbook_text_of(ws) -> str:
+    return "\n".join(str(c.value) for row in ws.iter_rows() for c in row if c.value is not None)
+
+
+def test_salary_slide_says_how_many_rows_it_left_out():
+    locs = [
+        "Dallas, TX", "Chicago, IL", "Memphis, TN", "Denver, CO", "London, UK",
+        "Berlin, Germany", "Toronto, Canada", "Zurich, Switzerland", "Sydney, Australia",
+        "Mumbai, India", "Tokyo, Japan", "Auckland, New Zealand",
+    ]
+    sal = th.get_salary_map(ROLE, locs, "tech_engineering")
+    analysis = {
+        "role": ROLE,
+        "industry": "tech_engineering",
+        "salary_map": sal,
+        "comparison": th.compare_locations(ROLE, locs, "tech_engineering"),
+        "budget": 250000,
+        "num_hires": 3,
+    }
+    prs = Presentation(io.BytesIO(th.generate_heatmap_ppt(analysis)))
+    text = "\n".join(sh.text_frame.text for sh in prs.slides[2].shapes if sh.has_text_frame)
+    names = [s["display_name"] for s in sal]
+    shown = sum(1 for n in names if n in text.split("\n"))
+    import re as _re
+
+    more = _re.search(r"\+(\d+) more location", text)
+    assert more, text
+    assert shown + int(more.group(1)) == len(sal), (shown, more.group(1), len(sal))
