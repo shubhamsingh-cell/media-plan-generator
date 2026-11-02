@@ -373,3 +373,59 @@ console.log(JSON.stringify({log: log, minted: serverMinted}));
     assert len(set(a_ids[1:])) == 1 and a_ids[1] != a_ids[0]
     assert len(set(b_ids[2:])) == 1
     assert out["minted"] <= 1
+
+
+def test_nova_page_sends_the_widget_token_under_the_chat_gate():
+    """NOVA_CHAT_GATE=signed: /nova mints a widget token before its first turn,
+    sends it as X-Nova-Widget-Token, and follows the fresh token each reply
+    returns for the conversation the server answered with."""
+    exp = "9999999999"
+    out = run_nova_page(
+        f"""
+mintAnswer = {{gate: "signed", widget_token: "v1.local.{exp}.minted"}};
+sendMessage(); await tick();
+streams[0].push('data: {{"done": true, "full_response": "hi", "conversation_id": "conv-{SERVER_ID_SUFFIX}", "session_token": "tok-1", "widget_token": "v1.server.{exp}.fresh"}}\\n');
+streams[0].end(); await tick(); await tick();
+chatInput.value = "second question"; sendMessage(); await tick();
+console.log(JSON.stringify({{mints: mints, first: bodies[0], second: bodies[1]}}));
+"""
+    )
+    assert "error" not in out, out
+    assert len(out["mints"]) == 1
+    assert out["first"]["_widgetToken"] == f"v1.local.{exp}.minted"
+    assert out["second"]["conversation_id"] == f"conv-{SERVER_ID_SUFFIX}"
+    assert out["second"]["_widgetToken"] == f"v1.server.{exp}.fresh"
+    assert "widget_token" not in out["first"]  # header only, never the body
+
+
+def test_platform_drawer_gate_helpers_mint_once_and_honour_off():
+    """The drawer's gate helpers (static/js/platform.js): a signed mint is held
+    for its conversation only and reused; an "off" answer stops further mints;
+    an expired token is not sent."""
+    src = (ROOT / "static" / "js" / "platform.js").read_text(encoding="utf-8")
+    out = run_node(
+        "const _gate = { mode: '', token: '', cid: '', exp: 0 };\n"
+        + "var mints = 0, answer = {};\n"
+        + "function fetch(url, opts) { mints++; return Promise.resolve({ ok: true,"
+        " json: function () { return Promise.resolve(answer); } }); }\n"
+        + js_block(src, "function _gateSet(")
+        + js_block(src, "function _gateToken(")
+        + js_block(src, "function _gateEnsure(")
+        + r"""
+(async function () {
+  var r = {};
+  answer = {gate: "signed", widget_token: "v1.a.9999999999.s"};
+  await _gateEnsure("drawer-A"); await _gateEnsure("drawer-A");
+  r.signed = {mints: mints, token: _gateToken("drawer-A"), other: _gateToken("drawer-B")};
+  _gateSet("drawer-A", "v1.a.1000.old");
+  r.expired = _gateToken("drawer-A");
+  _gate.mode = ""; _gate.token = ""; mints = 0; answer = {gate: "off"};
+  await _gateEnsure("drawer-C"); await _gateEnsure("drawer-C");
+  r.off = {mints: mints, mode: _gate.mode, token: _gateToken("drawer-C")};
+  console.log(JSON.stringify(r));
+})();
+"""
+    )
+    assert out["signed"] == {"mints": 1, "token": "v1.a.9999999999.s", "other": ""}
+    assert out["expired"] == ""
+    assert out["off"] == {"mints": 1, "mode": "off", "token": ""}

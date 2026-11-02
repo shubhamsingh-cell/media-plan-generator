@@ -52,6 +52,58 @@ def request_has_conversation_token(handler, conversation_id: str) -> bool:
     return verify_conversation_token(conversation_id, token)
 
 
+def handle_widget_token_post(handler) -> None:
+    """POST /api/chat/widget-token -- mint a widget token for a conversation.
+
+    Body: ``{"conversation_id": "<id>"}``. Admitted on the same terms the
+    chat endpoints use today (a real credential or a same-origin page), and
+    rate-limited with the other /api POST routes. Under NOVA_CHAT_GATE=off it
+    answers ``{"gate": "off"}`` and mints nothing, so clients can call it
+    unconditionally. The token is bound to the conversation id and expires
+    after ``nova_chat_gate.TOKEN_TTL_SECONDS``.
+    """
+    import json
+
+    import nova_chat_gate
+
+    if not (
+        handler._check_joveo_auth()
+        or handler._check_admin_auth()
+        or handler._check_same_origin_auth()
+    ):
+        handler._send_error("Authentication required", "AUTH_REQUIRED", 401)
+        return
+    if not nova_chat_gate.is_signed():
+        handler._send_json({"gate": nova_chat_gate.MODE_OFF})
+        return
+    try:
+        content_len = int(handler.headers.get("Content-Length") or 0)
+    except (ValueError, TypeError):
+        content_len = 0
+    if content_len <= 0 or content_len > 4096:
+        handler._send_error("Body must be a small JSON object", "VALIDATION_ERROR", 400)
+        return
+    try:
+        data = json.loads(handler.rfile.read(content_len))
+    except (ValueError, RecursionError):
+        handler._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
+        return
+    conversation_id = data.get("conversation_id") if isinstance(data, dict) else None
+    if not nova_chat_gate.valid_conversation_id(conversation_id):
+        handler._send_error(
+            "conversation_id is required", "VALIDATION_ERROR", 400, field="conversation_id"
+        )
+        return
+    handler._send_json(
+        {
+            "gate": nova_chat_gate.MODE_SIGNED,
+            "conversation_id": conversation_id,
+            "widget_token": nova_chat_gate.mint(conversation_id),
+            "expires_in": nova_chat_gate.TOKEN_TTL_SECONDS,
+        }
+    )
+
+
 def _handle_chat_history(handler, path: str, parsed: Any) -> None:
     """/api/chat/history -- load one conversation's stored messages.
 

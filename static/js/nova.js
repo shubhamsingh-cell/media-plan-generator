@@ -19,6 +19,60 @@
   var MAX_HISTORY = 20;
   var MAX_STORED_MESSAGES = 100;
 
+  // ── Chat gate (server flag NOVA_CHAT_GATE) ──
+  // Under "signed" a guest chat turn needs a short-lived widget token bound to
+  // its conversation id: minted by POST /api/chat/widget-token, refreshed by
+  // every reply, sent as X-Nova-Widget-Token (HTTP) or widget_token (socket).
+  // Under "off" the mint answers {gate:"off"} once and nothing else changes.
+  var WIDGET_TOKEN_URL = "/api/chat/widget-token";
+  var WIDGET_TOKEN_HEADER = "X-Nova-Widget-Token";
+  var _gate = { mode: "", token: "", cid: "", exp: 0 };
+
+  function _gateSet(conversationId, token) {
+    if (typeof token !== "string" || !token) return;
+    var parts = token.split(".");
+    var exp = parts.length === 4 ? parseInt(parts[2], 10) : 0;
+    _gate.mode = "signed";
+    _gate.token = token;
+    _gate.cid = conversationId;
+    _gate.exp = isFinite(exp) ? exp * 1000 : 0;
+  }
+
+  function _gateToken(conversationId) {
+    if (_gate.mode !== "signed" || _gate.cid !== conversationId) return "";
+    if (_gate.exp && _gate.exp - 30000 < Date.now()) return "";
+    return _gate.token;
+  }
+
+  function _gateNeeds(conversationId) {
+    return _gate.mode !== "off" && !_gateToken(conversationId);
+  }
+
+  function _gateEnsure(conversationId, done) {
+    fetch(WIDGET_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ conversation_id: conversationId }),
+    })
+      .then(function (r) {
+        return r.ok ? r.json() : { gate: r.status === 429 ? "" : "off" };
+      })
+      .then(function (d) {
+        if (d && d.gate === "signed" && d.widget_token) {
+          _gateSet(conversationId, d.widget_token);
+        } else if (!d || d.gate !== "") {
+          _gate.mode = "off";
+        }
+      })
+      .catch(function () {
+        /* network error: send without a token; a 401 retries once */
+      })
+      .then(function () {
+        done();
+      });
+  }
+
   // ── Nova branded avatar (glossy indigo-violet orb, transparent PNG) ──
   function _novaAvatarSVG(size) {
     var s = size || 32;
@@ -2751,16 +2805,17 @@
     };
 
     // Send the chat message
-    ws.send(
-      JSON.stringify({
-        type: "chat",
-        message: payload.message,
-        conversation_id: payload.conversation_id,
-        history: payload.history,
-        session_token: payload.session_token || "",
-        file_attachment: payload.file_attachment || null,
-      }),
-    );
+    var wsMsg = {
+      type: "chat",
+      message: payload.message,
+      conversation_id: payload.conversation_id,
+      history: payload.history,
+      session_token: payload.session_token || "",
+      file_attachment: payload.file_attachment || null,
+    };
+    var wsWidgetToken = _gateToken(payload.conversation_id);
+    if (wsWidgetToken) wsMsg.widget_token = wsWidgetToken;
+    ws.send(JSON.stringify(wsMsg));
 
     // Return a cancel function
     return function cancelWS() {
@@ -2904,6 +2959,13 @@
       if (_isStale()) return;
       if (metadata.conversation_id) conv.serverId = metadata.conversation_id;
       if (metadata.session_token) conv.sessionToken = metadata.session_token;
+      if (metadata.widget_token) {
+        _gateSet(
+          metadata.conversation_id || payload.conversation_id,
+          metadata.widget_token,
+        );
+      }
+      state._gateRetried = false;
       var cur = document.getElementById("streaming-cursor");
       if (cur) cur.remove();
       // A11y: clear the streaming busy flag so the finalized answer (appended
@@ -3007,7 +3069,17 @@
     }
 
     // ── Start streaming (extracted so retry can re-invoke without duplicating user msg) ──
-    function _startStreaming() {
+    function _startStreaming(gateReady) {
+      // Chat gate: the first message after page load (or after a token
+      // expired) waits for a widget token instead of racing it.
+      if (!gateReady && _gateNeeds(payload.conversation_id)) {
+        state.isLoading = true;
+        _gateEnsure(payload.conversation_id, function () {
+          state.isLoading = false;
+          _startStreaming(true);
+        });
+        return;
+      }
       state.isLoading = true;
       state.isStreaming = true;
       state._loadStart = Date.now();
@@ -3062,6 +3134,16 @@
             },
             onError: function (errMsg) {
               clearTimeout(hardTimeout);
+              // Chat gate: an expired or missing widget token re-mints once.
+              if (/^HTTP 401/.test(String(errMsg)) && !state._gateRetried) {
+                state._gateRetried = true;
+                _gate.mode = "";
+                _gate.token = "";
+                var wsRow = document.getElementById("streaming-msg");
+                if (wsRow && wsRow.parentNode) wsRow.parentNode.removeChild(wsRow);
+                _startStreaming();
+                return;
+              }
               // On WS error, increment fail count
               _wsFailCount++;
               _showStreamError(errMsg || "Connection error. Please try again.");
@@ -3094,12 +3176,15 @@
             }, 90000);
           }
 
+          var sseHeaders = {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": window.__csrfToken,
+          };
+          var sseWidgetToken = _gateToken(payload.conversation_id);
+          if (sseWidgetToken) sseHeaders[WIDGET_TOKEN_HEADER] = sseWidgetToken;
           fetch(STREAM_URL, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-Token": window.__csrfToken,
-            },
+            headers: sseHeaders,
             body: JSON.stringify(payload),
             signal: ac.signal,
           })
@@ -3184,6 +3269,17 @@
                   : "This query needed more time than expected. Try a simpler version or click Retry.";
               } else if (err.message && err.message.indexOf("429") > -1) {
                 errorMsg = "Nova is busy. Please wait a moment and try again.";
+              } else if (
+                err.message &&
+                err.message.indexOf("HTTP 401") === 0 &&
+                !state._gateRetried
+              ) {
+                // Chat gate: an expired or missing widget token re-mints once.
+                state._gateRetried = true;
+                _gate.mode = "";
+                _gate.token = "";
+                _startStreaming();
+                return;
               } else if (err.message && err.message.indexOf("403") > -1) {
                 // S47: Auto-refresh CSRF token on 403 and retry once
                 // instead of showing "Session expired" error

@@ -154,10 +154,104 @@
     return /^HTTP 403/.test(m) || /invalid session token/i.test(m);
   }
 
+  // ---------------------------------------------------------------------------
+  // Chat gate (server flag NOVA_CHAT_GATE). Under "signed" a guest chat turn
+  // needs a short-lived widget token bound to its conversation id: minted by
+  // POST /api/chat/widget-token, refreshed by every reply, sent in the
+  // X-Nova-Widget-Token header (HTTP) or the widget_token field (WebSocket).
+  // Under "off" the mint answers {gate:"off"} once and nothing else changes.
+  // ---------------------------------------------------------------------------
+  var WIDGET_TOKEN_URL = "/api/chat/widget-token";
+  var WIDGET_TOKEN_HEADER = "X-Nova-Widget-Token";
+  var _gate = { mode: "", token: "", cid: "", exp: 0 };
+
+  function _widgetTokenExpiry(token) {
+    var parts = String(token || "").split(".");
+    var exp = parts.length === 4 ? parseInt(parts[2], 10) : 0;
+    return isFinite(exp) ? exp * 1000 : 0;
+  }
+
+  function setWidgetToken(conversationId, token) {
+    if (typeof token !== "string" || !token) return;
+    _gate.mode = "signed";
+    _gate.token = token;
+    _gate.cid = conversationId;
+    _gate.exp = _widgetTokenExpiry(token);
+  }
+
+  // The token to send for this conversation ("" when none is needed or held).
+  function currentWidgetToken(conversationId) {
+    if (_gate.mode !== "signed" || _gate.cid !== conversationId) return "";
+    if (_gate.exp && _gate.exp - 30000 < Date.now()) return "";
+    return _gate.token;
+  }
+
+  function needsWidgetToken(conversationId) {
+    if (_gate.mode === "off") return false;
+    return !currentWidgetToken(conversationId);
+  }
+
+  function ensureWidgetToken(conversationId, done) {
+    var finished = false;
+    function finish() {
+      if (finished) return;
+      finished = true;
+      done();
+    }
+    try {
+      fetch(WIDGET_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ conversation_id: conversationId }),
+      })
+        .then(function (r) {
+          // An older server without the endpoint (404) or a refusal means no
+          // gate this page can satisfy: send as before and let the server say.
+          if (!r.ok) return { gate: r.status === 429 ? "" : "off" };
+          return r.json();
+        })
+        .then(function (d) {
+          if (d && d.gate === "signed" && d.widget_token) {
+            setWidgetToken(conversationId, d.widget_token);
+          } else if (!d || d.gate !== "") {
+            // "off", or an answer this build does not understand: stop asking
+            // until a chat reply says otherwise (a 401 re-arms the mint).
+            _gate.mode = "off";
+          }
+        })
+        .catch(function () {
+          /* network error: send without a token; a 401 retries once */
+        })
+        .then(finish);
+    } catch (_e) {
+      finish();
+    }
+  }
+
+  function isGateError(msg) {
+    var m = String(msg == null ? "" : msg);
+    return /^HTTP 401/.test(m) || /chat token is required/i.test(m);
+  }
+
   // One silent recovery per cause, then the visitor gets a Retry. Returns true
   // when it resent the message (the caller stops), false to show the error.
   function resendAfterRecoverableError(errMsg, text, opts) {
     var o = opts || {};
+    if (isGateError(errMsg) && !o.gateRetried) {
+      // Token expired, server restarted with a new key, or the gate was
+      // switched on after this page loaded: mint again and resend once.
+      _gate.mode = "";
+      _gate.token = "";
+      state.isLoading = false;
+      sendMessage(text, {
+        isRetry: true,
+        gateRetried: true,
+        transportRetried: !!o.transportRetried,
+        authRetried: !!o.authRetried,
+      });
+      return true;
+    }
     if (isWsTransportError(errMsg) && !o.transportRetried) {
       // The socket opened and dropped before a single token: pin this page to
       // SSE and resend without bothering the visitor.
@@ -166,6 +260,7 @@
         isRetry: true,
         transportRetried: true,
         authRetried: !!o.authRetried,
+        gateRetried: !!o.gateRetried,
       });
       return true;
     }
@@ -177,6 +272,7 @@
           isRetry: true,
           authRetried: true,
           transportRetried: !!o.transportRetried,
+          gateRetried: !!o.gateRetried,
         });
       });
       return true;
@@ -415,17 +511,18 @@
       }
       _widgetWsConn = null;
     };
+    var wsMsg = {
+      type: "chat",
+      message: payload.message,
+      conversation_id: payload.conversation_id,
+      history: payload.history,
+      session_token: payload.session_token || "",
+      context: payload.context || null,
+    };
+    var wsWidgetToken = currentWidgetToken(payload.conversation_id);
+    if (wsWidgetToken) wsMsg.widget_token = wsWidgetToken;
     try {
-      ws.send(
-        JSON.stringify({
-          type: "chat",
-          message: payload.message,
-          conversation_id: payload.conversation_id,
-          history: payload.history,
-          session_token: payload.session_token || "",
-          context: payload.context || null,
-        }),
-      );
+      ws.send(JSON.stringify(wsMsg));
     } catch (_sendErr) {
       // Socket slipped into CLOSING/CLOSED after the readyState check: report
       // it asynchronously (the caller has not stored its cancel handle yet)
@@ -1750,6 +1847,9 @@
     var owner = typeof cid === "string" && cid ? cid : sentConversationId;
     if (meta.session_token && owner === state.sessionId) {
       writeSessionToken(owner, meta.session_token);
+    }
+    if (meta.widget_token && owner === state.sessionId) {
+      setWidgetToken(owner, meta.widget_token);
     }
   }
 
@@ -3774,6 +3874,20 @@
     var text = resolveSendText(overrideText, input);
     if (!text) return;
 
+    // Chat gate: the first message after page load (or after a token
+    // expired) waits for a widget token instead of racing it.
+    if (!(opts && opts.gateReady) && needsWidgetToken(state.sessionId)) {
+      state.isLoading = true;
+      ensureWidgetToken(state.sessionId, function () {
+        state.isLoading = false;
+        var next = {};
+        for (var k in opts || {}) next[k] = opts[k];
+        next.gateReady = true;
+        sendMessage(overrideText, next);
+      });
+      return;
+    }
+
     // W-04: Client-side message length cap (4000 chars)
     if (text.length > 4000) {
       appendMessage(
@@ -3876,6 +3990,8 @@
     var csrfToken = window.__csrfToken || "";
     var headers = { "Content-Type": "application/json" };
     if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+    var widgetToken = currentWidgetToken(payload.conversation_id);
+    if (widgetToken) headers[WIDGET_TOKEN_HEADER] = widgetToken;
 
     if (CONFIG.useStreaming) {
       showStopButton();

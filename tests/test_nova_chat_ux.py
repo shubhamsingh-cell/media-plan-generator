@@ -629,7 +629,9 @@ var KEY = "nova_session_token:nova-CUR";
 var sends = [], csrf = 0;
 function sendMessage(text, opts) { sends.push({text: text, opts: opts, token: store[KEY] || null}); }
 function refreshCsrfToken(done) { csrf++; done(); }
+var _gate = { mode: "signed", token: "T", cid: "nova-CUR", exp: 0 };
 """
+        + js_block(src, "function isGateError(")
         + js_block(src, "function isWsTransportError(")
         + js_block(src, "function isStaleAuthError(")
         + js_block(src, "function clearStoredSessionToken(")
@@ -651,6 +653,12 @@ _widgetWsFailCount = 0;
 r.wsDrop = resendAfterRecoverableError("WebSocket closed", "q5", {});
 r.pinned = _widgetWsFailCount;
 r.wsDropTwice = resendAfterRecoverableError("WebSocket closed", "q5", {transportRetried: true});
+sends.length = 0;
+r.gate401 = resendAfterRecoverableError("HTTP 401", "q6", {});
+r.gateCleared = _gate.mode === "" && _gate.token === "";
+r.gateSends = sends.slice();
+r.gate401Twice = resendAfterRecoverableError("HTTP 401", "q6", {gateRetried: true});
+r.gateWsFrame = resendAfterRecoverableError("HTTP 401: a chat token is required", "q7", {});
 console.log(JSON.stringify(r));
 """
     )
@@ -661,7 +669,12 @@ console.log(JSON.stringify(r));
     assert out["afterWsStale"]["sends"] == [
         {
             "text": "q1",
-            "opts": {"isRetry": True, "authRetried": True, "transportRetried": False},
+            "opts": {
+                "isRetry": True,
+                "authRetried": True,
+                "transportRetried": False,
+                "gateRetried": False,
+            },
             "token": None,
         }
     ]
@@ -669,6 +682,12 @@ console.log(JSON.stringify(r));
     assert out["sse403"] is True and out["sse403Twice"] is False
     assert out["sseOther"] is False and out["serverText"] is False
     assert out["wsDrop"] is True and out["pinned"] == 3 and out["wsDropTwice"] is False
+    # NOVA_CHAT_GATE: a 401 (expired / missing widget token) re-mints and
+    # resends once; a second 401 reaches the visitor.
+    assert out["gate401"] is True and out["gateCleared"] is True
+    assert out["gateSends"][0]["opts"]["gateRetried"] is True
+    assert out["gate401Twice"] is False
+    assert out["gateWsFrame"] is True
 
 
 def test_widget_never_calls_an_underscore_helper_it_does_not_define():

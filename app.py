@@ -51,6 +51,9 @@ import enterprise_pack
 import publisher_filter
 import wizard_inputs
 import proof_claims  # public proof numbers ({{claim_*}} tokens in templates)
+# Imported at module level on purpose: under gunicorn --preload its boot-time
+# signing secret is created once in the master and shared by every worker.
+import nova_chat_gate
 
 # Static asset minifier -- minify CSS/JS at import time for zero-latency serving
 try:
@@ -14724,7 +14727,39 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             return False
         return host.lower() in _SAME_ORIGIN_ALLOWED_HOSTS
 
-    def _check_joveo_auth(self, allow_widget_origin: bool = True) -> bool:
+    def _chat_gate_needs_token(self) -> bool:
+        """True when this chat request must carry a valid widget token.
+
+        Only under NOVA_CHAT_GATE=signed, and only for callers without a real
+        credential: the admin key, an X-Nova-Api-Key, a verified Supabase JWT
+        or a signed session cookie still admit a turn on their own. The
+        header-only paths (same-origin Origin/Referer, the widget-domain
+        substring fallback, the legacy unsigned cookie) do not.
+        """
+        if not nova_chat_gate.is_signed():
+            return False
+        if self._check_admin_auth():
+            return False
+        return not self._check_joveo_auth(
+            allow_widget_origin=False, allow_unsigned_cookie=False
+        )
+
+    def _send_widget_token_required(self, reason: str) -> None:
+        """401 for a guest chat turn without a valid widget token."""
+        logger.info(
+            "Nova chat gate: rejected guest turn (reason=%s, client=%s)",
+            reason,
+            self._get_client_ip(),
+        )
+        self._send_error(
+            "A chat token is required. Reload the page and try again.",
+            nova_chat_gate.TOKEN_REQUIRED_CODE,
+            401,
+        )
+
+    def _check_joveo_auth(
+        self, allow_widget_origin: bool = True, allow_unsigned_cookie: bool = True
+    ) -> bool:
         """Check if request is from an authenticated @joveo.com user or has valid API key.
 
         Three authentication paths (S58 hardened after security audit):
@@ -14833,7 +14868,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             return True
                 except Exception as _cookie_err:
                     logger.debug("Cookie HMAC verify failed: %s", _cookie_err)
-            if not strict_auth:
+            if not strict_auth and allow_unsigned_cookie:
                 email_lower = raw_cookie.lower().strip()
                 if email_lower.endswith("@joveo.com"):
                     logger.warning(
@@ -15144,6 +15179,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             )
             self.send_error(401, "Authentication required")
             return
+        # NOVA_CHAT_GATE=signed: browsers cannot set headers on an upgrade,
+        # so a guest's widget token rides in each chat message instead and is
+        # checked per message below, before any paid work.
+        _ws_gate_on = self._chat_gate_needs_token()
 
         # ── Origin allowlist: block CSWSH from arbitrary third-party sites ──
         origin = (self.headers.get("Origin") or "").lower()
@@ -15214,6 +15253,27 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         {"error": f"Unknown message type: {msg_type}", "done": True}
                     )
                     continue
+
+                _ws_widget_token = data.pop(nova_chat_gate.WIDGET_TOKEN_FIELD, None)
+                if _ws_gate_on:
+                    _ws_gate_verdict = nova_chat_gate.check(
+                        _ws_widget_token, data.get("conversation_id")
+                    )
+                    if _ws_gate_verdict != "ok":
+                        logger.info(
+                            "Nova chat gate: rejected WS guest turn (reason=%s, client=%s)",
+                            _ws_gate_verdict,
+                            self._get_client_ip(),
+                        )
+                        ws_conn.send_json(
+                            {
+                                "type": "error",
+                                "code": nova_chat_gate.TOKEN_REQUIRED_CODE,
+                                "error": "HTTP 401: a chat token is required",
+                                "done": True,
+                            }
+                        )
+                        continue
 
                 # ── Chat message processing ──
                 # Per-message rate limits: the SAME two checks the SSE
@@ -15294,6 +15354,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 "full_response": "Your request was cancelled.",
                                 "conversation_id": conversation_id,
                                 "session_token": _conv_session_token,
+                                **nova_chat_gate.response_fields(conversation_id),
                             }
                         )
                         continue
@@ -15351,6 +15412,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                         "sources": sources,
                                         "conversation_id": conversation_id,
                                         "session_token": _conv_session_token,
+                                        **nova_chat_gate.response_fields(conversation_id),
                                     }
                                 )
                                 break
@@ -15434,6 +15496,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             "conversation_id": conversation_id,
                             "suggested_followups": _ws_followups,
                             "session_token": _conv_session_token,
+                            **nova_chat_gate.response_fields(conversation_id),
                             "token_usage": _token_usage,
                             # S62: Transparency panel payload for "Why this
                             # answer?" footer. Forwarded from the Nova stream
@@ -18404,6 +18467,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             "/api/health",  # Read-only health checks
             "/api/health/ping",  # Read-only ping
             "/api/csrf-token",  # Must be exempt to bootstrap
+            "/api/chat/widget-token",  # NOVA_CHAT_GATE bootstrap, like csrf-token
             "/api/config",  # Public config, read-only
             "/api/auth/me",  # Uses Bearer token, not CSRF
             "/api/auth/session",  # Uses Bearer token, not CSRF
@@ -23376,6 +23440,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     401,
                 )
                 return
+            # NOVA_CHAT_GATE=signed: a guest also needs a widget token (header
+            # checked here, its conversation binding once the body is parsed).
+            _chat_gate_on = self._chat_gate_needs_token()
+            if _chat_gate_on and not self.headers.get(
+                nova_chat_gate.WIDGET_TOKEN_HEADER
+            ):
+                self._send_widget_token_required("missing")
+                return
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
                 self._send_error(
                     "Rate limit exceeded. Please wait a moment.", "RATE_LIMITED", 429
@@ -23397,6 +23469,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (json.JSONDecodeError, RecursionError, ValueError):
                 self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
+            if _chat_gate_on:
+                # Bound to the conversation the client asked for; the response
+                # carries a fresh token for the conversation the turn used.
+                _gate_verdict = nova_chat_gate.check(
+                    self.headers.get(nova_chat_gate.WIDGET_TOKEN_HEADER),
+                    (data if isinstance(data, dict) else {}).get("conversation_id"),
+                )
+                if _gate_verdict != "ok":
+                    self._send_widget_token_required(_gate_verdict)
+                    return
             # ── Type validation: reject non-string message, non-list history ──
             _raw_msg = data.get("message")
             if _raw_msg is not None and not isinstance(_raw_msg, str):
@@ -23685,6 +23767,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if data.get("conversation_id") and isinstance(response, dict):
                 response["conversation_id"] = data["conversation_id"]
                 response["session_token"] = _chat_session_token
+                response.update(
+                    nova_chat_gate.response_fields(data["conversation_id"])
+                )
             self._send_json(response)
 
             # ── PostHog: Track chat message ──
@@ -23739,6 +23824,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     401,
                 )
                 return
+            # NOVA_CHAT_GATE=signed: a guest also needs a widget token (header
+            # checked here, its conversation binding once the body is parsed).
+            _stream_gate_on = self._chat_gate_needs_token()
+            if _stream_gate_on and not self.headers.get(
+                nova_chat_gate.WIDGET_TOKEN_HEADER
+            ):
+                self._send_widget_token_required("missing")
+                return
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
                 self._send_error(
                     "Rate limit exceeded. Please wait a moment.", "RATE_LIMITED", 429
@@ -23760,6 +23853,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (json.JSONDecodeError, RecursionError, ValueError):
                 self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
+            if _stream_gate_on:
+                # Bound to the conversation the client asked for; the response
+                # carries a fresh token for the conversation the turn used.
+                _gate_verdict = nova_chat_gate.check(
+                    self.headers.get(nova_chat_gate.WIDGET_TOKEN_HEADER),
+                    (data if isinstance(data, dict) else {}).get("conversation_id"),
+                )
+                if _gate_verdict != "ok":
+                    self._send_widget_token_required(_gate_verdict)
+                    return
             # ── Type validation: reject non-string message, non-list history ──
             _raw_msg = data.get("message")
             if _raw_msg is not None and not isinstance(_raw_msg, str):
@@ -23854,6 +23957,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "full_response": "Your request was cancelled.",
                             "conversation_id": conversation_id,
                             "session_token": _conv_session_token,
+                            **nova_chat_gate.response_fields(conversation_id),
                         }
                     )
                     self.wfile.write(f"data: {_cancel_evt}\n\n".encode())
@@ -23951,6 +24055,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                             "sources": sources,
                                             "conversation_id": conversation_id,
                                             "session_token": _conv_session_token,
+                                            **nova_chat_gate.response_fields(conversation_id),
                                         }
                                     )
                                 )
@@ -24058,6 +24163,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "conversation_id": conversation_id,
                         "suggested_followups": _stream_followups,
                         "session_token": _conv_session_token,
+                        **nova_chat_gate.response_fields(conversation_id),
                         "token_usage": _token_usage,
                         # S62: Transparency panel payload -- forwarded from
                         # Nova stream done chunk so the "Why this answer?"
@@ -24587,6 +24693,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.send_header("Content-Length", str(len(resp_body)))
             self.end_headers()
             self.wfile.write(resp_body)
+        elif path == "/api/chat/widget-token":
+            # NOVA_CHAT_GATE widget-token mint (routes/chat.py).
+            from routes.chat import handle_widget_token_post
+
+            handle_widget_token_post(self)
         elif path == "/api/nova/chat":
             # ── Nova Standalone Chat (admin testing) ──
             if not self._check_admin_auth():

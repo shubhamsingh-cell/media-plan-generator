@@ -1490,6 +1490,52 @@ const NovaDrawer = (() => {
     }
   }
 
+  /* Chat gate (server flag NOVA_CHAT_GATE). Under "signed" a guest chat turn
+     needs a short-lived widget token bound to its conversation id: minted by
+     POST /api/chat/widget-token, refreshed by every reply, sent as the
+     X-Nova-Widget-Token header. Under "off" the mint answers {gate:"off"}
+     once and nothing else changes. */
+  const _gate = { mode: "", token: "", cid: "", exp: 0 };
+
+  function _gateSet(conversationId, token) {
+    if (typeof token !== "string" || !token) return;
+    const parts = token.split(".");
+    const exp = parts.length === 4 ? parseInt(parts[2], 10) : 0;
+    _gate.mode = "signed";
+    _gate.token = token;
+    _gate.cid = conversationId;
+    _gate.exp = isFinite(exp) ? exp * 1000 : 0;
+  }
+
+  function _gateToken(conversationId) {
+    if (_gate.mode !== "signed" || _gate.cid !== conversationId) return "";
+    if (_gate.exp && _gate.exp - 30000 < Date.now()) return "";
+    return _gate.token;
+  }
+
+  function _gateEnsure(conversationId) {
+    if (_gate.mode === "off" || _gateToken(conversationId)) {
+      return Promise.resolve();
+    }
+    return fetch("/api/chat/widget-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ conversation_id: conversationId }),
+    })
+      .then((r) => (r.ok ? r.json() : { gate: r.status === 429 ? "" : "off" }))
+      .then((d) => {
+        if (d && d.gate === "signed" && d.widget_token) {
+          _gateSet(conversationId, d.widget_token);
+        } else if (!d || d.gate !== "") {
+          _gate.mode = "off";
+        }
+      })
+      .catch(() => {
+        /* network error: send without a token; a 401 retries once */
+      });
+  }
+
   /* Conversation id sent to /api/chat: the server scopes memory by it. */
   function _secureRandomId() {
     // 128 bits from the platform CSPRNG: the id is the only key to this
@@ -1589,6 +1635,9 @@ const NovaDrawer = (() => {
       }
     }
     const owner = typeof cid === "string" && cid ? cid : sentId;
+    if (data.widget_token && owner === _convId) {
+      _gateSet(owner, data.widget_token);
+    }
     if (
       typeof data.session_token === "string" &&
       data.session_token &&
@@ -1893,11 +1942,36 @@ const NovaDrawer = (() => {
       if (csrfMeta && csrfMeta.content)
         headers["X-CSRF-Token"] = csrfMeta.content;
 
-      fetch("/api/chat", {
-        method: "POST",
-        headers: headers,
-        credentials: "same-origin",
-        body: JSON.stringify({
+      const gatedChatFetch = (body) =>
+        _gateEnsure(conversationId).then(() => {
+          const widgetToken = _gateToken(conversationId);
+          if (widgetToken) headers["X-Nova-Widget-Token"] = widgetToken;
+          return fetch("/api/chat", {
+            method: "POST",
+            headers: headers,
+            credentials: "same-origin",
+            body: body,
+          }).then((r) => {
+            if (r.status !== 401 || !widgetToken) return r;
+            /* Expired or rotated widget token: mint again and resend once. */
+            _gate.mode = "";
+            _gate.token = "";
+            return _gateEnsure(conversationId).then(() => {
+              const fresh = _gateToken(conversationId);
+              if (!fresh) return r;
+              headers["X-Nova-Widget-Token"] = fresh;
+              return fetch("/api/chat", {
+                method: "POST",
+                headers: headers,
+                credentials: "same-origin",
+                body: body,
+              });
+            });
+          });
+        });
+
+      gatedChatFetch(
+        JSON.stringify({
           message: text,
           conversation_id: conversationId,
           session_token: _conversationToken(),
@@ -1916,7 +1990,7 @@ const NovaDrawer = (() => {
             campaign_industry: campaign.industry || "",
           },
         }),
-      })
+      )
         .then((r) => {
           if (!r.ok && r.status === 403) {
             /* CSRF token expired -- re-fetch and retry once */

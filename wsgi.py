@@ -203,6 +203,15 @@ def _run_deferred_startup() -> None:
     except Exception as tavily_err:
         logger.warning("[wsgi] Tavily status check failed: %s", tavily_err)
 
+    # Chat gate: one boot line naming NOVA_CHAT_GATE (off / signed) and,
+    # when signed, which secret signs widget tokens (never the value).
+    try:
+        import nova_chat_gate as _gate_boot
+
+        _gate_boot.log_boot_notice()
+    except Exception as gate_err:
+        logger.warning("[wsgi] Chat gate status check failed: %s", gate_err)
+
     # Freeze the pre-loaded heap before fork. Everything loaded above (KB,
     # gazetteer, SlotOps baselines) is read-only reference data that the
     # workers inherit copy-on-write -- but CPython's cyclic GC writes into

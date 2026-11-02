@@ -10,9 +10,14 @@ public ``NovaChat`` API.
 
 The test supplies ``server(body)`` (JavaScript) answering each chat request
 with ``{conversation_id, session_token}``. ``bodies`` records every chat
-request as ``{tab, via, conversation_id, session_token}``. ``TRANSPORT`` is
-"ws", "sse" or "post" (the stream fails and the widget falls back to a plain
-POST /api/chat).
+request as ``{tab, via, conversation_id, session_token, widget_token}``.
+``TRANSPORT`` is "ws", "sse" or "post" (the stream fails and the widget falls
+back to a plain POST /api/chat).
+
+Chat gate (NOVA_CHAT_GATE): a test may define ``serverMint(body)`` answering
+POST /api/chat/widget-token (``mints`` counts the calls); ``server(body)`` may
+answer ``{status: 401}`` to reject a turn, and a ``widget_token`` it returns
+rides on the done event like the session token does.
 """
 
 from __future__ import annotations
@@ -25,7 +30,7 @@ _PRELUDE = r"""
 var store = {};
 var localStorage = { getItem: function (k) { return k in store ? store[k] : null; },
   setItem: function (k, v) { store[k] = String(v); }, removeItem: function (k) { delete store[k]; } };
-var bodies = [];
+var bodies = [], mints = [];
 var tick = function () { return new Promise(function (r) { setTimeout(r, 5); }); };
 async function settle() { for (var i = 0; i < 20; i++) await tick(); }
 
@@ -51,10 +56,21 @@ function makeAny(name, elements) {
   return self;
 }
 
-function record(tab, via, body) {
+function record(tab, via, body, widgetToken) {
   bodies.push({tab: tab, via: via, conversation_id: body.conversation_id,
-               session_token: body.session_token});
-  return server(body);
+               session_token: body.session_token, widget_token: widgetToken || ""});
+  return server(Object.assign({}, body, {widget_token: widgetToken || ""}));
+}
+
+function doneEvent(ans) {
+  var evt = {done: true, full_response: "reply",
+    conversation_id: ans.conversation_id, session_token: ans.session_token};
+  if (ans.widget_token) evt.widget_token = ans.widget_token;
+  return evt;
+}
+
+function headerToken(opts) {
+  return (opts && opts.headers && opts.headers["X-Nova-Widget-Token"]) || "";
 }
 
 function sseResponse(events) {
@@ -70,14 +86,20 @@ function makeFetch(tab) {
   return function fetch(url, opts) {
     if (url === "/api/chat/stream") {
       if (TRANSPORT === "post") return Promise.resolve({ ok: false, status: 500 });
-      var ans = record(tab, "sse", JSON.parse(opts.body));
-      return sseResponse([{token: "reply"}, {done: true, full_response: "reply",
-        conversation_id: ans.conversation_id, session_token: ans.session_token}]);
+      var ans = record(tab, "sse", JSON.parse(opts.body), headerToken(opts));
+      if (ans.status) return Promise.resolve({ ok: false, status: ans.status });
+      return sseResponse([{token: "reply"}, doneEvent(ans)]);
     }
     if (url === "/api/chat") {
-      var a = record(tab, "post", JSON.parse(opts.body));
-      return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve(
-        {response: "reply", conversation_id: a.conversation_id, session_token: a.session_token}); } });
+      var a = record(tab, "post", JSON.parse(opts.body), headerToken(opts));
+      if (a.status) return Promise.resolve({ ok: false, status: a.status });
+      var d = doneEvent(a); d.response = "reply";
+      return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve(d); } });
+    }
+    if (url === "/api/chat/widget-token") {
+      var mb = JSON.parse(opts.body); mints.push(mb.conversation_id);
+      var m = typeof serverMint === "function" ? serverMint(mb) : {};
+      return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve(m); } });
     }
     return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve({}); } });
   };
@@ -93,11 +115,16 @@ function makeWebSocket(tab) {
   FakeWebSocket.prototype.send = function (raw) {
     var ws = this, msg = JSON.parse(raw);
     if (msg.type !== "chat") return;
-    var ans = record(tab, "ws", msg);
+    var ans = record(tab, "ws", msg, msg.widget_token);
     setTimeout(function () {
+      if (ans.status) {
+        ws.onmessage({data: JSON.stringify({type: "error", code: "WIDGET_TOKEN_REQUIRED",
+          error: "HTTP " + ans.status + ": a chat token is required", done: true})});
+        return;
+      }
       ws.onmessage({data: JSON.stringify({token: "reply", done: false})});
-      ws.onmessage({data: JSON.stringify({token: "", done: true, full_response: "reply",
-        conversation_id: ans.conversation_id, session_token: ans.session_token})});
+      var evt = doneEvent(ans); evt.token = "";
+      ws.onmessage({data: JSON.stringify(evt)});
     }, 0);
   };
   FakeWebSocket.prototype.close = function () {};

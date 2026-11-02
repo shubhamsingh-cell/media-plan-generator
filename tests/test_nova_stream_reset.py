@@ -50,8 +50,16 @@ function __refreshCsrfToken() { return Promise.resolve(); }
 function _getOrCreateWS(cb) { cb(null); }
 // a controllable SSE stream: push(text) delivers a chunk; abort rejects the read
 var streams = [];
+var WIDGET_TOKEN_URL = "/api/chat/widget-token", WIDGET_TOKEN_HEADER = "X-Nova-Widget-Token";
+var _gate = { mode: "", token: "", cid: "", exp: 0 }, mints = [];
+var mintAnswer = { gate: "off" };
 function fetch(url, opts) {
+  if (url === WIDGET_TOKEN_URL) {  // NOVA_CHAT_GATE mint (answer set per test)
+    mints.push(JSON.parse(opts.body).conversation_id);
+    return Promise.resolve({ ok: true, json: function () { return Promise.resolve(mintAnswer); } });
+  }
   bodies.push(JSON.parse(opts.body));
+  if (opts.headers) bodies[bodies.length - 1]._widgetToken = opts.headers[WIDGET_TOKEN_HEADER] || "";
   var queue = [], waiters = [];
   var s = { push: function (txt) {
       var v = new TextEncoder().encode(txt);
@@ -85,6 +93,10 @@ def _lifted() -> str:
             "function resetLoadingState()",
             "function cancelInFlightReply()",
             "function clearActiveConversation()",
+            "function _gateSet(",
+            "function _gateToken(",
+            "function _gateNeeds(",
+            "function _gateEnsure(",
             "function sendMessage()",
         )
     )
