@@ -124,19 +124,28 @@ def server_port() -> Iterator[int]:
     server.server_close()
 
 
+def _isolate_rate_limits(monkeypatch) -> None:
+    """Fresh limiter state for this test, restored afterwards: these tests
+    make many 127.0.0.1 chat requests, and the shared per-IP / global chat
+    windows otherwise leak 429s into later test files."""
+    from collections import defaultdict
+
+    monkeypatch.setattr(app, "_rl_chat", app.RateLimiter())
+    monkeypatch.setattr(app, "_rl_general", app.RateLimiter())
+    monkeypatch.setattr(app, "_rate_limit_store", defaultdict(list))
+    monkeypatch.setattr(app, "_global_chat_timestamps", [])
+
+
 @pytest.fixture
 def signed(monkeypatch):
     monkeypatch.setenv(gate.GATE_ENV, "signed")
-    # Fresh per-IP buckets so a long run never trips the chat rate limit.
-    monkeypatch.setattr(app, "_rl_chat", app.RateLimiter())
-    monkeypatch.setattr(app, "_rl_general", app.RateLimiter())
+    _isolate_rate_limits(monkeypatch)
 
 
 @pytest.fixture
 def gate_off(monkeypatch):
     monkeypatch.delenv(gate.GATE_ENV, raising=False)
-    monkeypatch.setattr(app, "_rl_chat", app.RateLimiter())
-    monkeypatch.setattr(app, "_rl_general", app.RateLimiter())
+    _isolate_rate_limits(monkeypatch)
 
 
 def _post(port: int, path: str, payload: Optional[object], headers: dict):
