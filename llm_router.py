@@ -961,10 +961,20 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # route so it actually resolves; kept as a valid paid reasoning
         # fallback. Cost metadata corrected below in _PROVIDER_COST_PER_M_TOKENS.
         # [openrouter.ai/deepseek, retrieved 2026-06-02]
-        "name": "OpenRouter (DeepSeek R1 Reasoning, paid)",
+        # 2026-11-03 MODEL-ID AUDIT: "deepseek/deepseek-r1" is no longer in
+        # OpenRouter's public catalog (GET https://openrouter.ai/api/v1/models,
+        # 451 models; DeepSeek ids present include deepseek/deepseek-v4-flash
+        # and deepseek/deepseek-v4-pro, the same V4 pair the official API
+        # serves), so this fallback was a dead hop. Re-pointed to the V4 Flash
+        # route (reasoning-capable, cheapest valid DeepSeek id: $0.091 in /
+        # $0.182 out per 1M at audit time). The constant keeps its historical
+        # name to avoid churning every priority list. Override:
+        # OPENROUTER_DEEPSEEK_MODEL=deepseek/deepseek-v4-pro.
+        "name": "OpenRouter (DeepSeek V4 Flash, paid)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "deepseek/deepseek-r1",
+        "model": os.environ.get("OPENROUTER_DEEPSEEK_MODEL")
+        or "deepseek/deepseek-v4-flash",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -1250,7 +1260,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,  # #2 fallback -- free, strong reasoning
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep reasoning
-        OPENROUTER_DEEPSEEK_R1,  # Paid reasoning fallback ($0.70/$2.50, no free DeepSeek slug on OpenRouter)
+        OPENROUTER_DEEPSEEK_R1,  # Paid DeepSeek V4 Flash fallback ($0.091/$0.182, no free DeepSeek slug on OpenRouter)
         # S50 REMOVED: OPENROUTER_DEEPSEEK -- deepseek-v3.2:free 404'd in live verification
         OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B reasoning-capable
         CLOUDFLARE,  # S48: promoted -- 300 RPM high-availability fallback
@@ -1320,7 +1330,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,  # #2 free fallback -- strong reasoning
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep research
-        OPENROUTER_DEEPSEEK_R1,  # Paid reasoning fallback ($0.70/$2.50, no free DeepSeek slug on OpenRouter)
+        OPENROUTER_DEEPSEEK_R1,  # Paid DeepSeek V4 Flash fallback ($0.091/$0.182, no free DeepSeek slug on OpenRouter)
         # S50 REMOVED: OPENROUTER_DEEPSEEK -- slug 404 verified 2026-05-02
         SAMBANOVA,
         OPENROUTER,
@@ -1451,7 +1461,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,  # #2 free fallback -- good at structured data
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep analysis
-        OPENROUTER_DEEPSEEK_R1,  # Paid reasoning fallback ($0.70/$2.50, no free DeepSeek slug on OpenRouter)
+        OPENROUTER_DEEPSEEK_R1,  # Paid DeepSeek V4 Flash fallback ($0.091/$0.182, no free DeepSeek slug on OpenRouter)
         XIAOMI_MIMO,
         SAMBANOVA,
         GROQ,
@@ -1468,7 +1478,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_COMPETITOR_SCAN: [
         DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, strong at web-scale competitive synthesis
-        OPENROUTER_DEEPSEEK_R1,  # Reasoning-heavy PAID fallback ($0.70/$2.50, no free DeepSeek slug)
+        OPENROUTER_DEEPSEEK_R1,  # Reasoning-capable PAID fallback (V4 Flash, $0.091/$0.182, no free DeepSeek slug)
         CLAUDE_HAIKU,  # Quality fallback for nuanced positioning analysis
         GPT4O,  # Paid fallback
         OPENROUTER,
@@ -1823,7 +1833,9 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     # S51 (Jun 2026): DeepSeek-R1 on OpenRouter is PAID, not free -- corrected
     # from 0.0/0.0 so cost accounting & routing reflect reality.
     # [openrouter.ai/deepseek, retrieved 2026-06-02]
-    OPENROUTER_DEEPSEEK_R1: {"input": 0.70, "output": 2.50},
+    # 2026-11-03: slug moved to deepseek/deepseek-v4-flash (R1 left the
+    # catalog); price from GET https://openrouter.ai/api/v1/models that day.
+    OPENROUTER_DEEPSEEK_R1: {"input": 0.091, "output": 0.182},
     OPENROUTER_GEMMA: {"input": 0.0, "output": 0.0},
     # S50 ADDITION (May 2026): new free providers
     OPENROUTER_GPT_OSS: {"input": 0.0, "output": 0.0},
