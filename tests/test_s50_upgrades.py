@@ -207,8 +207,11 @@ class TestTier1StaticValidation:
 
             assert fresh_cfg[CLAUDE_OPUS]["model"] == "claude-opus-5-5"
 
-    def test_openrouter_uses_qwen3_coder(self) -> None:
-        """OPENROUTER entry must point to qwen/qwen3-coder:free by default."""
+    def test_openrouter_uses_listed_free_default(self) -> None:
+        """OPENROUTER entry must point to a listed free slug by default.
+
+        qwen/qwen3-coder:free left the OpenRouter catalog (2026-11-03); the
+        replacement is pinned in tests/test_model_id_audit.py too."""
         from llm_router import OPENROUTER
 
         with mock.patch.dict(os.environ, {}, clear=False):
@@ -216,7 +219,10 @@ class TestTier1StaticValidation:
             importlib.reload(importlib.import_module("llm_router"))
             from llm_router import PROVIDER_CONFIG as fresh_cfg
 
-            assert fresh_cfg[OPENROUTER]["model"] == "qwen/qwen3-coder:free"
+            assert (
+                fresh_cfg[OPENROUTER]["model"]
+                == "nvidia/nemotron-3-ultra-550b-a55b:free"
+            )
 
     def test_env_overrides_take_effect(self) -> None:
         """Setting the four env vars overrides the default model strings."""
@@ -314,12 +320,14 @@ class TestTier1StaticValidation:
 
     # ── routes/health display labels ────────────────────────────────────────
 
-    def test_health_qwen3_coder_label(self) -> None:
-        """routes/health.py must list 'Qwen3 Coder 480B (free)' label."""
+    def test_health_openrouter_free_label(self) -> None:
+        """routes/health.py must label the OpenRouter route with the model it
+        actually serves (Qwen3 Coder free was delisted 2026-11-03)."""
         src = _read(HEALTH_PATH)
         assert (
-            "Qwen3 Coder 480B (free)" in src
-        ), "Expected 'Qwen3 Coder 480B (free)' display label"
+            "Nemotron 3 Ultra 550B (free)" in src
+        ), "Expected 'Nemotron 3 Ultra 550B (free)' display label"
+        assert "Qwen3 Coder 480B (free)" not in src
         assert (
             "Llama 4 Maverick" in src
         ), "Expected deprecation note mentioning Llama 4 Maverick to remain"

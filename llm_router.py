@@ -17,19 +17,19 @@ Provider priority (quality-first for substantive, free for simple):
     3.  GPT-5.4-mini (OpenAI) -- $0.75/$6 per M, replaces deprecated GPT-4o (S50)
 
     FREE TIER (fallbacks + batch/summarize tasks):
-    4.  Groq Llama 3.3 70B -- free, conversational, complex reasoning
+    4.  Groq GPT-OSS-120B -- free, conversational, complex reasoning
     5.  Zhipu AI (GLM-4-Flash) -- free unlimited, strong multilingual
-    6.  Cerebras Llama 3.3 70B -- free 1M tokens/day, hot spare
+    6.  Cerebras GPT-OSS-120B -- free tier, hot spare
     7.  Mistral Small -- free tier, strong JSON + multilingual
     8.  NVIDIA NIM (Nemotron 30B) -- free dev program
     9.  SambaNova (Llama 3.3 70B) -- free, fast inference (RDU)
     10. SiliconFlow (Qwen2.5 7B) -- free, OpenAI-compatible
     11. Cloudflare Workers AI -- free 10K neurons/day
     12. Together AI (Llama 3.3 70B Turbo) -- $25 free credit
-    13-20. OpenRouter Qwen3-Coder/Gemma/etc, xAI Grok 4.3, HuggingFace (various free)
-    21. OpenRouter (GPT-OSS-120B) -- S50: Apache 2.0, 131K ctx, native tool use
+    13-20. OpenRouter free routes (Nemotron/Cohere/Gemma 4/etc), xAI Grok 4.3, HuggingFace (various free)
+    21. OpenRouter (Nemotron 3.5 Super 120B) -- 2026-11-03: replaces delisted gpt-oss-120b:free; 131K ctx, tool use
     22. OpenRouter (DeepSeek V3.2) -- S50: unified chat+reasoning, 163K ctx, gold IMO/IOI
-    23. Cerebras Llama 4 Scout -- S50: ~2,600 tok/s, 1M ctx, 1M tokens/day free
+    23. Cerebras GPT-OSS-120B (CEREBRAS_SCOUT) -- free trial, 5 RPM, 8K total ctx cap (see config)
 
     EXPENSIVE TIER (deep analysis fallback):
     24. Claude Sonnet 5 (Anthropic) -- paid, 1M ctx, strong tool_use (S95: bumped from Sonnet 4.6)
@@ -176,7 +176,9 @@ CLAUDE = "claude"
 CLAUDE_OPUS = "claude_opus"
 
 # S50 ADDITION (May 2026): 2 new free-tier fallbacks
-# - OPENROUTER_GPT_OSS: GPT-OSS-120B (Apache 2.0, 131K ctx, native tool use)
+# - OPENROUTER_GPT_OSS: originally GPT-OSS-120B; openai/gpt-oss-120b:free left the
+#   OpenRouter catalog (2026-11-03) and the route now serves Nemotron 3.5 Super
+#   120B (131K ctx, tool use, structured outputs). Constant name kept.
 # - CEREBRAS_SCOUT: Cerebras free trial -- gpt-oss-120b (default) / zai-glm-4.7,
 #   5 RPM, 8,192-token TOTAL context cap (S51 re-label; the older
 #   "Qwen-3 235B, ~2,600 tok/s, 1M ctx" label was stale per live Cerebras docs
@@ -730,18 +732,17 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     GROQ: {
-        # S51 UPGRADE (Jun 2026): Llama 3.3 70B -> Llama 4 Scout. Scout is a
-        # 17B-active/16-expert MoE with a 10M-token context window (largest
-        # open-weight), natively multimodal+multilingual, same Groq free tier
-        # (30 RPM / 1,000 RPD). Slug verified live (HTTP 200) on 2026-06-02.
-        # Override via env: GROQ_MODEL=llama-3.3-70b-versatile (prior GA slug).
-        # [ai.meta.com/blog/llama-4-multimodal-intelligence/ +
-        # console.groq.com/docs/rate-limits, retrieved 2026-06-02]
-        "name": "Groq Llama 4 Scout (10M ctx)",
+        # S51 (Jun 2026) pinned Llama 4 Scout here. 2026-11-03 MODEL-ID AUDIT:
+        # Groq deprecated meta-llama/llama-4-scout-17b-16e-instruct with a
+        # 07/17/26 shutdown, recommending openai/gpt-oss-120b (131K ctx, 65K
+        # max completion, reasoning, tool use) or qwen/qwen3.6-27b.
+        # [console.groq.com/docs/deprecations + console.groq.com/docs/models,
+        # retrieved 2026-11-03]
+        # Override via env: GROQ_MODEL=llama-3.3-70b-versatile (still listed).
+        "name": "Groq GPT-OSS-120B",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.groq.com/openai/v1/chat/completions",
-        "model": os.environ.get("GROQ_MODEL")
-        or "meta-llama/llama-4-scout-17b-16e-instruct",
+        "model": os.environ.get("GROQ_MODEL") or "openai/gpt-oss-120b",
         "env_key": "GROQ_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 14400,
@@ -749,10 +750,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     CEREBRAS: {
-        "name": "Cerebras Llama 3.3 70B",
+        # 2026-11-03 MODEL-ID AUDIT: Cerebras deprecated llama-3.3-70b
+        # (changelog entry 2026-02-16, recommended migration: GPT OSS 120B) and
+        # the current model catalog lists only gpt-oss-120b and qwen-3.8-27b.
+        # [inference-docs.cerebras.ai/support/deprecation +
+        # inference-docs.cerebras.ai/models/overview, retrieved 2026-11-03]
+        "name": "Cerebras GPT-OSS-120B",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.cerebras.ai/v1/chat/completions",
-        "model": "llama-3.3-70b",
+        "model": "gpt-oss-120b",
         "env_key": "CEREBRAS_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 14400,  # 1M tokens/day free
@@ -776,15 +782,19 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     OPENROUTER: {
-        # S50 UPGRADE (May 2026): Llama 4 Maverick was deprecated on Groq Mar 9,
-        # 2026. OpenRouter still hosts it free, but Qwen3-Coder-480B (262K ctx)
-        # is the top open-weight coding model and excellent for structured
-        # output / recruitment Q&A. Same OPENROUTER_API_KEY, free tier.
-        # Override via env: OPENROUTER_MODEL=meta-llama/llama-4-maverick:free
-        "name": "OpenRouter (Qwen3 Coder 480B)",
+        # S50 (May 2026): this was the Qwen3-Coder-480B free route. 2026-11-03
+        # MODEL-ID AUDIT: "qwen/qwen3-coder:free" is no longer in OpenRouter's
+        # public catalog (GET https://openrouter.ai/api/v1/models; the paid
+        # "qwen/qwen3-coder" is still listed, so it is NOT used here). Re-pointed
+        # to the nearest-scale listed free model: NVIDIA Nemotron 3 Ultra
+        # (550B MoE / 55B active, 1M ctx, tool use; prompt and completion price
+        # both "0"). Same OPENROUTER_API_KEY, free tier.
+        # Override via env: OPENROUTER_MODEL=<any listed ":free" slug>
+        "name": "OpenRouter (Nemotron 3 Ultra 550B)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": os.environ.get("OPENROUTER_MODEL") or "qwen/qwen3-coder:free",
+        "model": os.environ.get("OPENROUTER_MODEL")
+        or "nvidia/nemotron-3-ultra-550b-a55b:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,  # Conservative -- free tier has daily limits
@@ -879,14 +889,16 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     OPENROUTER_QWEN: {
-        "name": "OpenRouter (Qwen3 Coder)",
+        "name": "OpenRouter (Cohere North Mini Code)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        # S51 (Jun 2026): pinned to qwen/qwen3-coder:free -- the durable
-        # confirmed-free 1M-context Qwen route on OpenRouter. The prior
-        # alibaba/* slug aliased the OAuth free tier that was discontinued
-        # 2026-04-15. [openrouter.ai/qwen/qwen3-coder:free, retrieved 2026-06-02]
-        "model": "qwen/qwen3-coder:free",
+        # 2026-11-03 MODEL-ID AUDIT: "qwen/qwen3-coder:free" (S51 pin) left
+        # OpenRouter's public catalog (GET https://openrouter.ai/api/v1/models);
+        # no free Qwen coder remains. Re-pointed to the listed free coding
+        # model cohere/north-mini-code:free (agentic coder, 30B MoE / 3B active,
+        # 256K ctx, tool use; prompt and completion price both "0"). The
+        # constant keeps its historical name to avoid churning priority lists.
+        "model": "cohere/north-mini-code:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -898,10 +910,14 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         },
     },
     OPENROUTER_ARCEE: {
-        "name": "OpenRouter (Arcee Trinity)",
+        # 2026-11-03 MODEL-ID AUDIT: "arcee-ai/arcee-trinity-v1:free" is not in
+        # OpenRouter's public catalog. Re-pointed (reasoning-role fallback) to
+        # the listed free reasoning model NVIDIA Nemotron 3 Nano Omni 30B-A3B
+        # (256K ctx, prompt/completion price "0"). Constant name kept.
+        "name": "OpenRouter (Nemotron 3 Nano Omni 30B reasoning)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "arcee-ai/arcee-trinity-v1:free",
+        "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -913,10 +929,13 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         },
     },
     OPENROUTER_LIQUID: {
-        "name": "OpenRouter (Liquid LFM 2.5)",
+        # 2026-11-03 MODEL-ID AUDIT: "liquid/lfm-2.5:free" is not in the
+        # OpenRouter catalog; the listed free sibling is LFM2.5-2.6B (64K ctx,
+        # 8K max completion, prompt/completion price "0").
+        "name": "OpenRouter (Liquid LFM2.5 2.6B)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "liquid/lfm-2.5:free",
+        "model": "liquid/lfm-2.5-2.6b:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -939,10 +958,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     OPENROUTER_YI: {
-        "name": "OpenRouter (01.AI Yi Large)",
+        # 2026-11-03 MODEL-ID AUDIT: "01-ai/yi-large:free" is not in the
+        # OpenRouter catalog (no 01.AI model remains). Re-pointed to a listed
+        # free general-purpose model of similar size: XingChen Xing4.0 29B-A4B
+        # (236K ctx, tool use + structured outputs, prompt/completion "0").
+        # Constant name kept.
+        "name": "OpenRouter (XingChen Xing4.0 29B)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "01-ai/yi-large:free",
+        "model": "xingchen-agi/xing4.0-29b-a4b:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -987,10 +1011,13 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         },
     },
     OPENROUTER_GEMMA: {
-        "name": "OpenRouter (Google Gemma 3 27B)",
+        # 2026-11-03 MODEL-ID AUDIT: "google/gemma-3-27b-it:free" left the
+        # OpenRouter catalog; successor Gemma 4 31B (30.7B dense, 256K ctx,
+        # function calling, prompt/completion "0") is the listed free route.
+        "name": "OpenRouter (Google Gemma 4 31B)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "google/gemma-3-27b-it:free",
+        "model": "google/gemma-4-31b-it:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -1017,16 +1044,17 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     # S50 ADDITION (May 2026): GPT-OSS-120B via OpenRouter free tier.
-    # Apache 2.0 license, 131K context window, native tool-use support.
-    # Replaces deprecated Llama 4 Maverick on Groq (deprecated Mar 9, 2026).
-    # Strong general-purpose model with excellent structured/code output.
-    # Override via env: OPENROUTER_GPT_OSS_MODEL=openai/gpt-oss-120b:free
+    # 2026-11-03 MODEL-ID AUDIT: "openai/gpt-oss-120b:free" left OpenRouter's
+    # public catalog. Re-pointed to the nearest listed free equivalent:
+    # NVIDIA Nemotron 3.5 Super (120B MoE / 12B active, 131K ctx, tool use,
+    # structured outputs, reasoning; prompt/completion price "0"). Constant
+    # name kept. Override via env: OPENROUTER_GPT_OSS_MODEL=<listed ":free" slug>
     OPENROUTER_GPT_OSS: {
-        "name": "OpenRouter (GPT-OSS-120B)",
+        "name": "OpenRouter (Nemotron 3.5 Super 120B)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
         "model": os.environ.get("OPENROUTER_GPT_OSS_MODEL")
-        or "openai/gpt-oss-120b:free",
+        or "nvidia/nemotron-3.5-super-vl:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -1182,12 +1210,12 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   Together AI (Llama 3.3 70B Turbo): $25 free credit, fast inference, general purpose
 #   Moonshot Kimi: DISABLED (no API key) -- strong for Asian/Chinese market queries
 #   OpenRouter (Llama 4 Maverick): strong general purpose
-#   OpenRouter (Qwen3 Coder): code generation specialist
-#   OpenRouter (Arcee Trinity): complex reasoning
-#   OpenRouter (Liquid LFM 2.5): novel architecture
-#   OpenRouter (01.AI Yi Large): good general purpose via OpenRouter free tier
+#   OpenRouter (Cohere North Mini Code): code generation specialist
+#   OpenRouter (Nemotron 3 Nano Omni reasoning): reasoning fallback
+#   OpenRouter (Liquid LFM2.5 2.6B): small fast fallback
+#   OpenRouter (XingChen Xing4.0 29B): general purpose via OpenRouter free tier
 #   OpenRouter (DeepSeek R1): strong reasoning/research, HIGH priority for COMPLEX/RESEARCH
-#   OpenRouter (Google Gemma 3 27B): structured output, verification
+#   OpenRouter (Google Gemma 4 31B): structured output, verification
 #   xAI Grok: strong reasoning (credits-based: $25 signup, $2/$10 per M tokens in/out)
 #   HuggingFace (Mistral 7B): rate-limited fallback
 #
@@ -1212,7 +1240,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLOUDFLARE,
         TOGETHER,
         OPENROUTER_GEMMA,
-        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B native tool-use, strong JSON
+        OPENROUTER_GPT_OSS,  # Nemotron 3.5 Super 120B (free): tool use, structured outputs
         GROQ,
         ZHIPU,
         OPENROUTER_QWEN,
@@ -1243,7 +1271,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CEREBRAS,
         MISTRAL,
         OPENROUTER,
-        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B, strong general chat quality
+        OPENROUTER_GPT_OSS,  # Nemotron 3.5 Super 120B (free), general chat
         NVIDIA_NIM,
         SAMBANOVA,
         OPENROUTER_YI,
@@ -1263,7 +1291,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE,  # #4 Sonnet for deep reasoning
         OPENROUTER_DEEPSEEK_R1,  # Paid DeepSeek V4 Flash fallback ($0.091/$0.182, no free DeepSeek slug on OpenRouter)
         # S50 REMOVED: OPENROUTER_DEEPSEEK -- deepseek-v3.2:free 404'd in live verification
-        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B reasoning-capable
+        OPENROUTER_GPT_OSS,  # Nemotron 3.5 Super 120B (free), reasoning-capable
         CLOUDFLARE,  # S48: promoted -- 300 RPM high-availability fallback
         TOGETHER,  # S48: promoted -- 60 RPM
         XIAOMI_MIMO,
@@ -1285,10 +1313,10 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_CODE: [
         DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, strong code-gen quality
-        OPENROUTER_QWEN,  # Qwen3 Coder -- code specialist, top free variant
+        OPENROUTER_QWEN,  # Cohere North Mini Code -- free code specialist
         CLAUDE_HAIKU,  # Quality fallback for tricky / critical code
         GPT4O,  # Paid fallback
-        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B native tool-use, strong code
+        OPENROUTER_GPT_OSS,  # Nemotron 3.5 Super 120B (free): tool use, code
         MISTRAL,
         GROQ,
         OPENROUTER,
@@ -1396,7 +1424,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         DEEPSEEK,  # 2026-07-04: native DeepSeek, cheaper paid tier than GPT4O
         GPT4O,
         OPENROUTER_DEEPSEEK_R1,
-        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B free fallback for batch
+        OPENROUTER_GPT_OSS,  # Nemotron 3.5 Super 120B free fallback for batch
         CLAUDE,
         OPENROUTER_GEMMA,
         CLAUDE_OPUS,

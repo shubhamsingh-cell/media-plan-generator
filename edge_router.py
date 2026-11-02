@@ -53,13 +53,13 @@ TIER_LATENCY_TARGETS: dict[ComplexityTier, float] = {
 PROVIDER_CATALOG: dict[str, dict[str, Any]] = {
     # --- Fastest / cheapest (SIMPLE tier) ---
     "groq": {
-        "name": "Groq Llama 3.3 70B",
+        "name": "Groq GPT-OSS-120B",
         "cost_per_1k": 0.0,
         "tier": "free",
         "baseline_latency_s": 0.4,
     },
     "cerebras": {
-        "name": "Cerebras Llama 3.3 70B",
+        "name": "Cerebras GPT-OSS-120B",
         "cost_per_1k": 0.0,
         "tier": "free",
         "baseline_latency_s": 0.5,

@@ -928,10 +928,10 @@ def _handle_health_integrations(handler, path: str, parsed: Any) -> None:
         ),
         (
             "openrouter",
-            "Qwen3 Coder 480B (free)",
+            "Nemotron 3 Ultra 550B (free)",
             "OpenRouter",
             "OPENROUTER_API_KEY",
-            "Top open-weight coding model, 262K ctx (S50 -- replaced deprecated Llama 4 Maverick)",
+            "Open-weight 550B MoE, 1M ctx (2026-11: replaced delisted Qwen3 Coder free; S50 had replaced deprecated Llama 4 Maverick)",
         ),
         (
             "xai",

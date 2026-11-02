@@ -11,14 +11,23 @@ Current ids (2026-11-03 audit):
     slug is not in OpenRouter's public catalog (the dated r1-0528 still is, but
     the repo pins DeepSeek to V4); "deepseek-v4-pro-max" never existed.
   * Gemini: exactly the ids the router pins for its two Gemini providers.
+  * OpenRouter free routes: the ":free" slugs below are listed in OpenRouter's
+    public catalog (GET /api/v1/models, 2026-11-03) with pricing.prompt ==
+    pricing.completion == "0"; the six earlier free slugs were delisted.
+  * Groq / Cerebras: the Llama 4 Scout (Groq) and llama-3.3-70b (Cerebras)
+    ids are deprecated per each provider's deprecation page; both routes
+    serve gpt-oss-120b, the documented replacement.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
 from typing import List, Tuple
+
+import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -103,3 +112,76 @@ def test_cost_table_is_built_from_the_configured_slug() -> None:
 def test_official_deepseek_provider_pins() -> None:
     cfg = lr.PROVIDER_CONFIG[lr.DEEPSEEK]
     assert {cfg["model"], cfg["model_fast"]} == DEEPSEEK_IDS
+
+
+# --- OpenRouter free routes + Groq/Cerebras (2026-11-03 audit) --------------
+
+# route constant name -> (exact pinned model id, env var that overrides it or "")
+EXPECTED_OPENROUTER_FREE = {
+    "OPENROUTER": ("nvidia/nemotron-3-ultra-550b-a55b:free", "OPENROUTER_MODEL"),
+    "OPENROUTER_QWEN": ("cohere/north-mini-code:free", ""),
+    "OPENROUTER_ARCEE": ("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", ""),
+    "OPENROUTER_LIQUID": ("liquid/lfm-2.5-2.6b:free", ""),
+    "OPENROUTER_YI": ("xingchen-agi/xing4.0-29b-a4b:free", ""),
+    "OPENROUTER_GEMMA": ("google/gemma-4-31b-it:free", ""),
+    "OPENROUTER_GPT_OSS": ("nvidia/nemotron-3.5-super-vl:free", "OPENROUTER_GPT_OSS_MODEL"),
+}
+
+# Slugs absent from OpenRouter's public catalog (or, for Groq/Cerebras, listed
+# as deprecated/removed by the provider) -- must never come back as code.
+DEAD_SLUGS = (
+    "qwen/qwen3-coder:free",
+    "google/gemma-3-27b-it:free",
+    "openai/gpt-oss-120b:free",
+    "arcee-ai/arcee-trinity-v1:free",
+    "liquid/lfm-2.5:free",
+    "01-ai/yi-large:free",
+    "meta-llama/llama-4-scout-17b-16e-instruct",  # Groq, shut down 07/17/26
+)
+
+
+def _router_code_lines() -> List[Tuple[int, str]]:
+    src = (PROJECT_ROOT / "llm_router.py").read_text("utf-8").splitlines()
+    return [(n, line.split("#", 1)[0]) for n, line in enumerate(src, 1)]
+
+
+def _pin(route_const: str) -> str:
+    """Pinned model id for a route; skip when an env override is active."""
+    expected, env_var = EXPECTED_OPENROUTER_FREE.get(route_const, ("", ""))
+    if env_var and os.environ.get(env_var):
+        pytest.skip(f"{env_var} override is set in this environment")
+    return lr.PROVIDER_CONFIG[getattr(lr, route_const)]["model"]
+
+
+@pytest.mark.parametrize("route_const", sorted(EXPECTED_OPENROUTER_FREE))
+def test_openrouter_free_route_pins_listed_free_slug(route_const: str) -> None:
+    expected, _ = EXPECTED_OPENROUTER_FREE[route_const]
+    assert _pin(route_const) == expected
+    assert expected.endswith(":free")
+
+
+@pytest.mark.parametrize("route_const", sorted(EXPECTED_OPENROUTER_FREE))
+def test_openrouter_free_route_is_costed_as_free(route_const: str) -> None:
+    cost = lr._PROVIDER_COST_PER_M_TOKENS[getattr(lr, route_const)]
+    assert cost == {"input": 0.0, "output": 0.0}
+
+
+def test_no_delisted_slug_in_router_code() -> None:
+    """Comments may cite retired slugs as history; code may not use them."""
+    hits = [
+        (n, slug)
+        for n, code in _router_code_lines()
+        for slug in DEAD_SLUGS
+        if f'"{slug}"' in code or f"'{slug}'" in code
+    ]
+    assert hits == []
+
+
+def test_groq_and_cerebras_use_gpt_oss_120b() -> None:
+    if os.environ.get("GROQ_MODEL"):
+        pytest.skip("GROQ_MODEL override is set in this environment")
+    assert lr.PROVIDER_CONFIG[lr.GROQ]["model"] == "openai/gpt-oss-120b"
+    assert lr.PROVIDER_CONFIG[lr.CEREBRAS]["model"] == "gpt-oss-120b"
+    # the deprecated Cerebras id must not survive as a quoted code literal
+    stale = [n for n, code in _router_code_lines() if re.search(r"[\"']llama-3\.3-70b[\"']", code)]
+    assert stale == []
