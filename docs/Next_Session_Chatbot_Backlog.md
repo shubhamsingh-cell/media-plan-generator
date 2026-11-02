@@ -1,138 +1,121 @@
-# Nova Chatbot — Next Session Backlog (S80+)
+# Nova Chatbot: Next Session Backlog
 
-**Session of record**: S76–S79b (2026-05-22). 9 commits live (`a83c504` → `51727cf`).
-**Live version**: `4.0.0-51727cfe` on Render `srv-d6lk06k50q8c73bcpo40`.
+Rewritten 2026-11-03 after a local chat sweep (branch `nova-batch2-1103`).
+Transcripts, verbatim, are in `evals/.cache/chat_sweep_2026-11-03/` (git-ignored):
+`before/` is the first pass, `after/` the re-runs after each fix round.
 
-## ✅ What's done (do NOT redo)
+## How the sweep ran, and what it could not reach
 
-- Country awareness on CPA tools end-to-end (Tier 1+2)
-- Tier 3 intelligence layer: planner, citations, number verifier, clarifier (env-flagged, default on)
-- 750KB stranded healthcare data cluster wired into chat handlers
-- `_query_kb_deep` fixed (was crashing on every call — unlocked 28 datasets)
-- LinkUp/Revelio dead tool advertisements removed
-- OECD SDMX integration (6 datasets verified live, `_query_oecd_sdmx` tool)
-- RAG Phase 1 built (`_query_kb_semantic` tool, `rag_pipeline.py`, feature-flagged off)
-- 65-country currency map + 47 currency symbols + multilingual CSS font fallback
-- Linear MCP migrated from `/sse` to `/mcp`
-- 503 regression tests pass
-- Supabase: `nova_shared_conversations` table created, `cg_daily_raw` indexes added
-- Enrichment scheduler re-enabled (`ENABLE_DATA_ENRICHMENT=1` on Render)
-- Cache flush done
+- Local server `python3 app.py <port>` from the worktree; requests sent the way
+  `static/nova-chat.js` does (client-minted `nova-<uuid>` conversation id,
+  session token adopted from the done event, page Origin). The re-runs also
+  ran with `NOVA_CHAT_GATE=signed`: mint, `X-Nova-Widget-Token`, token adopted
+  from each reply; a request without a token got 401 `WIDGET_TOKEN_REQUIRED`.
+- No LLM provider keys exist locally (no Anthropic, OpenRouter, Groq, ...), so
+  every turn ran in Nova's **rule-based mode** and the **direct tool dispatch**
+  path with synthesis failing. Spend: $0.
+- No Supabase locally, so session tokens are empty and every turn starts a new
+  conversation; multi-turn context could only come from the `history` field.
+- Therefore NOT exercised: LLM-written answers, the plan-figure guard and the
+  number verifier (both run on model text), saved-plan questions, the
+  `_[unverified]_` / `**4**5%**` paths as produced by the verifier, real
+  Tavily results. Re-run `after/` with a key-bearing environment before
+  trusting those rows.
 
-## 🔴 Real remaining issues (verified live, P1)
+## Sweep table
 
-### 1. Berlin CPC still returns USD despite S79 country tagging
-- **Symptom**: Query `"cpc for tech in berlin"` returns `$7.63` not `€` symbols.
-- **Hypothesis**: My S79 fix added `country`/`currency`/`currency_symbol` fields to the tool result dict. But the LLM isn't honoring them — it sees the (USD-coded) `current_cpc` numbers from market_signals and renders with `$`.
-- **Two-part fix needed**:
-  1. **System prompt update**: Add a hard rule "When tool result includes `currency_symbol`, format ALL monetary figures with that symbol, NEVER with `$`."
-  2. **Convert in handler**: Multiply USD numbers by `1/usd_rate` to get local currency, before returning. Today we tag with currency but pass through USD numbers.
-- **Files to touch**: nova.py (get_system_prompt around line 3907, and _track_cpc around line 13065)
+| # | Question | Expected | Observed (before) | Fixed? / after |
+|---|---|---|---|---|
+| 1 | cpc for tech in Berlin | EUR symbol, local magnitude, never `$7.63` | Tool returns EUR-converted values (Indeed 1.36, LinkedIn 2.18) but, with no model, Nova printed the raw JSON: no euro sign, "-**5%**" bolded inside JSON, the internal "do NOT use $" instruction shown; degraded answer cached | Fixed (c5666e1, 33d4905): plain lines "Indeed €1.36, LinkedIn €2.18", says the writing model is down, not cached. Earlier cached copies still serve until TTL (see R1) |
+| 2-5 | best job boards in Germany / Poland / UAE / India | supply repository only, local-relevance order | Asks for the industry first (fine) | No change needed |
+| 6 | Germany, then "Tech & Engineering" | Germany tech boards | Generic "Market Demand: Software Developer", country lost | Not fixed (R4); partly local (no persistence) |
+| 7 | job boards in Poland for software developers | Poland-confirmed boards, local order | Whole global Tech category: Technojobs, DEV.BG, Engineering Careers.ca, Dice ... | Fixed (c5666e1): No Fluff Jobs, Just Join IT (in network for Poland) |
+| 8 | job boards in UAE for nurses | no US-only boards | 15 US healthcare boards (Jama, IntelyCare, AMN ...) | Fixed: "No Health boards are confirmed ... for United Arab Emirates" plus the market's top funded boards from `channel_funding.funding_order` |
+| 9 | job boards in India for warehouse workers | local-relevance order | File order (Sercanto, eFinancialCareers, ... College Recruiter) | Fixed: `channel_funding.rank_names` order (Shine, JobRapido, ...) |
+| 10 | healthcare apply rate + which report | benchmark with citation | Routed to LinkedIn SlotOps predictor: all zeros, raw JSON | Partly: no raw JSON when uncached; routing not fixed (R3) |
+| 11 | $500 for one warehouse associate in Dallas | small-budget honesty | "**$50**0"; "Recommended Channels for CDL Driver"; "all channels low ROI" | Bolding fixed; role mismatch and blanket low-ROI line not fixed (R5) |
+| 12 | weather in Berlin tomorrow | polite out-of-scope | Correct deflection | OK |
+| 13 | Germany vs France unemployment (OECD) | OECD figures, bounded latency | Rule-based mode answered with ad-spend comparison; KB context leaked "[international_sources.json] sources.eurostat..." | KB leak fixed (c5666e1). Tool checked directly: 2.9 s, but rows came oldest first (France 2003-01 first, Germany 2026-09 mid-list) and results are cut before the model reads them. Fixed (f848a8e): newest first + `latest` per country |
+| 14 | latest news this week on Indeed pricing (no Tavily key) | say live news is unavailable | Generic capabilities blurb as if answered; tool path labelled Jina/DDG hits "tavily" | Fixed (c5666e1, 33d4905): rule-based answer leads with "Live news search isn't available right now"; `web_search` labels fallback hits `web_fallback` with a provider note and tells the model to say so on no results |
+| 15 | CPC for nursing jobs in London | GBP | Raw JSON (same as 1) | Fixed (same path; uncached run shows £) |
+| 16 | cost per application, engineers in Bangalore | India figures or an honest "US proxy" note | US report figures, "-**23.09%**", "**$209**K", "$15- $35" | Bolding fixed; no India-specific CPA in KB (R6) |
+| 17 | salary for an RN in Houston | Houston range | US range 45-120K; follow-up "compare to {nearby_city}?" | Placeholder fixed (33d4905); city precision not fixed |
+| 18 | media plan, 10 engineers, Berlin, "50000 budget" | plan | Asked "How much is the total budget?" | Fixed (33d4905): bare budgets read |
+| 19 | Indeed vs LinkedIn for engineering | comparison | "Apply Rate: 3-**6%**" | Fixed (33d4905): "**3-6%**" |
+| 20 | plan for 20 nurses in Dallas, then "how many hires / CPH?" | figures traced to the plan | Turn 1 fine (4-8 hires, ranges); turn 2 generic SHRM CPH | Not exercisable without a model (guard runs on model text) |
+| 21 | hi | proof-claim stats | Computed stats, now "23 AI models" | OK; test denylist updated (a09a9a1) |
+| 22 | POST /api/chat (non-stream), German nurses | same as stream | Works; widget token returned | OK |
+| 23-24 | uncached CPC Munich / retail Warsaw | € / clarifier | €1.36 plain lines; Warsaw clarifier | OK |
+| 25-28 | re-runs of 14, 17, 18, 19 with new phrasing | as above | as in "after" | Confirmed fixed |
+| - | every tool answer | one Sources footer | Two: dated citations block plus "**Sources:** ..." | Fixed (c5666e1) |
+| - | first message right after page load (handshake) | no lost message | Not reproducible headless; under `signed` the widget now waits for its token before sending | Covered by `tests/test_nova_widget_chat_gate_runtime.py` (all transports) |
+| - | zero-hire channel note | plan currency | `lambda v: f"${v:,.0f}"` hardcoded | Fixed (c5666e1): `_plan_money_formatter(result)`; the chat tool's plans are USD today, so latent |
 
-### 2. Tier 3 number-verifier markdown double-bold bug
-- **Symptom**: `**4**5%**` visible in production responses (e.g. "CPCs surged **4**5%** above historical")
-- **Root cause**: The number-verifier inserts `_[unverified]_` markers but splits the existing `**bold**` markdown when the number is inside bold. My S77 `_t3_adjust_offset_outside_bold` helper covers some cases but not all.
-- **Fix**: Audit `_verify_response_numbers` in nova.py for all insertion sites. Should skip ENTIRE bold runs, not just adjust offset.
-- **Test case**: Pre-compute on `"**45%**"` and `"**$1,250,000**"` — verifier should leave them alone OR insert tag AFTER the closing `**`.
+## Fixed this session (evidence = commit + regression test, each failing first)
 
-### 3. `[unverified]` tags leak to user prose at 22% rate
-- **Symptom**: QUAL-A eval: 4 of 18 responses had `_[unverified]_` visible to end users.
-- **Two options** (pick one):
-  - **A. Tune the verifier**: tighten the whitelist or widen the ±5% tolerance; tag fewer numbers
-  - **B. Hide from rendered output**: keep tags in the LLM context for audit but strip them before returning to client (`response_text.replace("_[unverified]_", "")` in the final send)
-- **Recommended**: B — preserves audit signal without UX leak
+- Metric bolding never splits a number or doubles a bold (`$500` -> `**$50**0`,
+  `**45%**` -> `**4**5%**`, `-5%`, `$209K`, ranges, inside code): c5666e1,
+  33d4905; `tests/test_nova_markdown_number_bold.py`.
+- Degraded direct dispatch renders plain local-currency lines and is not
+  cached: c5666e1; `tests/test_nova_direct_dispatch_degraded.py`.
+- Publisher listing follows the supply repository for the market and the
+  plan's local-relevance score (imported from `channel_funding`, not
+  duplicated): c5666e1; `tests/test_nova_publisher_listing_local.py`.
+- Honest web search provenance / no-result instruction: c5666e1;
+  `tests/test_nova_web_search_honest.py`. Rule-based news asks: 33d4905;
+  `tests/test_nova_rule_based_freshness.py`.
+- KB "Additional Context" without file/key paths: c5666e1;
+  `tests/test_nova_kb_context_clean.py`.
+- Single Sources footer: c5666e1; `tests/test_nova_single_sources_footer.py`.
+- Zero-hire note currency: c5666e1; `tests/test_nova_zero_hire_currency.py`.
+- Follow-up placeholders, percent ranges, bare budgets, forecast money:
+  33d4905; `tests/test_nova_markdown_number_bold.py`,
+  `tests/test_nova_extract_budget_bare.py`.
+- OECD newest first: f848a8e; `tests/test_nova_oecd_newest_first.py`.
+- Reference-plans tool description no longer names customers (public repo).
+- Chat gate (`NOVA_CHAT_GATE`, ships off): f9299c2; see `docs/NOVA_CHAT_GATE.md`.
 
-### 4. First message of a new session sometimes silently fails (handshake race)
-- **Symptom** (VISUAL-A finding): Test #1 query immediately after page load returned no assistant response. Subsequent queries in same session worked.
-- **Hypothesis**: WSGI worker cold-start or initial WebSocket handshake takes longer than client timeout
-- **Investigation needed**: Check Render boot logs for the cold-start path; possible fix is a warmup ping or longer initial-message timeout
+Commit ids are pre-rebase; after the rebase onto `nova-ai-stack-1103` match by
+subject line.
 
-### 5. OECD SDMX queries take ~55s, hit 60s client timeout (QUAL-A Test 12)
-- **Symptom**: Query "what's the labor force participation rate in germany 2026" times out
-- **Root cause**: OECD endpoint latency 50-55s; chat client times out at 60s
-- **Fix**: Either (a) cache OECD results more aggressively (24h cache already exists but isn't pre-warmed) OR (b) bump the chat tool-call timeout for `query_oecd_sdmx` specifically to 90s
+Status of the previous backlog's P1 items: (1) Berlin USD: the tool now returns
+EUR values and symbol (verified in transcripts); LLM rendering unverified
+here. (2) `**4**5%**`: the formatter half is fixed and tested; the verifier
+half needs a model run. (3) `_[unverified]_` leak: current code converts the
+tag to a dagger plus one footer (`nova.py` T3-3); no leak seen in this sweep,
+but no model text was produced. (4) handshake race: see table. (5) OECD
+latency: 2.9 s today for DEU+FRA; fetch timeout is 30 s.
 
-## 🟡 Quality improvements (P2)
+## Remaining (not fixed)
 
-### 6. RAG Phase 2: backfill embeddings
-- Phase 1 shipped in S78 with `RAG_V2_ENABLED=false`. Tool gracefully returns `rag_disabled`.
-- Phase 2 work (per `docs/RAG_Design_2026.md`):
-  - Run embedding backfill on all KB JSON files → Qdrant `nova_knowledge` collection
-  - Verify Voyage AI key set (or fall back to sentence-transformers)
-  - Set `RAG_V2_ENABLED=1` on Render
-  - A/B test: 50-query eval comparing RAG-enabled vs RAG-disabled
-- **Effort**: ~3 days
+- **R1 Cached degraded answers.** Answers cached before the fix during an LLM
+  outage (raw JSON) keep serving until their TTL. Flush the response cache
+  once after deploy (`data/nova_response_cache.json` locally; Upstash in prod).
+- **R2 Rule-based "Monthly Spend: $200,000†"** for Poland/India: a KB figure in
+  USD carries the "estimate not traced to Nova's planning engine" dagger,
+  which reads as invented. Label KB market-spend figures as KB, in USD.
+- **R3 Apply-rate questions route to `slotops_predict`** (LinkedIn timing) and
+  return zeros; route to benchmarks with the report name.
+- **R4 Clarifier answers lose the country** ("Tech & Engineering" after
+  "best job boards in Germany"); the rule-based path ignores `history`.
+- **R5 Small budgets**: role mismatch ("CDL Driver" for a warehouse associate)
+  and the blanket "channels with low ROI scores" line naming every channel;
+  "Optimised allocation could improve projected hires by 646%" also reaches
+  chat from the budget engine (plan-engine owners).
+- **R6 Non-US CPA** questions answer with US report figures without saying
+  they are a US proxy.
+- **R7 Thin salary answers** (pharmacist in Phoenix: "Range: N/A") in
+  rule-based mode.
+- **R8 Third-party blog URLs** surface in "Additional Context" (for example a
+  pricing-comparison blog); KB source quality, not formatting.
+- **Pre-existing test failures not caused by this branch** (fail on the base
+  commit too, both in plan-engine code): `test_projection_ranges_everywhere.py::
+  test_nova_formatter_prints_ranges_and_the_basis` (engine CPA now $33.37 vs
+  pinned $34.97) and `test_cph_benchmark.py::test_a_budget_too_small_for_one_hire_states_no_cost_per_hire[$9,000]`.
 
-### 7. Tier 3 monitoring + observability
-- Verify in production:
-  - Planner is actually firing (check Sentry for `T3-1 planner` log lines)
-  - Citation block appearing on 56%+ of responses (QUAL-A baseline)
-  - Number verifier marking <20% as `[unverified]` (currently 22%)
-- Add Slack alerts if any of these drift
+## Carried over, not re-verified this session
 
-### 8. 24h enrichment cron verification
-- Set `ENABLE_DATA_ENRICHMENT=1` in S77. Scheduler runs 5 min after boot + hourly.
-- Check `enrichment_log` in Supabase after 24h — should have ~24 rows
-- Address pre-existing 55% failure rate (74/134 failed in local runs)
-
-### 9. F3 content drift cleanup (decision deferred)
-- F3-VERIFY found:
-  - Glen Cathey 'Quality of Hire': URL is profile root, no specific post → remove or replace
-  - Ben Eubanks 'Talent Scarcity': URL is homepage, no book ref → update URL
-  - Tim Sackett 'AI screening inclusive': URL 404 → replace with Top 100 PDF
-- All 3 still in `data/ta_leaders_curated_2026.json` with verification flag
-
-## 🟢 Strategic upgrades (P3 — multi-day projects)
-
-### 10. F1 deeper data confidence boost
-- 27% of intl_role_benchmarks_v1.json cells are LOW confidence (extrapolated)
-- Upgrade by sourcing primary government wage boards for those cells (~1-2 days)
-
-### 11. F4 new API integrations (top-10 ranked)
-1. OECD SDMX — DONE in S78
-2. ESCO deep occupation taxonomy
-3. Appcast Benchmark API
-4. World Bank Jobs multi-indicator
-5. talent.com Publisher
-6. ABS Australia
-7. Mapbox
-8. Recruitics
-9. Reddit JSON
-10. Salary.com
-
-### 12. Tier 3 planner cost/latency optimization
-- Planner adds ~400ms per query
-- Could batch with main tool call if Anthropic SDK supports
-- Or skip planner for short queries (<20 chars)
-
-## 📋 Operational pre-flight for new session
-
-When the next Claude opens a Nova session:
-1. Read `MEMORY.md` for S76/S77/S78 context
-2. Run `python3 -m pytest tests/test_country_awareness.py tests/test_intl_chatbot_scenarios.py tests/test_currency_formatting.py tests/test_us_regression_safety.py -q` — should be 495+ pass
-3. `curl https://media-plan-generator.onrender.com/api/health` — should be 200 healthy
-4. `git log --oneline -10` — last commit should be `51727cf S79b`
-5. Pick from this backlog by priority
-
-## 🚨 What to NOT touch
-- Tier 1 fast paths in nova.py (lines 14148, 15280, 16432) — already country-aware, 503 tests guard them
-- `_query_kb_deep` at nova.py:7233 — the single-char fix from G3 is critical, don't revert
-- `_NON_US_CITY_ALIASES` set — removing entries breaks intl detection
-- `nova_shared_conversations` Supabase schema — production code writes a specific shape, don't change
-
-## Critical files / line refs
-
-- `nova.py` 26,762 lines after S79b
-- `app.py` (login_log fix at /api/auth/session, deployed in S77)
-- `rag_pipeline.py` 1,212 LOC (NEW in S78, standalone)
-- `api_enrichment.py` (OECD SDMX function at line ~1100+)
-- `tests/test_country_awareness.py` (495+ tests)
-- `data/intl_role_benchmarks_v1.json` (505KB, 996 cited cells)
-- `data/industry_reports_2026.json` (109KB, 80 reports)
-- `data/ta_leaders_curated_2026.json` (108KB, 89 verified posts)
-
-## Snapshots (rollback safety)
-- `/tmp/nova.py.tier1_and_tier2_snapshot.py`
-- `/tmp/nova.py.post_tier3.py`
-- `/tmp/nova.py.live_snapshot.py`
-- `~/.claude.json.s77_backup_20260522_170639` (Linear MCP backup)
+RAG phase 2 backfill and A/B eval; Tier 3 production monitoring (planner,
+citation rate, verifier mark rate); enrichment cron failure rate; curated
+TA-leader URL drift; low-confidence intl role benchmark cells; planner
+latency. See git history of this file for the original detail.
