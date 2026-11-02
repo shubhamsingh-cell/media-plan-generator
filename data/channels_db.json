@@ -999,8 +999,8 @@
       "competitor_channels": []
     },
     "warehouse_logistics": {
-      "label": "Warehouse & logistics",
-      "icon": "🏷️",
+      "label": "Warehouse & Fulfilment",
+      "icon": "📦",
       "description": "Warehouse associates, pickers and packers, forklift operators, and distribution-centre roles",
       "soc_codes": ["53-7062"],
       "example_roles": ["Warehouse Associates", "Pickers & Packers", "Forklift Operators", "Package Handlers", "Inventory Associates", "Loaders / Unloaders"],
@@ -1016,7 +1016,7 @@
       "_derived_from": ["blue_collar_hourly", "operations_supply_chain"]
     },
     "gig_courier_delivery": {
-      "label": "Gig / courier delivery",
+      "label": "Courier / Delivery Drivers",
       "icon": "🛵",
       "description": "Couriers, last-mile and app-based delivery drivers, and independent gig delivery roles",
       "soc_codes": ["53-3033", "43-5021"],

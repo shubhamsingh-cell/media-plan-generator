@@ -44,8 +44,8 @@ needs_node = pytest.mark.skipif(NODE is None, reason="node not installed")
 
 def test_categories_are_defined_once_with_standardizer_soc_codes():
     cats = wizard_inputs.ROLE_CATEGORIES
-    assert cats["warehouse_logistics"]["label"] == "Warehouse & logistics"
-    assert cats["gig_courier_delivery"]["label"] == "Gig / courier delivery"
+    assert cats["warehouse_logistics"]["label"] == "Warehouse & Fulfilment"
+    assert cats["gig_courier_delivery"]["label"] == "Courier / Delivery Drivers"
     assert cats["warehouse_logistics"]["soc"] == ("53-7062",)
     assert cats["gig_courier_delivery"]["soc"] == ("53-3033", "43-5021")
     for key, cat in cats.items():
@@ -143,3 +143,16 @@ def test_the_estimate_body_carries_job_categories_like_generate():
     )
     assert got["generate"]["job_categories"] == ["gig_courier_delivery"]
     assert got["estimate"]["job_categories"] == ["gig_courier_delivery"]
+
+
+def test_the_new_picker_cards_follow_the_others():
+    jc = json.loads(CHANNELS_DB.read_text(encoding="utf-8"))["job_categories"]
+    # Title Case like the other 18 cards
+    for key in wizard_inputs.ROLE_CATEGORIES:
+        label = jc[key]["label"]
+        words = [w for w in re.split(r"[ /&]+", label) if w]
+        assert all(w[0].isupper() for w in words), label
+    # a box for the warehouse card; no two cards share a label
+    assert jc["warehouse_logistics"]["icon"] == "\U0001F4E6"
+    labels = [c["label"] for c in jc.values()]
+    assert len(labels) == len(set(labels))

@@ -750,12 +750,12 @@ def format_budget_amount(amount: float) -> str:
 # for the category when a typed title is too vague to place ("Rider").
 ROLE_CATEGORIES: dict[str, dict[str, Any]] = {
     "warehouse_logistics": {
-        "label": "Warehouse & logistics",
+        "label": "Warehouse & Fulfilment",
         "soc": ("53-7062",),
         "role_hints": ("Warehouse Associate",),
     },
     "gig_courier_delivery": {
-        "label": "Gig / courier delivery",
+        "label": "Courier / Delivery Drivers",
         "soc": ("53-3033", "43-5021"),
         "role_hints": ("Delivery Driver", "Courier"),
     },
