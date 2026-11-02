@@ -2667,7 +2667,11 @@ def input_role_findings(
                 free.remove(j)
                 break
     out: list[Finding] = []
-    surfaces = (("deck", deck_text), ("workbook", workbook_text))
+    folded = {
+        where: (" ".join(text.split()).casefold() if text is not None else None)
+        for where, text in (("deck", deck_text), ("workbook", workbook_text))
+    }
+    absent: dict[str, list[int]] = {"deck": [], "workbook": []}
     for i, title in enumerate(typed):
         if i not in matched:
             out.append(
@@ -2675,7 +2679,7 @@ def input_role_findings(
                     "critical",
                     "input_role_missing",
                     f"Input role '{title}' was requested but is not in the "
-                    f"plan's role set ({len(plan)} of {len(typed)} roles "
+                    f"plan's role set ({len(matched)} of {len(typed)} roles "
                     "reached the plan)",
                     "plan",
                 )
@@ -2683,21 +2687,54 @@ def input_role_findings(
         names = [title.casefold()] + (
             [matched[i].casefold()] if i in matched else []
         )
-        for where, text in surfaces:
-            if text is None:
+        for where, text in folded.items():
+            if text is not None and not any(_names_role(text, n) for n in names):
+                absent[where].append(i)
+    # The deck rolls extra roles into "+N more roles" / "(and N more)": a role
+    # the deck leaves out is named there only while the plan role set and the
+    # workbook both name it, and no more roles than the rollup counts.
+    room = _deck_role_rollup(folded["deck"] or "")
+    excused = {
+        i
+        for i in absent["deck"]
+        if i in matched and i not in absent["workbook"] and folded["workbook"] is not None
+    }
+    excused = set(sorted(excused)[:room])
+    for where in ("deck", "workbook"):
+        for i in absent[where]:
+            if where == "deck" and i in excused:
                 continue
-            folded = " ".join(text.split()).casefold()
-            if not any(n in folded for n in names):
-                out.append(
-                    _finding(
-                        "critical",
-                        "input_role_missing",
-                        f"Input role '{title}' was requested but the {where} "
-                        "never names it",
-                        where,
-                    )
+            out.append(
+                _finding(
+                    "critical",
+                    "input_role_missing",
+                    f"Input role '{typed[i]}' was requested but the {where} "
+                    "never names it",
+                    where,
                 )
+            )
     return out
+
+
+def _names_role(text: str, name: str) -> bool:
+    """``name`` appears in ``text`` as whole words ("RN" is not inside
+    "return"). Both are casefolded and whitespace-collapsed."""
+    return bool(
+        re.search(r"(?<![a-z0-9])" + re.escape(name) + r"(?![a-z0-9])", text)
+    )
+
+
+_ROLE_ROLLUP_RES = (
+    re.compile(r"(\d+) more roles?\b(?! categor)"),
+    re.compile(r"\((?:\+|and )(\d+) more\)"),
+)
+
+
+def _deck_role_rollup(text: str) -> int:
+    """The largest role count a "+N more roles" / "(and N more)" rollup in
+    the deck stands for (0 without one)."""
+    counts = [int(m.group(1)) for rx in _ROLE_ROLLUP_RES for m in rx.finditer(text)]
+    return max(counts, default=0)
 
 
 def internal_draft_findings(data: dict) -> list[Finding]:
