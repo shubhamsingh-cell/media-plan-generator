@@ -138,7 +138,7 @@ def _async_worker_source() -> str:
     async worker instead of matching an unrelated part of the file."""
     src = (PROJECT_ROOT / "app.py").read_text()
     start = src.index("def _run_async_generate(jid, gen_data, rid):")
-    end = src.index("industry_profile = classify_industry(", start)
+    end = src.index("industry_profile = _classify_for_request(", start)
     assert end > start, "could not locate async worker's classify_industry call"
     return src[start:end]
 
