@@ -104,15 +104,22 @@ def _prune_old_backups(backup_path: Path) -> None:
     Args:
         backup_path: Directory containing backup ZIP files.
     """
-    backups = sorted(
-        backup_path.glob("kb_backup_*.zip"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    for old_backup in backups[_MAX_BACKUPS:]:
+    # Several workers (or a manual run) may prune the same directory, so a file
+    # can vanish between the listing, the stat and the unlink. A vanished file
+    # is already pruned: skip it quietly instead of warning.
+    dated: list[tuple[float, Path]] = []
+    for candidate in backup_path.glob("kb_backup_*.zip"):
+        try:
+            dated.append((candidate.stat().st_mtime, candidate))
+        except FileNotFoundError:
+            logger.debug("Backup %s vanished before stat; skipping", candidate.name)
+    dated.sort(key=lambda item: item[0], reverse=True)
+    for _mtime, old_backup in dated[_MAX_BACKUPS:]:
         try:
             old_backup.unlink()
             logger.info("Pruned old backup: %s", old_backup.name)
+        except FileNotFoundError:
+            logger.debug("Backup %s already removed; nothing to prune", old_backup.name)
         except OSError as e:
             logger.warning("Failed to prune backup %s: %s", old_backup.name, e)
 
