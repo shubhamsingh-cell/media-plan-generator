@@ -601,14 +601,17 @@ def _get_widgets_in_thread(timeout: float) -> tuple[bool, _FakeHandler]:
     return (not t.is_alive()), h
 
 
-def test_idle_worker_past_ten_minutes_does_not_wait_on_the_rebuild(
+def test_idle_worker_inside_the_stale_window_does_not_wait_on_the_rebuild(
     widgets_env: dict[str, Any],
 ) -> None:
-    """A worker that saw no request for >10 min (probes go to one of two workers,
-    and a worker forked later inherits an old master entry) used to rebuild
-    synchronously and log SLOW ENDPOINT; it must serve the old payload instead."""
+    """A worker that saw no request for a long while (probes go to one of two
+    workers, and a worker forked later inherits an old master entry) used to
+    rebuild synchronously and log SLOW ENDPOINT; inside the stale window it must
+    serve the old payload instead."""
     _get_widgets()  # warm
-    widgets_env["clock"].now += 700  # > the former 600 s stale window
+    # Just under the window, and well past the former 600 s window.
+    widgets_env["clock"].now += health_routes._WIDGETS_STALE_MAX_S - 5
+    assert health_routes._WIDGETS_STALE_MAX_S > 600
     widgets_env["gate"].clear()  # Supabase is slow (1-3.6 s in prod)
     widgets_env["started"].clear()
     try:
@@ -618,6 +621,50 @@ def test_idle_worker_past_ten_minutes_does_not_wait_on_the_rebuild(
         assert widgets_env["started"].wait(timeout=5), "refresh still runs in bg"
     finally:
         widgets_env["gate"].set()
+
+
+def test_idle_worker_past_the_stale_window_rebuilds_synchronously(
+    widgets_env: dict[str, Any],
+) -> None:
+    """The window is a real bound: beyond it the payload is rebuilt in-line."""
+    _get_widgets()
+    widgets_env["clock"].now += health_routes._WIDGETS_STALE_MAX_S + 5
+    widgets_env["gate"].clear()
+    widgets_env["started"].clear()
+    try:
+        returned, _h = _get_widgets_in_thread(timeout=0.5)
+        assert not returned, "beyond the window the request waits for a fresh build"
+        assert widgets_env["started"].wait(timeout=5)
+    finally:
+        widgets_env["gate"].set()
+
+
+def test_wsgi_deferred_startup_prewarms_the_widgets_cache() -> None:
+    """Source pin: ``_run_deferred_startup`` is too heavy to execute here, so
+    assert that its body (not a comment) imports and calls the pre-warm."""
+    import ast
+
+    src = (Path(__file__).resolve().parent.parent / "wsgi.py").read_text("utf-8")
+    fn = next(
+        n
+        for n in ast.parse(src).body
+        if isinstance(n, ast.FunctionDef) and n.name == "_run_deferred_startup"
+    )
+    calls = [
+        c
+        for c in ast.walk(fn)
+        if isinstance(c, ast.Call)
+        and isinstance(c.func, ast.Name)
+        and c.func.id == "prewarm_dashboard_widgets"
+    ]
+    imports = [
+        i
+        for i in ast.walk(fn)
+        if isinstance(i, ast.ImportFrom)
+        and i.module == "routes.health"
+        and any(a.name == "prewarm_dashboard_widgets" for a in i.names)
+    ]
+    assert calls and imports
 
 
 def test_prewarm_makes_the_first_request_a_cache_hit(

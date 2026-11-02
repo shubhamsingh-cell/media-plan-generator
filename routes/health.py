@@ -316,6 +316,8 @@ def _build_dashboard_widgets() -> dict:
         "market": {
             "trend": "stable",
             "label": "Labor market trends steady",
+            # cpc_change / demand_index are random placeholder values, not data;
+            # no frontend consumer displays them.
             "cpc_change": round(random.uniform(-5, 5), 1),
             "demand_index": round(random.uniform(60, 95), 0),
         },
