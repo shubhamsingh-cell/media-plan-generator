@@ -118,3 +118,19 @@ def test_the_plan_message_counts_the_roles_that_actually_reached_it():
     assert len(found) == 1
     assert "Truck Driver" in found[0]["message"]
     assert "(1 of 2 roles reached the plan)" in found[0]["message"]
+
+
+def test_a_different_trade_in_the_same_standardizer_bucket_is_not_the_role():
+    import standardizer
+
+    assert standardizer.normalize_role("Electrician") == standardizer.normalize_role("Plumber")
+    data = {"input_roles": ["Electrician"], "target_roles": ["Plumber"]}
+    found = [f for f in bundle_qa.input_role_findings(data) if f["location"] == "plan"]
+    assert found and "Electrician" in found[0]["message"]
+
+
+def test_the_standardized_title_itself_still_satisfies_an_alias():
+    for typed, plan in (("RN", "Registered Nurse"), ("rn", "registered nurse"),
+                        ("Electrician", "Construction Worker")):
+        data = {"input_roles": [typed], "target_roles": [plan]}
+        assert [f for f in bundle_qa.input_role_findings(data) if f["location"] == "plan"] == [], typed

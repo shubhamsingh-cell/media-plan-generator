@@ -2633,10 +2633,10 @@ def input_role_findings(
     surface (not generated / not parsed).
 
     The plan's role set is matched one plan role per input role: first by
-    case-insensitive title, then by the engine's standardized key
-    (``standardizer.normalize_role``), so "RN" is satisfied by "Registered
-    Nurse", but two supervisor titles that standardize to one key cannot
-    both be satisfied by a single surviving title. A surface counts as
+    case-insensitive title, then by the engine's standardized title
+    (``standardizer.normalize_role``'s key, as a title), so "RN" is satisfied
+    by "Registered Nurse" but never by another alias of its bucket (Plumber
+    is not Electrician), and two typed titles cannot share one plan role. A surface counts as
     naming the role when its text contains the typed title, or the plan
     role it was matched to (case-insensitive). Plans with no intake list
     (regeneration tools, older callers) are not checked.
@@ -2657,12 +2657,17 @@ def input_role_findings(
                 matched[i] = plan[j]
                 free.remove(j)
                 break
-    for i, title in enumerate(typed):  # pass 2: same standardized key
+    for i, title in enumerate(typed):  # pass 2: the standardized title
         if i in matched:
             continue
         key = _role_key(title)
+        # A plan role counts only when it IS the key's canonical title (what a
+        # standardizing step rewrites "RN" to: "Registered Nurse"), never
+        # another alias of the same bucket: Plumber is not Electrician though
+        # both standardize to construction_worker.
+        canonical = key.replace("_", " ").casefold() if key else ""
         for j in free:
-            if key and _role_key(plan[j]) == key:
+            if canonical and " ".join(plan[j].replace("_", " ").split()).casefold() == canonical:
                 matched[i] = plan[j]
                 free.remove(j)
                 break
