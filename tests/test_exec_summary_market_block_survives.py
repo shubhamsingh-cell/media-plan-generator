@@ -54,7 +54,7 @@ def deck_path(tmp_path_factory):
 def test_the_cited_market_block_survives_beside_the_disclosure(deck_path):
     slide = Presentation(str(deck_path)).slides[1]
     text = "\n".join(sh.text_frame.text for sh in slide.shapes if sh.has_text_frame)
-    assert "App installs are not modelled" in text
+    assert "App installs are not modeled" in text
     assert "2026 Market Data:" in text, text[-600:]
     assert "Appcast" in text, text[-600:]
 

@@ -999,7 +999,7 @@
       "competitor_channels": []
     },
     "warehouse_logistics": {
-      "label": "Warehouse & Fulfilment",
+      "label": "Warehouse & Fulfillment",
       "icon": "📦",
       "description": "Warehouse associates, pickers and packers, forklift operators, and distribution-centre roles",
       "soc_codes": ["53-7062"],

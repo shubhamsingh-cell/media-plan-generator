@@ -1,8 +1,8 @@
-"""An App Install goal says on the plan that installs are not modelled.
+"""An App Install goal says on the plan that installs are not modeled.
 
 Independent review 2026-11-03: deck slide 2 printed "Client goals: App
 Install" while the projection slides count applications and hires, and
-nothing on the deck or workbook said installs are not modelled. One line now
+nothing on the deck or workbook said installs are not modeled. One line now
 sits beside the goal on the deck and in the workbook's Executive Summary.
 """
 
@@ -25,7 +25,7 @@ import research  # noqa: E402
 import tools_regen_bundles as T  # noqa: E402
 import wizard_inputs  # noqa: E402
 
-NOTE = "App installs are not modelled; figures are applications."
+NOTE = "App installs are not modeled; figures are applications."
 
 
 def _surfaces(goals):

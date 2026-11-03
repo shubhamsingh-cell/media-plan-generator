@@ -750,7 +750,7 @@ def format_budget_amount(amount: float) -> str:
 # for the category when a typed title is too vague to place ("Rider").
 ROLE_CATEGORIES: dict[str, dict[str, Any]] = {
     "warehouse_logistics": {
-        "label": "Warehouse & Fulfilment",
+        "label": "Warehouse & Fulfillment",
         "soc": ("53-7062",),
         "role_hints": ("Warehouse Associate",),
     },
@@ -778,7 +778,7 @@ CAMPAIGN_GOALS: tuple[str, ...] = (
 # Printed beside an App Install goal on the deck and the workbook: the
 # projection has no install-to-application model, so its figures are
 # applications (the selectable goal metric is a separate backlog item).
-APP_INSTALL_NOTE = "App installs are not modelled; figures are applications."
+APP_INSTALL_NOTE = "App installs are not modeled; figures are applications."
 
 
 def goal_basis_note(goals: Any) -> str:

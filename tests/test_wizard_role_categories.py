@@ -44,7 +44,7 @@ needs_node = pytest.mark.skipif(NODE is None, reason="node not installed")
 
 def test_categories_are_defined_once_with_standardizer_soc_codes():
     cats = wizard_inputs.ROLE_CATEGORIES
-    assert cats["warehouse_logistics"]["label"] == "Warehouse & Fulfilment"
+    assert cats["warehouse_logistics"]["label"] == "Warehouse & Fulfillment"
     assert cats["gig_courier_delivery"]["label"] == "Courier / Delivery Drivers"
     assert cats["warehouse_logistics"]["soc"] == ("53-7062",)
     assert cats["gig_courier_delivery"]["soc"] == ("53-3033", "43-5021")
