@@ -171,7 +171,8 @@ python3 -m black <file.py>              # formatter (pre-commit runs it)
 - `git log` is the source of truth for what shipped. Commit messages are
   detailed on purpose.
 - `docs/` holds audits, runbooks and design notes. `SESSION_HANDOFF.md` is
-  stale (June 2026); verify anything in it against the code.
+  the current state record (rewritten 2026-11-03); it is a map, so verify
+  anything in it against `git log origin/main` and `/api/deploy/ready`.
 - Ask the owner before: deleting or migrating data, changing secrets, auth,
   billing, permissions or production config, sending anything external, or
   any irreversible architecture change.

@@ -1,272 +1,220 @@
-# Session Handoff — S89 "World-Class Upgrade" Program
+# Session Handoff
 
-> ## ⚠️ STALE — verify against the repo before acting on anything below
->
-> **This file describes state as of 2026-06-13. It has not been maintained since.**
-> Roughly seven weeks of work has landed on `main` in the meantime, and several
-> sections are now actively wrong, not merely outdated. Known contradictions as of
-> **2026-08-04**:
->
-> - **§5 `#11` Gemini embeddings is MOOT as written.** It describes a pending
->   Voyage→Gemini cutover blocked on a 403'd API key. Serving has since moved to
->   **`voyage-4-lite`** (commit `f8412b0`, 2026-08-04) with blue/green collections;
->   `/api/deploy/ready` reports the live provider/model/collection. Read that
->   endpoint, not this file, for embedding state.
-> - **§2's `HEAD ≈ cb3d3ea` / `origin/main ≈ 33661e4` are ~7 weeks behind** and the
->   "awaiting push" commits listed there are long since landed. `git log origin/main`
->   is the only trustworthy source for repo state.
-> - **§5's "remaining build work" list has partially completed** via other sessions.
->   Verify each item against the code before treating it as open.
->
-> Items in §5/§6 that genuinely remain open and need an owner decision (`#8`
-> refresh-cron scope, `plan_schema` boundary adoption, `#12` true streaming) are
-> still real — but confirm current state before starting any of them.
->
-> **Do not use this file as a source of truth for what is or isn't shipped.**
+**Last updated:** 2026-11-03 (end of the overnight run). Replaces the S89 record
+(June 2026); nothing from that file is carried over.
+**Source of truth for what shipped:** `git log origin/main`, then
+`/api/deploy/ready`. This file is a map, not a ledger. Verify before acting.
 
-**Last updated:** 2026-06-13 (banner added 2026-08-04)
-**Purpose:** Resume this multi-turn upgrade in a fresh session with zero loss.
-**Read order on resume:** this file → `docs/ARCHITECTURE_UPGRADE_2026.md` → memory
-(`mpg-nova-upgrade-backlog.md`) → the session task list (#1–#16, mirrored in §5).
+## Resume in one line
 
----
+Main is live at `fb89347` with nothing pending on a branch (all four slices of
+RUN 2026-11-03 shipped); next real work is the goal-metric model with a real
+install model and the metro/site split, and the owner-only list below gates
+the production switches.
 
-## 1. DO THIS FIRST on resume
+## Live system
 
-The build fleet (`wf_2fe3d455-f1c`) is **DONE, integrated, verified, and live** —
-all 9 units shipped (commits `98340e3`, `402aaf1`, `f3ad719`), 2,106 tests pass,
-deliverables render, an adversarial pre-deploy review ran and its one real find
-(PPTX currency global → thread-local race) was fixed + verified. **Nothing to
-reconcile.** Working tree was clean at handoff. Just pick up the remaining queue
-in §5.
+| Item | Value |
+|---|---|
+| URL | https://media-plan-generator.onrender.com |
+| Served SHA | `fb89347` (`/api/deploy/ready` returned `git_commit` fb89347033f875dc8e497f7a93130e293bfe3f77, `ready: true`, read 2026-11-03 at the time of writing) |
+| Deploy | Render auto-deploys from `main`. Ship only through `scripts/ship_from_worktree.sh` from a linked worktree on a feature branch (rebases, runs the full suite, waits a stability window, fast-forward pushes, never force). See `CLAUDE.md` section 11 and 12 |
+| CI | GitHub Actions workflow "Nova AI Suite CI" (`.github/workflows/ci.yml`); jobs include `nova-retrieval-eval` and `nova-retrieval-eval-live` |
+| Python | 3.11 in production (`render.yaml`) and CI; local interpreter is 3.9.6, so run anything version-sensitive in CI before trusting it |
+| Health | `/api/deploy/ready` reports embedding provider/model/collection, `qdrant_attach`, `keyword_indexes`, `search_mode`, `embedder_configured`, `embedding.rag_v2`. Read it for embedding and retrieval state |
 
-> Always `git checkout -- data/audit_log.jsonl data/benchmark_drift_results.json
-> data/job_posting_volumes.json` before committing — tests/renders write to them.
+## RUN 2026-11-03
 
-> ⚠️ **This working tree is shared with a concurrent session.** `main` moves and
-> files get committed *under you*. Before every `git add`: re-run `git status`,
-> stage **only your own files by explicit path** (never `git add -A`), and
-> `git fetch` first. Direct pushes to `main` may be blocked by the permission
-> classifier — see §2 for the 2026-06-13 unpushed commits awaiting authorization.
+One bullet per shipped slice. "Done means live" was checked against
+`/api/deploy/ready` for each of the first three.
 
----
+- **Hygiene and clock pin `4b9729a`.** The enrichment-log read per cycle is
+  bounded (14-day window, one retry, a WARNING on failure, 91-day boot window,
+  boot window used when any source lacks state). KB backups are serialised
+  across forked workers with a flock, and a backup removed mid-prune no longer
+  breaks the prune. Dashboard widgets are pre-warmed in the wsgi master with a
+  6 h stale window, so health probes stop waiting on a rebuild. The campaign
+  month default lives in one helper, `budget_engine.default_campaign_month()`,
+  and the test suite pins it to October for the whole run (see Decisions).
+- **International honesty `37c50ae`.** A platform a market's government blocks
+  never reaches that market's plan (`data/platform_market_blocks.json`). A US$
+  plan whose markets are all outside the US is not graded against the US cost
+  per hire. Non-US plan numbers carry their basis and agree across surfaces.
+  Country medians carry a sourced currency; 16 near-parity countries come from
+  national statistics offices (`data/country_median_earnings.json`) and
+  unsourced ones print "No local benchmark". The Talent Heatmap shows each
+  salary in its own currency, never ranks across currencies, scores only
+  on-scale terms, and shows partially scored locations as a labelled tier on
+  every surface. The heatmap analyze endpoint no longer fails on a method that
+  never existed. The no-hires ROI methodology line keeps its suppressed
+  cost-per-hire opening.
+- **Nova base `5d5668b`.** `evals/nova_retrieval_eval.py` (72 queries, baseline
+  bm25 recall@10 96.77 and tfidf 95.16) with a live Qdrant tier. Retrieval
+  health in `/api/deploy/ready` is truthful: `search_mode` is gated on the
+  embedder, `search_methods_served` shows what actually answered, and a
+  vector-dimension guard refuses a mismatched collection.
+  `vector_search.warm_retrieval()` runs in the wsgi master at boot. The
+  OpenRouter `deepseek-r1` slug (delisted) is replaced by V4 Flash and cost is
+  booked from the configured slug. A missing `TAVILY_API_KEY` is logged once at
+  boot. Eval client-name checks read only git-tracked data files.
+- **Nova batch 2 `1d8f39e`** (23 commits). A signed widget-token gate for the
+  chat endpoint (`NOVA_CHAT_GATE=signed`) ships OFF; `docs/NOVA_CHAT_GATE.md`
+  describes it as plumbing with roughly zero protection on its own until a bot
+  check sits on the mint. 13 chat-sweep defects fixed with 99 failing-first
+  tests: currency symbols on CPC answers; board listings faithful to the supply
+  repository and honouring client exclusions; markdown number-bolding splits;
+  OECD rows newest-first per series; KB context keeps the entity and drops
+  other markets' facts; years are not read as budgets; no currency on
+  ratio, count or factor keys; Tavily-unset honesty; a double Sources footer;
+  a template placeholder leak; the zero-hire note's currency; bare cities with
+  a US namesake are asked about, never guessed. Seven delisted OpenRouter free
+  routes re-pointed to listed free models, the small Liquid model moved after
+  Claude in every chat chain, Groq and Cerebras ids updated, plus
+  `scripts/check_openrouter_free_routes.py`. The template-source proof-claim
+  check stays strict. `docs/Next_Session_Chatbot_Backlog.md` rewritten from the
+  sweep; `docs/RETRIEVAL_EVAL.md` carries the chunker short-string gap
+  analysis (variant B is about 1,780 chunks, about $0 inside the Voyage grant;
+  blue/green needs a collection-suffix hook).
+- **Backlog A `fb89347`** (29 commits). Input-role integrity gate: every role
+  the user typed must reach the plan, deck and workbook or the bundle fails
+  with the role named; deck role rollups ("+N more") are honoured, matching is
+  whole-word, and substitutions inside the same standardizer bucket are
+  flagged. Wizard role categories "Warehouse & Fulfillment" and "Courier /
+  Delivery Drivers", plus an "App Install" goal that carries the disclosure
+  "App installs are not modeled; figures are applications" on deck slide 2,
+  the workbook Campaign Overview and the wizard preview. Joblift is recorded
+  as Adzuna-owned since Jul 2026 (insolvency and asset-deal dates with source
+  in the workbook supply-status column) and is never funded beside Adzuna.
+  Explicit country suffixes win over US city-name matches (Birmingham,
+  Manchester, Cambridge, Richmond, Portland, Paris, London, Berlin;
+  "Belfast, Northern Ireland" prices in pounds). OLX.pl takes the dataset's
+  "OLX Praca" signal; Yolo and Talent Portugal match by exact name, and brand
+  exclusions no longer bypass exact-name boards. The CPQA timeline bullet is
+  kept without displacing plan-specific bullets. Internal-draft plans are a
+  warn finding with an action, shown as an amber box under Quick answer, and
+  only allowlisted findings reach users (no debug text). Industrial Painter
+  and same-occupation paint titles score consistently. Slide-2 card heights
+  are measured with real Poppins glyph widths so cited market-data lines
+  survive. Talent Heatmap Location Rankings headers fixed, the UK row is
+  labelled by city with national figures, and cost-of-living is n/a outside
+  the US on every sheet.
 
-## 2. Current state
-- **HEAD ≈ `cb3d3ea`** (+ this handoff refresh). `origin/main` last confirmed at
-  `33661e4`. Live: https://media-plan-generator.onrender.com/ (`main` auto-deploys).
-  Pushes to `main` are gated by the permission classifier (each batch needs
-  explicit user OK). **Awaiting push at handoff:** `86dd040`, `cb3d3ea`
-  (frontend) + this refresh — run `git log origin/main..HEAD`.
-- Whole S89 program is shipped EXCEPT the items in §5 (mostly user-creds, the
-  deliberately-deferred true-streaming work, or #8 which is blocked on a product
-  decision per §6).
+## Decisions taken (owner may reverse)
 
-## 3. Shipped (history below; latest turn `f94c19c` → `0474f38`, 2026-06-13)
-**PROD BUGFIX `0474f38`:** every `/api/admin/*` HTTP endpoint returned 503
-"Auth module unavailable" in production (pre-existing). Root cause: `wsgi.py`'s
-deferred-startup mirror called `auth.init()` but never set
-`app._auth_module_loaded=True` (app.py's `__main__` path does), so the admin
-gate stayed fail-closed under gunicorn. Fixed to flip the flag **only when an
-admin key is configured** (`is_auth_enabled()`), else stay 503 (never expose
-admin unauthenticated). After deploy: admin endpoints are 401-without-key /
-work-with-key **iff `NOVA_ADMIN_KEY` is set in Render**; if not set they stay
-503 — set `NOVA_ADMIN_KEY` to use them (incl. the #9 parity endpoint).
+- **No local benchmark, not a guess.** A country median with no source prints
+  "No local benchmark" instead of a US$ estimate. Near-parity medians are
+  sourced from national statistics offices in
+  `data/country_median_earnings.json` (URL, quote, period, retrieval date per
+  row). Reason: a US$ relabel of GBP or CHF medians would have understated UK
+  pay by about 25%.
+- **Heatmap never ranks across currencies.** Each currency is its own group;
+  partially scored rows are a labelled tier, not silently dropped or blended.
+- **Tests pin the campaign month to October** for the whole run via
+  `MPG_DEFAULT_CAMPAIGN_MONTH` (set in `tests/conftest.py`;
+  `@pytest.mark.real_clock` opts out). Reason: month-dependent expectations
+  went red on 1 Nov in three unrelated places.
+- **`search_mode` is gated on the embedder.** It reports `hybrid_rrf` only when
+  an embedder is configured; otherwise it names the keyword mode that served.
+- **The retrieval eval CI job is a signal** until branch protection requires
+  `nova-retrieval-eval` on `main`. Do not describe it as a gate.
+- **Joblift is recorded as Adzuna-owned** and is never funded beside Adzuna in
+  the same plan.
+- **Bare city names with a US namesake are asked about, never guessed.**
+- **`NOVA_CHAT_GATE` ships OFF.** Do not flip it to `signed` until a bot check
+  sits on the token mint; `docs/NOVA_CHAT_GATE.md` describes the gate as
+  plumbing with roughly zero protection on its own.
+- **Backlog A shipped at a design-panel median of 7** with zero vetoes and only
+  polish left, under the same precedent as 2026-10-23 (production was worse on
+  trust). The bar is 8; revisit the polish items if a reviewer raises them.
 
-**This turn (CI hardening + primitive adoption + #8 investigation):**
-- `f94c19c` fix(enrichment): stop scheduling 7 dead Firecrawl sources that fired
-  false CRITICAL "multiple sources failed" alerts (firecrawl module deleted S72).
-- `a58e857` refactor(enrichment): delete the 7 now-unreachable `_enrich_*` methods
-  *(by the concurrent session)*.
-- `4559149` **eval-gate in CI** + `evals/baseline_scores.json` (overall 93.75%,
-  128 cases) — offline/deterministic `EvalSuite` gate; build reds on floor/3pp
-  regression. **LIVE on origin.**
-- `a2b6ad0` **pytest job in CI** — runs all 2,106 tests (offline, ~11s) on every
-  push; CI previously ran zero tests. *(unpushed — see §2)*
-- `ffe94cd` **call_llm_json adoption #1**: `data_synthesizer.generate_ai_narratives`
-  now uses the structured-JSON primitive (schema + 1 retry) instead of one-shot
-  `json.loads`; all fallbacks verified.
-- `8443ee1` **#8 investigation + re-scope**: live schema inspection proved a
-  `cg_daily_raw`→`cg_benchmarks` re-aggregation would corrupt the keystone; see
-  `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. #8 now blocked on a product
-  decision (§6).
-- `a6c0fe3` / `185923d` / `553af96` **call_llm_json adoption — all 8 app.py
-  sites** (`_verify_plan_data`, `_copilot_suggest_brief`, `_analyze_compliance`,
-  `_generate_post_campaign_summary`, `_audit_complianceguard`,
-  `_generate_creative_ads`, `_generate_ab_test_with_claude`) + 16 mocked tests.
-  Full suite 2,127 passed; eval gate green. **Adoption complete.**
-- **frontend brand pass — all surfaces, LIVE** (after user feedback that design
-  hadn't improved; user then asked to take it across "all surfaces"):
-  - `86dd040` hero: washed-gray white→50% headline (Space Grotesk; Poppins
-    wasn't loaded) → bright #f6f5ff Poppins + purple→teal→magenta gradient accent
-    + brand-color glows.
-  - `cb3d3ea` + `21adaae` form: card lift (indigo→purple→teal top-accent stripe,
-    indigo tint, brand mesh), Poppins headings, brand-tinted inputs + preset chips.
-  - `420815c` landing: ALL headings (h1-h4/.section-title/.card-title/product
-    titles) → Poppins via --font-heading (hub.css is landing-only; dark
-    dashboards keep Space Grotesk by design); brighter .section-label eyebrows.
-  - Nova chat widget: **already on-brand** (Poppins + full brand palette) — left
-    as-is by design. Verified by rendering each page in the live preview.
-  - `1e836ce` **generative hero demo**: replaced the orbit-ring hero artifact
-    with a Linear-inspired product panel that animates Nova *building* a plan —
-    counts the $50,000 budget up, fills 5 brand-gradient channel bars
-    ($18,500→$4,000), counts outcome metrics (2,247 apps · 38 hires · $1,316/hire),
-    flips "Analyzing 10,341 partners…" → "Plan ready". JS in `hub.js`
-    (IntersectionObserver + load fallback, run-once guard, snaps to final on
-    ready, full reduced-motion path); CSS `.genplan*` in `hub.css`. (Mobbin was
-    login-gated, so I studied Linear's hero live in the user's Chrome instead.)
-  See memory `frontend-design-bar.md`. Local dev preview: `.claude/launch.json`
-  (gitignored) runs `python3 app.py 5099`; **RESTART the server after editing
-  templates/inline CSS** (app caches templates at startup) + bump the `?v=` on
-  linked CSS.
-- **#9 map done** (workflow `wf_f9192b9b-43d`): per-accessor specs + parity
-  design saved raw at `docs/_s89_9_parity_map_raw.json` — see §5 #9.
+## Known gaps / follow-ups
 
-**Earlier session (commits `f216464` → `7bb9a80`):** Excel numeric/totals/freeze ·
-scorecard/PDF P0 image-404 fixes (OG card + logo) · PPTX brand chart palette · KB
-enrichment + gap-fill · Nova chat-UI fixes · MPG frontend brand/a11y · Opus 4.8
-bump · architecture design doc · **keystone accessor** `get_real_outcomes()` ·
-**L3.1** `llm_router.call_llm_json()`. All verified + live.
+Not done tonight, roughly in priority order.
 
-## 4. Decisions locked (user-delegated)
-- **#11 embeddings:** GEMINI (free, key in stack) — not paid Voyage. Needs reindex.
-- **#8 live refresh:** ⚠️ RE-SCOPED 2026-06-13 — a `cg_daily_raw`→`cg_benchmarks`
-  re-aggregation **cannot be built in MPG** (it would corrupt the keystone:
-  `cg_benchmarks` has client_name + revenue cols `avg_nr/avg_gr/avg_profit_pct`
-  + `avg_multiplier` that don't exist in `cg_daily_raw` and aren't a clean
-  formula; the transform is owned by the external `cg_*` uploader). See
-  `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. Path A (preferred): MPG cron
-  *triggers* the owning system's refresh; needs that entrypoint from the user.
-- **#9 source of truth:** Supabase canonical (benchmarks/supply/salary/compliance);
-  JSON KB = curated/editorial + offline fallback. Migrate via dual-read parity.
-- **#10 MCP server:** internal-only, API-key gated (`NOVA_MCP_API_KEY`).
-- **#14 agentic generation:** design doc + feature-flag rollout after eval gate.
-- **#15 external MCPs:** deferred until our own MCP ships.
+1. **Selectable goal metric with a real install model** (applies, qualified
+   applies, hires, app installs, leads). The goal must be mandatory so
+   "applies unset" is impossible. The allocator in `budget_engine.py` still
+   takes hires, applications and clicks only.
+2. **Metro / site split** outside the enterprise pack: country, then metro or
+   DMA, then site or commute radius, with weights from a named driver.
+3. **Zero-hire defunding.** Needs an owner decision first (channels are
+   labelled today, not defunded) and a rewrite of about 13 fixture tests.
+4. **Performance notes at scale** (supply team): a per-country list of boards
+   that perform well, in the shape of `data/supply_performance_notes.json`, and
+   vendor lists for the non-job-board channels (DSP, audio, social, staffing,
+   influencer).
+5. **Google Slides tier check.** `deck_generator.py` tries Google Slides before
+   python-pptx. If the production Render env sets the Slides credentials, none
+   of the `ppt_generator.py` changes reach the client deck. Check which tier
+   production uses (never print the value).
+6. **Chunker short-string gap and reindex.** Analysis is in
+   `docs/RETRIEVAL_EVAL.md` (variant B is about 1,780 chunks, about $0 inside
+   the Voyage grant; blue/green needs a collection-suffix hook). Build the
+   hook, then reindex Qdrant (needs the owner-only secrets below).
+7. **Backlog A leftovers.** The critical-findings dialog still shows raw
+   finding text (prefer `user_message`). One test should force the Poppins
+   fallback for the slide-2 card heights. `CANONICAL_ROLES` has no
+   display-title field, so abbreviation expansion could create false
+   positives later. Remaining matcher-key collisions: Remote.co/Remote,
+   Engineering.com/Engineering.jobs, Alpha/alpha.ch.
+8. **Remaining wall-clock month reads.** These bypass the pin and will go
+   stale the same way: `excel_v2.py` (near 8012 and 14108), `ppt_generator.py`
+   near 2890, `gold_standard.py` near 6006 and 6112, `nova.py` near 5614,
+   11520 and 13463. Route them through `default_campaign_month()` or pass
+   `campaign_start_month` explicitly. Line numbers drift; grep for
+   `datetime.now().month` and `date.today().month`.
+9. **Narrow except-tuples in `app.py`**: the Supabase and JobSpy calls in the
+   heatmap analyze endpoint catch a short exception tuple and can leak other
+   failures as a 500.
+10. Older backlog still open: Poland/UAE/India board scoring evidence,
+    audience segments with their own KPI, reserve and kill rules, pacing curve
+    with a stated reason, measurement prerequisites as a deliverable.
+    Chat-side items live in `docs/Next_Session_Chatbot_Backlog.md`.
 
-## 5. Task board (session tasks #1–#16)
-- ✅ DONE + LIVE: #1 MPG frontend · #2 PPTX currency+fonts · #3 PDF/scorecard P1 ·
-  #4 KB gap-fill · #5 structured-output primitive · #6 typed schema · #7 excel
-  provenance · #10 MCP server · #13 eval gate (**now also runs in CI** + pytest
-  suite in CI) · #14 agentic DESIGN · #16 keystone
-- 🟢 Voyage model succession (2026-08-04): `voyage-4-lite` (1024-dim) is now
-  the LIVE default, in its own blue/green collection
-  (`nova_knowledge__voyage-4-lite_1024`); `voyage-3-lite` (512-dim, the old
-  `nova_knowledge` collection) is the instant-rollback target via
-  `VOYAGE_MODEL=voyage-3-lite`. `input_type` ("query"/"document") is now
-  threaded through the whole path, batch sizes raised 32/16 → 128/128, and
-  the Gemini-path dim-validation + `last_embed_error` observability now has a
-  Voyage-side parity implementation. See docs/EMBEDDING_CUTOVER_RUNBOOK.md §(g).
-- 🟡 #11 Gemini embeddings — STILL awaiting the Google-console key unblock;
-  unaffected by the Voyage succession above (Voyage stayed the serving
-  default throughout). cutover EXECUTED then ROLLED BACK 2026-07-21/22: prod GEMINI_API_KEY 403-blocks BatchEmbedContents (Google-console API restriction). **Needs you:** unblock embed methods on the key, then say the word — re-flip is a one-line code-default change (see docs/EMBEDDING_CUTOVER_RUNBOOK.md). All machinery live: gemini-embedding-2 target, blue/green collections, self-migrating deploys, public verify via /api/deploy/ready embedding block. The prior instruction
-  here (reindex script + set env in Render dashboard) is **superseded and was
-  DANGEROUS as written**: it targeted `text-embedding-004`, which Google shut
-  down 2026-01-14, and — before the collection-scoping fix below — a
-  `EMBEDDING_PROVIDER=gemini` reindex run would have dropped the live Voyage
-  serving collection. New state: `vector_search.py` now targets
-  `gemini-embedding-2` (current GA model) with **model-scoped Qdrant
-  collections** (`_active_collection()` — Voyage keeps `nova_knowledge`,
-  Gemini gets its own `nova_knowledge__gemini-embedding-2_768`), and startup
-  indexing self-migrates the new space on deploy. The flip is now a
-  **one-word `render.yaml` change** (`EMBEDDING_PROVIDER: voyage` → `gemini`)
-  — no Qdrant shell/dashboard work needed. See
-  `docs/EMBEDDING_CUTOVER_RUNBOOK.md` for the full how/verify/rollback.
-- ⏳ REMAINING build work (no user needed; do next session):
-  - **#12 true Nova streaming** — deferred (riskiest); do solo behind a flag with
-    fallback to the current simulated path.
-  - **#8 live-refresh cron** —🛑 BLOCKED/re-scoped after live schema inspection;
-    NOT a blind re-aggregation (corrupts keystone). See
-    `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. QStash infra
-    (`/api/cron/run` + `CRON_SECRET`, S88) already exists; the missing piece is
-    the *owned, correct* refresh action — needs a product decision from the user.
-  - **#9 source-of-truth migration** — ✅ **parity-audit BUILT** (`ffdc024`):
-    `supabase_parity.py` (`run_parity_audit()`, pure `diff_rows()`) +
-    `scripts/parity_audit.py` (CLI) + ADMIN-gated `GET /api/admin/parity`
-    + `tests/test_supabase_parity.py` (11 cases). **Prod-usage:** the HTTP
-    endpoint needs `NOVA_ADMIN_KEY` set (see the wsgi auth fix below); the CLI
-    `python3 scripts/parity_audit.py` works without it. READ-ONLY, additive —
-    does NOT change serving (which is already Supabase-first). Flags `salary_data`/
-    `compliance_rules`/`vendor_profiles` as `supabase_only` (empty JSON fallback
-    = single point of failure); coverage-only for `knowledge_base`/
-    `supply_repository`; excludes `cg_benchmarks`. **Remaining #9 = OPERATIONAL
-    (needs prod):** hit `/api/admin/parity` with `ADMIN_API_KEY` against the live
-    Supabase, then seed curated JSON fallbacks for the supabase_only domains.
-  - **#15 external data MCPs** — deferred (opportunistic).
-- **Residual follow-ups:**
-  - ✅ eval-gate + pytest now run in CI (`4559149`, `a2b6ad0`); baseline committed.
-  - ✅ **`call_llm_json` adoption COMPLETE** — `data_synthesizer.generate_ai_narratives`
-    (`ffe94cd`) + **all 8 app.py LLM sites** (`a6c0fe3`, `185923d`, `553af96`):
-    `_verify_plan_data`, `_copilot_suggest_brief`, `_analyze_compliance`,
-    `_generate_post_campaign_summary`, `_audit_complianceguard`,
-    `_generate_creative_ads`, `_generate_ab_test_with_claude` (router path).
-    Each has tests (`tests/test_verify_plan_data.py`,
-    `tests/test_app_llm_json_sites.py`, 16 cases) mocking `call_llm_json`;
-    fallbacks (narrative-via-`raw`, template, `[]`/`skipped`) preserved. No
-    hand-rolled `call_llm`+`json.loads` structured sites remain.
-  - ⏳ adopt `plan_schema` at pipeline boundaries; MPG async-null-data dashboard
-    bug + generation-progress UX; h1b KB refresh; (later) agentic pipeline behind
-    the flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
-    **2026-07-25 re-check against origin/main (~6 weeks of shipped work since
-    this list was written) -- re-verified against the code, not re-derived
-    from memory:**
-    - ⏳ **`plan_schema` adoption — still OPEN.** `plan_schema.py` (the typed
-      Layer-1 pipeline contract) exists and is exercised by
-      `tests/test_plan_schema.py`, but `grep -rln "import plan_schema\|from
-      plan_schema"` across the repo returns only that one test file --
-      `app.py`, `excel_v2.py`, `budget_engine.py`, and the rest of the
-      `enrich -> synthesize -> budget -> generators` pipeline still pass
-      plain dicts with no `plan_schema` boundary adoption. No status change.
-    - ✅ **MPG async-null-data dashboard bug + generation-progress UX —
-      CLOSED**, in `5ba77bf` (2026-07-15, *after* this doc's 2026-06-13
-      timestamp): `_generation_jobs` was a per-process dict, so a
-      `GET /api/jobs/<id>` poll landing on a gunicorn worker that didn't run
-      the job returned a false "not found"/null-ish result mid-generation
-      (exactly this bug) until the job fully completed and the Supabase
-      fallback had bytes. Fixed with `_mirror_job()`, which snapshots
-      whitelisted job fields (incl. `progress_pct`/`status_message`) to a
-      shared slot-dir file on every progress transition, checked by
-      `GET /api/jobs/<id>` before the Supabase fallback. Regression-tested
-      in `tests/test_multiprocess_serving.py` (the commit message records
-      it 404s on pre-fix base `259fa64f` even with the mirror file present
-      on disk). The generation-progress UX itself was already live and
-      wired end-to-end (`templates/partials/index/body_app_js.html`: a
-      `setInterval` poll loop reads `pd.progress_pct` /
-      `pd.status_message` from the job-status response and drives a real
-      `#pageProgress` progress bar) -- the cross-worker fix is what makes
-      that UX report real state instead of intermittently stalling/erroring
-      depending on which worker served the poll.
-    - ⏳ **h1b KB refresh — still OPEN, and more overdue than in June.**
-      `data/h1b_salary_intelligence.json`'s own `_meta.last_updated` reads
-      `"2025-Q1"`. `git log --follow -- data/h1b_salary_intelligence.json`
-      shows exactly one commit, `8d006bf` (2026-03-26, file creation) --
-      no refresh has ever landed, and no refresh script/mechanism exists
-      anywhere in the repo (`find . -iname "*h1b*refresh*"` empty). The
-      data is live in production: `h1b_data.py` is imported by
-      `api_enrichment.py`, `data_synthesizer.py`, and `nova.py`. No status
-      change; flagging as higher priority since the vintage gap has grown.
+## Owner-only
 
-## 6. What's needed from the user
-1. ~~Qdrant write credentials → run the Gemini-embeddings reindex~~ —
-   **superseded**: #11 now self-migrates via startup indexing on deploy, no
-   manual reindex or Qdrant creds needed. See `docs/EMBEDDING_CUTOVER_RUNBOOK.md`.
-2. **#8 ownership decision** (NEW 2026-06-13) → which system owns the
-   `cg_*` upload→`cg_benchmarks` transform (incl. its revenue/multiplier model +
-   client mapping) and its refresh entrypoint. MPG can only *trigger* it, not
-   recompute it. See `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`.
+Nothing here is for an agent to do.
 
-Everything else proceeds without the user.
+- **Prod Supabase index** (run by the owner, outside a transaction):
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_enrichment_log_table_created ON enrichment_log (table_name, created_at DESC)`
+- **Branch protection** on `main` requiring the `nova-retrieval-eval` check.
+- **Qdrant and Voyage secrets** in CI for the live eval tier, then run the
+  eval with `--update-baseline`.
+- **`TAVILY_API_KEY`** in the Render env (boot currently logs that it is unset).
+- **`NOVA_CHAT_GATE=signed`** only after a bot check sits on the mint. Ships OFF.
+- **GEMINI embed-method unblock.** The Gemini embedding path was last blocked
+  on the provider key (403 in June); serving stays on Voyage `voyage-4-lite`
+  until the owner clears it.
 
-## 7. Architecture keystone (the big finding — see design doc)
-Products use **none** of the `cg_*` Supabase warehouse: `cg_daily_raw` (520,771
-rows daily perf) + `cg_benchmarks` (6,175 rows real Joveo cost/applies by
-title/location/day; 2 clients, 72 titles, 412 locations, updated 2026-05-12).
-Accessor `supabase_data.get_real_outcomes(title, location)` is built+tested; the
-fleet wires it into the budget engine (additive) + a Nova tool. Active Supabase
-project: `trpynqjatlhatxpzrvgt`. Inspect via the Supabase MCP.
+## Hazards for the next session
 
-## 8. Conventions / verification
-- Brand: import hexes from `joveo_brand_2026.py`; placeholders `—`; light deck
-  theme for deliverables+Nova, dark BY DESIGN for dashboards.
-- Render harness: `python3 scripts/render_sample_outputs.py` (real budget engine →
-  PPTX/Excel/scorecard); OG card: `python3 scripts/generate_og_card.py`.
-- Local deps installed this session: pytest, python-pptx, openpyxl, matplotlib.
-- Commit only when work is verified; branch is `main` (auto-deploys).
+- **The ship script rebases.** A branch holding merge commits with conflict
+  resolutions must be squashed first. Exit 2 means a rebase conflict and the
+  tree is already clean.
+- **Month time-bomb class.** Any test or code path that reads the wall-clock
+  month goes stale when the month turns. The pin is an env var read at call
+  time (`MPG_DEFAULT_CAMPAIGN_MONTH=10` from conftest), which covers
+  module-scoped fixtures, import-time caches, threads and subprocesses; a
+  per-test monkeypatch does not, because module fixtures are built before
+  autouse fixtures run. Before adding a month-sensitive expectation, pass
+  `campaign_start_month` explicitly.
+- **Test state leak.** `build_index()` in three test modules leaves
+  `vector_search._index_built` True. Fix at the test-file level with an autouse
+  reset of every module global the code reads. Suite flakes here are state
+  leaks, not timing.
+- **`wsgi.py::_run_deferred_startup` conflicts.** Two branches that each add a
+  warm-up call there will conflict. Keep every call, with the retrieval
+  warm-up before `gc.freeze`. Keyword indexes cost about 30 MB per process;
+  refcount writes defeat copy-on-write.
+- **Renders need Poppins** in a private LibreOffice profile, or glyphs and
+  widths drift. See `scripts/deck_qa/README.md`. Deck and UI changes are
+  rendered and pixel-checked before shipping.
+- **Auto-mode classifier refusals.** It refuses production reads, PR merges
+  and local destruction (branch or worktree cleanup). Plan for the owner to do
+  those, or to run them from a session that is allowed.
+- **Runtime churn files** (`data/.embedding_cache.json`,
+  `data/nova_memory_default.json`, `data/nova_response_cache.json`) are
+  rewritten by tests and servers. Restore them, never commit them.
+- The repo is public. No client names, contact details, private paths or
+  ledger content in tracked files; private notes live under the gitignored
+  `.claude/`.
