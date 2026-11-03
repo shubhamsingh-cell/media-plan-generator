@@ -2921,6 +2921,35 @@ def run_bundle_qa(
     return findings
 
 
+# Findings a person downloading the plan may read (the wizard's results
+# screen lists the warn ones). Every other finding is engineering detail
+# (codes, legacy keys, crash reprs) and is shown nowhere outside the logs.
+_INDUSTRY_CONFLICT_COPY = (
+    "The industry you picked differs from what the roles suggest; "
+    "check the industry before sharing."
+)
+USER_FACING_COPY: dict[str, Any] = {
+    "internal_draft_plan": lambda f: str(f.get("message") or ""),
+    "input_role_missing": lambda f: str(f.get("message") or ""),
+    "industry_client_conflict": lambda f: _INDUSTRY_CONFLICT_COPY,
+}
+
+
+def user_message(finding: Finding) -> str:
+    """The user-facing copy for ``finding``, or "" when it has none."""
+    if not isinstance(finding, dict):
+        return ""
+    copy = USER_FACING_COPY.get(str(finding.get("code") or ""))
+    return copy(finding) if copy else ""
+
+
+def _with_user_copy(finding: Any) -> Any:
+    if not isinstance(finding, dict):
+        return finding
+    text = user_message(finding)
+    return {**finding, "user_message": text} if text else finding
+
+
 def summarize_findings(findings: list[Finding] | None) -> dict:
     """Reduce a ``run_bundle_qa`` findings list to the compact, gate-ready
     summary every caller (the async job record, the sync /api/generate
@@ -2958,7 +2987,8 @@ def summarize_findings(findings: list[Finding] | None) -> dict:
         # "<code>@<location>" per critical -- what the ERROR log line, the
         # Slack "QA: N critical" line and the job record cite.
         "critical_ids": [finding_id(f) for f in critical][:25],
-        "findings": findings[:25],  # cap job-record/response size
+        # cap job-record/response size; user_message only where copy exists
+        "findings": [_with_user_copy(f) for f in findings[:25]],
     }
 
 

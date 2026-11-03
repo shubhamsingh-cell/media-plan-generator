@@ -38,3 +38,61 @@ def test_warnings_are_listed_on_the_results_screen():
     assert "payload._qa_warnings" in dash
     assert "Before you share" in dash
     assert "escapeHtml" in dash.split("_qa_warnings", 1)[1][:600]
+
+
+# ---------------------------------------------------------------------------
+# Re-check 2026-11-03 (blocker): only findings with user-facing copy reach the
+# results screen; internal debug text (legacy_key=..., signal=...) never does.
+# ---------------------------------------------------------------------------
+import json  # noqa: E402
+
+import pytest  # noqa: E402
+
+from tests.wizard_js_harness import NODE, run_node  # noqa: E402
+
+_CONFLICT = {
+    "severity": "warn",
+    "code": "industry_client_conflict",
+    "message": (
+        "Plan industry 'Blue Collar / Skilled Trades' (legacy_key=blue_collar_trades) "
+        "conflicts with the industry implied by the client name/roles alone: "
+        "'Transportation & Logistics' (legacy_key=logistics_supply_chain, "
+        "signal='role_title')"
+    ),
+    "location": "",
+}
+_NO_COPY = {"severity": "warn", "code": "text_pattern_check_crashed",
+            "message": "ValueError('x')", "location": ""}
+
+
+def test_only_findings_with_user_copy_carry_a_user_message():
+    draft = bundle_qa.internal_draft_findings(
+        {"_synthesized": {"confidence_scores": {"overall": 0.31}}}
+    )[0]
+    summary = bundle_qa.summarize_findings([draft, _CONFLICT, _NO_COPY])
+    by_code = {f["code"]: f for f in summary["findings"]}
+    assert by_code["internal_draft_plan"]["user_message"] == draft["message"]
+    assert by_code["industry_client_conflict"]["user_message"] == (
+        "The industry you picked differs from what the roles suggest; "
+        "check the industry before sharing."
+    )
+    assert not by_code["text_pattern_check_crashed"].get("user_message")
+    for f in summary["findings"]:
+        text = f.get("user_message") or ""
+        assert "legacy_key" not in text and "signal=" not in text
+
+
+@pytest.mark.skipif(NODE is None, reason="node not installed")
+def test_the_results_screen_renders_only_user_copy():
+    src = APP_JS.read_text(encoding="utf-8")
+    fn = js_block(src, "function novaQaWarnings(pollData)")
+    summary = bundle_qa.summarize_findings([_CONFLICT, _NO_COPY])
+    shown = run_node(
+        fn + "\nprocess.stdout.write(JSON.stringify(novaQaWarnings("
+        + json.dumps({"qa_findings": summary["findings"]}) + ")));"
+    )
+    assert shown == [
+        "The industry you picked differs from what the roles suggest; "
+        "check the industry before sharing."
+    ]
+    assert not any("legacy_key" in s or "signal=" in s for s in shown)

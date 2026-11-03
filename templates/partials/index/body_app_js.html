@@ -1044,6 +1044,20 @@
     return h + "</details>";
   }
 
+  // The warn findings the results screen may show: only those bundle_qa gave
+  // user-facing copy (user_message, bundle_qa.USER_FACING_COPY) -- never the
+  // engineering message, which can carry legacy keys and signal names.
+  function novaQaWarnings(pollData) {
+    const findings = (pollData && pollData.qa_findings) || [];
+    return findings
+      .filter(function (f) {
+        return f && f.severity === "warn" && f.user_message;
+      })
+      .map(function (f) {
+        return String(f.user_message);
+      });
+  }
+
   function buildPlanDashboard(payload, serverData) {
     const container = document.getElementById("planDashboardContent");
     if (!container) return;
@@ -6820,16 +6834,8 @@
       // for the results screen -- absent figures hide their tile.
       payload._plan_results =
         (_completedPollData && _completedPollData.results_summary) || null;
-      // the non-blocking QA findings, for the results screen
-      payload._qa_warnings = (
-        (_completedPollData && _completedPollData.qa_findings) || []
-      )
-        .filter(function (f) {
-          return f && f.severity === "warn" && f.message;
-        })
-        .map(function (f) {
-          return f.message;
-        });
+      // the non-blocking QA findings that have user copy, for the results screen
+      payload._qa_warnings = novaQaWarnings(_completedPollData);
 
       // ── Generation-time QA gate ──
       // The bundle already exists server-side either way -- this only
