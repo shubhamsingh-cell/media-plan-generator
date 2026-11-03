@@ -6894,6 +6894,24 @@ def _build_sheet_executive_summary(
     row = card_row + 6  # 2 rows of cards * 3 height each
     row += 1  # gap
 
+    # The client's goals, as the deck's goal line names them, and for an App
+    # Install goal that the projection counts applications (body type, in
+    # the overview -- design re-judge 2026-11-03).
+    import wizard_inputs as _wi
+
+    _goals = _wi.normalize_campaign_goals(data.get("campaign_goals"))
+    if _goals:
+        _goal_sep = " \u00b7 "
+        _goal_line = (
+            f"Client goals: {_goal_sep.join(_goals)}. {_wi.goal_basis_note(_goals)}"
+        ).strip()
+        ws.merge_cells(start_row=row, start_column=COL_START, end_row=row, end_column=COL_END)
+        _gc = ws.cell(row=row, column=COL_START, value=_goal_line)
+        _gc.font = _FONT_BODY
+        _gc.alignment = _ALIGN_WRAP
+        ws.row_dimensions[row].height = max(20, _footnote_row_height(ws, _goal_line) or 20)
+        row += 2
+
     # Client board exclusions are disclosed once, here and on deck slide 2
     # (permanent availability exclusions are never disclosed).
     _excl_line = publisher_filter.disclosure_line(data)
@@ -16532,16 +16550,6 @@ def _apply_integrity_notes(wb, data: dict) -> None:
     Never blocks the save."""
     stamp, gap_note = _plan_integrity_notes(data)
     try:
-        # an App Install goal: the projection counts applications, say so
-        import wizard_inputs as _wi
-
-        goals = _wi.normalize_campaign_goals(data.get("campaign_goals"))
-        goal_note = _wi.goal_basis_note(goals)
-        if goals and "Executive Summary" in wb.sheetnames:
-            # the client's goals, as the deck's goal line names them
-            ws = wb["Executive Summary"]
-            line = "Client goals: " + " \u00b7 ".join(goals) + "."
-            _write_footnote(ws, ws.max_row + 1, f"{line} {goal_note}".strip())
         if stamp:
             for title in ("Executive Summary", "Sources & Confidence"):
                 if title in wb.sheetnames and wb[title].cell(row=1, column=COL_START).value is None:

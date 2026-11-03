@@ -90,3 +90,34 @@ def test_the_wizard_preview_shows_the_note_from_the_one_definition():
 def test_the_workbook_names_the_goals_with_the_note():
     _deck, summary = _surfaces(["App Install", "Direct Hiring"])
     assert any("Client goals: App Install" in v and NOTE in v for v in summary), summary[-5:]
+
+
+def test_the_workbook_goal_line_sits_in_campaign_overview_in_body_type():
+    data = T.build_plan_data(
+        {
+            "client_name": "Install Test Co",
+            "budget": "$60,000",
+            "campaign_duration": "3 months",
+            "campaign_start_month": 10,
+            "industry": "logistics_supply_chain",
+            "locations": ["Columbus, OH"],
+            "roles": ["Delivery Driver"],
+            "target_roles": [{"title": "Delivery Driver", "count": 5}],
+        }
+    )
+    data["campaign_goals"] = ["App Install"]
+    xlsx = excel_v2.generate_excel_v2(dict(data), research_mod=research)
+    xlsx = xlsx.getvalue() if hasattr(xlsx, "getvalue") else xlsx
+    ws = openpyxl.load_workbook(io.BytesIO(xlsx))["Executive Summary"]
+    cells = [(c.row, c) for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
+    overview = min(r for r, c in cells if c.value.upper() == "CAMPAIGN OVERVIEW")
+    # the next section header (uppercase, 14pt bold), e.g. BUDGET ALLOCATION
+    nxt = min(r for r, c in cells if r > overview and c.value.isupper()
+              and (c.font.sz or 0) >= 14 and c.font.b and not c.value[0].isdigit()
+              and not c.value.startswith("$"))
+    goal = [(r, c) for r, c in cells if c.value.startswith("Client goals: App Install")]
+    assert len(goal) == 1, [c.value for _, c in goal]
+    r, c = goal[0]
+    assert overview < r < nxt, (overview, r, nxt)
+    assert NOTE in c.value
+    assert (c.font.sz or 0) >= 10  # body type, not the 9pt footnote
