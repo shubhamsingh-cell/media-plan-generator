@@ -1108,6 +1108,20 @@
     // (guarded: the results-screen tests lift this function without it)
     if (typeof novaQuickAnswerHtml === "function")
       html += novaQuickAnswerHtml(fundedNames, budgetDisplay);
+    // Non-blocking QA warnings with user copy (an internal draft, ...): a
+    // warning box right under the quick answer, above the fold; only
+    // critical findings open the gate dialog.
+    const qaWarnings = Array.isArray(payload._qa_warnings) ? payload._qa_warnings : [];
+    if (qaWarnings.length > 0) {
+      html +=
+        '<div class="plan-qa-warning" role="status">' +
+        '<span class="plan-qa-warning-icon" aria-hidden="true">&#9888;</span>' +
+        '<div><div class="plan-qa-warning-title">Before you share</div>' +
+        qaWarnings
+          .map((m) => '<div class="plan-qa-warning-item">' + escapeHtml(String(m)) + "</div>")
+          .join("") +
+        "</div></div>";
+    }
     html += '<div class="plan-metrics-row">';
     html += tile("Total Budget", budgetDisplay, "accent");
     if (channelCount > 0) html += tile("Channels Funded", String(channelCount));
@@ -1131,17 +1145,6 @@
       html +=
         '<div class="plan-funded-channels">' +
         escapeHtml(String(res.enterprise_note)) +
-        "</div>";
-    }
-
-    // Non-blocking QA warnings (an internal draft, ...): said here on the
-    // results screen; only critical findings open the gate dialog.
-    const qaWarnings = Array.isArray(payload._qa_warnings) ? payload._qa_warnings : [];
-    if (qaWarnings.length > 0) {
-      html +=
-        '<div class="plan-funded-channels plan-qa-warnings" role="status">' +
-        '<span class="plan-funded-label">Before you share:</span> ' +
-        qaWarnings.map((m) => escapeHtml(String(m))).join(" &middot; ") +
         "</div>";
     }
 

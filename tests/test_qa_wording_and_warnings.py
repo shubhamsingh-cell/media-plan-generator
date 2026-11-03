@@ -24,10 +24,18 @@ def test_an_internal_draft_says_what_to_complete_or_how_to_share():
     data = {"_synthesized": {"confidence_scores": {"overall": 0.31}}}
     (f,) = bundle_qa.internal_draft_findings(data)
     assert f["message"].startswith(plan_validator.internal_draft_stamp(data))
-    assert (
-        "Complete the salary, demand and location data, or share it as internal only."
-        in f["message"]
-    )
+    # the wizard has no field that supplies market data: the action is to share
+    # internally (re-judge 2026-11-03), and the stamp already names the reason
+    assert f["message"].endswith("Share it as internal only.")
+    assert "Complete the" not in f["message"]
+
+
+def test_an_internal_draft_names_only_the_sections_at_zero():
+    data = {"_synthesized": {"confidence_scores": {"overall": 0.8, "sections": {
+        "salary_intelligence": 0.7, "job_market_demand": 0.0, "location_profiles": 0.9}}}}
+    (f,) = bundle_qa.internal_draft_findings(data)
+    assert "job market demand data missing (0%)" in f["message"]
+    assert "salary" not in f["message"] and "location" not in f["message"]
 
 
 def test_warnings_are_listed_on_the_results_screen():
@@ -37,7 +45,15 @@ def test_warnings_are_listed_on_the_results_screen():
     dash = js_block(src, "function buildPlanDashboard(payload, serverData)")
     assert "payload._qa_warnings" in dash
     assert "Before you share" in dash
-    assert "escapeHtml" in dash.split("_qa_warnings", 1)[1][:600]
+    assert "escapeHtml" in dash.split("_qa_warnings", 1)[1][:900]
+    # warning styling, right under the quick answer (above the fold), not the
+    # "Funded:" metadata line's style
+    block = dash.split("payload._qa_warnings", 1)[1][:900]
+    assert "plan-qa-warning" in block and "plan-funded-channels" not in block
+    assert dash.index("payload._qa_warnings") < dash.index("plan-metrics-row")
+    assert dash.index("novaQuickAnswerHtml") < dash.index("payload._qa_warnings")
+    css = (APP_JS.parent / "head_styles.html").read_text(encoding="utf-8")
+    assert ".studio .plan-qa-warning {" in css
 
 
 # ---------------------------------------------------------------------------

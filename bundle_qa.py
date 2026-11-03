@@ -2724,9 +2724,9 @@ def input_role_findings(
 
 
 _ROLE_ACTION = "Add the missing role or regenerate the plan."
-_DRAFT_ACTION = (
-    "Complete the salary, demand and location data, or share it as internal only."
-)
+# The stamp names what is missing; the wizard has no field that supplies
+# market data, so the action is how to share it.
+_DRAFT_ACTION = "Share it as internal only."
 
 
 def _norm_surface(text: str) -> str:
