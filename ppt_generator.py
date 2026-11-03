@@ -2527,6 +2527,22 @@ def _fit_font_single_line(
 _AUTOFIT_PROTECTED_PREFIXES = ("Client goal:", "Client goals:")
 
 
+# Width share the real-metric wrap count keeps in hand for the renderer:
+# Keynote / PowerPoint break a hair earlier than PIL's advances.
+_AUTOFIT_REAL_WIDTH_SHARE = 0.95
+
+
+def _autofit_lines(text: str, runs: List[Any], width_in: float, font_pt: float) -> int:
+    """Wrapped line count for one card paragraph: real Poppins advances
+    (bold when any run is bold) at a 5% narrower width. The old average-glyph
+    estimate over-counted long proportional lines so far that an App Install
+    goal line left ~100px of empty card and the cited market-data block was
+    trimmed (design review 2026-11-03). Falls back to the estimate when the
+    font cannot be measured."""
+    bold = any(bool(getattr(r.font, "bold", False)) for r in runs)
+    return _measure_lines(text, width_in * _AUTOFIT_REAL_WIDTH_SHARE, font_pt, bold=bold)
+
+
 def _autofit_textframe(tf, width_in: float, max_height_in: float, min_pt: float = 8.0):
     """Shrink every run's font (and proportionally its paragraph spacing) until
     the text frame's estimated rendered height fits within ``max_height_in``.
@@ -2544,7 +2560,6 @@ def _autofit_textframe(tf, width_in: float, max_height_in: float, min_pt: float 
     # top/bottom text insets are included. Under-estimating here is what let the
     # RESOLUTION card's tail rows spill below the card, so we bias toward
     # over-estimating (shrink rather than clip).
-    _wrap_em = 0.56  # advance for body prose in these cards
     _line_h_factor = 1.42  # rendered line box height / point size
     _v_inset = 0.10  # text frame top+bottom inset budget (inches)
 
@@ -2565,7 +2580,7 @@ def _autofit_textframe(tf, width_in: float, max_height_in: float, min_pt: float 
             # 7pt rows were floored, and then trimmed the cited ONS line.
             line_pt = max(min_pt, base_pt * scale)
             ptext = "".join(r.text for r in runs)
-            n_lines = _estimate_lines(ptext, usable_w, line_pt, char_em=_wrap_em)
+            n_lines = _autofit_lines(ptext, runs, usable_w, line_pt)
             line_h = (line_pt * _line_h_factor) / 72.0
             sb = (p.space_before.pt if p.space_before else 0) / 72.0
             sa = (p.space_after.pt if p.space_after else 0) / 72.0
@@ -2601,7 +2616,7 @@ def _autofit_textframe(tf, width_in: float, max_height_in: float, min_pt: float 
                 continue
             base_pt = max((r.font.size.pt if r.font.size else 10) for r in runs)
             ptext = "".join(r.text for r in runs)
-            n_lines = _estimate_lines(ptext, usable_w, base_pt, char_em=_wrap_em)
+            n_lines = _autofit_lines(ptext, runs, usable_w, base_pt)
             line_h = (base_pt * _line_h_factor) / 72.0
             sb = (p.space_before.pt if p.space_before else 0) / 72.0
             sa = (p.space_after.pt if p.space_after else 0) / 72.0
