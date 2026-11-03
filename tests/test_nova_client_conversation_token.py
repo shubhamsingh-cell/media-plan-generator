@@ -482,3 +482,52 @@ console.log(JSON.stringify({sent: bodies.length, mints: mints.length}));
     )
     assert "error" not in out, out
     assert out == {"sent": 1, "mints": 1}
+
+
+def _drawer_run(fetch_js: str, steps: str) -> dict:
+    from tests.test_nova_new_chat import _DRAWER_STUB, _drawer_js
+
+    return run_node(_DRAWER_STUB + fetch_js + _drawer_js() + steps)
+
+
+_DRAWER_FETCH = r"""
+var calls = [], gateOn = GATE_ON;
+fetch = function (url, opts) {
+  var hdr = (opts && opts.headers) || {};
+  calls.push({url: url, token: hdr["X-Nova-Widget-Token"] || ""});
+  function json(status, body) { var r = { ok: status < 400, status: status,
+    json: function () { return Promise.resolve(body); }, clone: function () { return r; } }; return r; }
+  if (url === "/api/chat/widget-token") {
+    return Promise.resolve(json(200, gateOn ? {gate: "signed", widget_token: "v1.x.9999999999.m"} : {gate: "off"}));
+  }
+  if (gateOn && !hdr["X-Nova-Widget-Token"]) return Promise.resolve(json(401, {code: "WIDGET_TOKEN_REQUIRED"}));
+  return Promise.resolve(json(200, {response: "ok", conversation_id: JSON.parse(opts.body).conversation_id}));
+};
+var tick = function () { return new Promise(function (r) { setTimeout(r, 10); }); };
+"""
+
+_DRAWER_STEPS = r"""
+(async function () {
+  NovaDrawer.open();
+  els["nova-input"] = Object.assign(new El(), {value: "hello there"});
+  NovaDrawer.send();
+  var firstUrl = calls[0] && calls[0].url;  // synchronous: posted before any mint
+  for (var i = 0; i < 10; i++) await tick();
+  console.log(JSON.stringify({firstUrl: firstUrl, calls: calls}));
+})();
+"""
+
+
+def test_drawer_posts_first_and_never_mints_under_off():
+    """Ship-run regression: the drawer minted before its first POST, so the
+    history POST was no longer the first request (tests/test_drawer_history_key.py)."""
+    out = _drawer_run(_DRAWER_FETCH.replace("GATE_ON", "false"), _DRAWER_STEPS)
+    assert out["firstUrl"] == "/api/chat"
+    assert [c["url"] for c in out["calls"]] == ["/api/chat"]
+
+
+def test_drawer_mints_on_the_gate_refusal_and_resends_once():
+    out = _drawer_run(_DRAWER_FETCH.replace("GATE_ON", "true"), _DRAWER_STEPS)
+    assert out["firstUrl"] == "/api/chat"
+    assert [c["url"] for c in out["calls"]] == ["/api/chat", "/api/chat/widget-token", "/api/chat"]
+    assert out["calls"][0]["token"] == "" and out["calls"][2]["token"] == "v1.x.9999999999.m"

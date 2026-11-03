@@ -36,10 +36,12 @@ After the deploy, the boot log shows one line:
 
 ## Mechanics
 
-1. The chat client (widget `static/nova-chat.js`, the `/nova` page
-   `static/js/nova.js`, the platform drawer `static/js/platform.js`) calls
-   `POST /api/chat/widget-token` with `{"conversation_id": "<id>"}` before its
-   first message, waiting at most 3 s. Under `off` the mint answers
+1. The widget (`static/nova-chat.js`) and the `/nova` page
+   (`static/js/nova.js`) call `POST /api/chat/widget-token` with
+   `{"conversation_id": "<id>"}` before their first message, waiting at most
+   3 s. The platform drawer (`static/js/platform.js`) mints lazily: it posts
+   first and mints only on a `WIDGET_TOKEN_REQUIRED` refusal, then resends
+   once, so under `off` it makes no extra request at all. Under `off` the mint answers
    `{"gate": "off"}` and the client stops asking. A failed mint (timeout,
    network error, 429) means "send without a token for 60 s".
 2. The token is `v1.<conversation id>.<expiry>.<HMAC-SHA256>`, bound to one
@@ -82,7 +84,8 @@ every deploy, which invalidates outstanding tokens; clients re-mint on the
 ## Blast radius of the flip
 
 - Browser visitors on the three first-party clients: one extra POST per page
-  session; otherwise no visible change. A page opened before the deploy runs
+  session (widget and `/nova`; the drawer one extra round trip on its first
+  turn under `signed`); otherwise no visible change. A page opened before the deploy runs
   the old client, whose first turn after the flip gets a 401 shown as a
   sign-in message; a reload fixes it (cache-busted `?v=`).
 - Embedded clients on other Joveo hosts that rely on the widget-domain Origin

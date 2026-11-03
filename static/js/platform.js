@@ -1986,19 +1986,22 @@ const NovaDrawer = (() => {
       if (csrfMeta && csrfMeta.content)
         headers["X-CSRF-Token"] = csrfMeta.content;
 
-      const gatedChatFetch = (body) =>
-        _gateEnsure(conversationId).then(() => {
-          const widgetToken = _gateToken(conversationId);
-          if (widgetToken) headers["X-Nova-Widget-Token"] = widgetToken;
-          return fetch("/api/chat", {
-            method: "POST",
-            headers: headers,
-            credentials: "same-origin",
-            body: body,
-          }).then((r) =>
-            _isGateRefusal(r).then((refused) => {
+      /* Chat gate, lazily: the drawer posts first (no mint call under the
+         default "off", same request order as before the gate) and mints only
+         when the server refuses with WIDGET_TOKEN_REQUIRED, then resends
+         once. A token from an earlier reply is sent up front. */
+      const gatedChatFetch = (body) => {
+        const widgetToken = _gateToken(conversationId);
+        if (widgetToken) headers["X-Nova-Widget-Token"] = widgetToken;
+        return fetch("/api/chat", {
+          method: "POST",
+          headers: headers,
+          credentials: "same-origin",
+          body: body,
+        }).then((r) =>
+          _isGateRefusal(r).then((refused) => {
             if (!refused) return r;
-            /* Expired or rotated widget token: mint again and resend once. */
+            /* Missing, expired or rotated widget token: mint, resend once. */
             _gate.mode = "";
             _gate.token = "";
             _gate.recheckAt = 0;
@@ -2013,9 +2016,9 @@ const NovaDrawer = (() => {
                 body: body,
               });
             });
-            }),
-          );
-        });
+          }),
+        );
+      };
 
       gatedChatFetch(
         JSON.stringify({
