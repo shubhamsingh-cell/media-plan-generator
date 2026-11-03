@@ -69,3 +69,30 @@ def test_talent_portugal_is_its_own_board_not_talent_com():
     assert pf.names_match("Talent.com Portugal", "Talent.com")
     names = [b["name"] for b in pf.in_network_job_boards("Portugal")]
     assert "Talent Portugal" in names and "Talent.com" in names, names
+
+
+def test_excluding_talent_com_keeps_the_other_talent_boards_and_back():
+    import channel_funding as cf
+
+    excl_com = {"excluded_publishers": ["Talent.com"]}
+    assert pf.is_excluded("Talent.com", excl_com)
+    assert not pf.is_excluded("Talent Portugal", excl_com, "Portugal")
+    assert not pf.is_excluded("Talent Inc.", excl_com)
+    excl_pt = {"excluded_publishers": ["Talent Portugal"]}
+    assert pf.is_excluded("Talent Portugal", excl_pt, "Portugal")
+    assert not pf.is_excluded("Talent.com", excl_pt, "Portugal")
+    data = dict(excl_com, locations=["Lisbon, Portugal"], target_roles=["Sales Associate"])
+    rows = [b["row_name"] for b in cf.post_directly_boards(data, "Portugal", limit=20)]
+    assert "Talent Portugal" in rows, rows
+
+
+def test_the_pipeline_search_finds_an_exact_name_board(monkeypatch):
+    # a fragment that is itself an exact-name board ("yolo" keys "=yolo")
+    # must still find a pipeline partner keyed by the stripped key ("yolo")
+    partner = {"name": "YOLO JAPAN", "regions": ["Japan"], "stage": "Contract signed",
+               "status": "Done"}
+    pipe = {"as_of": "2026-11-03", "stages": ["Contract signed", "Live"],
+            "by_key": {pf.normalize("YOLO JAPAN"): [partner]}}
+    monkeypatch.setattr(pf, "_pipeline", lambda: pipe)
+    assert [r["name"] for r in pf.onboarding_pipeline("yolo")] == ["YOLO JAPAN"]
+    assert [r["name"] for r in pf.onboarding_pipeline("Yolo")] == ["YOLO JAPAN"]

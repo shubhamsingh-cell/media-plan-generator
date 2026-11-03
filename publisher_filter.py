@@ -582,7 +582,12 @@ def is_excluded(name: Any, data: Any = None, country: Any = None) -> bool:
 def _brand_key(name: Any) -> Optional[str]:
     """First word of ``name`` when it is a multi-country brand
     ('Indeed Education' -> 'indeed'), else None."""
-    first = re.split(r"[^a-z0-9]+", _PAREN_RE.sub(" ", _fold(name)).strip())[:1]
+    text = _PAREN_RE.sub(" ", _fold(name)).strip()
+    # an exact-name board ("Talent Portugal", "Talent Inc.") is not a product
+    # of the brand its first word spells
+    if re.sub(r"[^a-z0-9]", "", text) in _EXACT_NAME_BOARDS:
+        return None
+    first = re.split(r"[^a-z0-9]+", text)[:1]
     return first[0] if first and first[0] in _MULTI_COUNTRY_BRANDS else None
 
 
@@ -1684,7 +1689,8 @@ def onboarding_pipeline(term: Any = None, country: Any = None) -> List[Dict[str,
             regions = _partner_regions(partner)
             if want and regions and not _regions_cover(regions, want):
                 continue
-            if needle and needle not in key:
+            # exact-name keys carry a leading "=" ("=yolo"): compare the names
+            if needle and needle.lstrip("=") not in key.lstrip("="):
                 continue
             stage = str(partner.get("stage") or "")
             rows.append(
