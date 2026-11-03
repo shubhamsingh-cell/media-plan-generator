@@ -2673,7 +2673,7 @@ def input_role_findings(
                 break
     out: list[Finding] = []
     folded = {
-        where: (" ".join(text.split()).casefold() if text is not None else None)
+        where: (_norm_surface(text) if text is not None else None)
         for where, text in (("deck", deck_text), ("workbook", workbook_text))
     }
     absent: dict[str, list[int]] = {"deck": [], "workbook": []}
@@ -2689,8 +2689,8 @@ def input_role_findings(
                     "plan",
                 )
             )
-        names = [title.casefold()] + (
-            [matched[i].casefold()] if i in matched else []
+        names = [_norm_surface(title)] + (
+            [_norm_surface(matched[i])] if i in matched else []
         )
         for where, text in folded.items():
             if text is not None and not any(_names_role(text, n) for n in names):
@@ -2698,7 +2698,9 @@ def input_role_findings(
     # The deck rolls extra roles into "+N more roles" / "(and N more)": a role
     # the deck leaves out is named there only while the plan role set and the
     # workbook both name it, and no more roles than the rollup counts.
-    room = _deck_role_rollup(folded["deck"] or "")
+    room = _deck_role_rollup(
+        folded["deck"] or "", [_norm_surface(t) for t in typed] + [_norm_surface(p) for p in plan]
+    )
     excused = {
         i
         for i in absent["deck"]
@@ -2727,24 +2729,46 @@ _DRAFT_ACTION = (
 )
 
 
+def _norm_surface(text: str) -> str:
+    """Casefolded, with hyphens / slashes / dashes / underscores read as
+    spaces and whitespace collapsed: "CDL-A Driver" ~ "cdl a driver",
+    "RN/LPN" ~ "rn lpn"."""
+    return " ".join(re.sub(r"[-/\u2013\u2014_]+", " ", str(text or "")).casefold().split())
+
+
 def _names_role(text: str, name: str) -> bool:
-    """``name`` appears in ``text`` as whole words ("RN" is not inside
-    "return"). Both are casefolded and whitespace-collapsed."""
-    return bool(
-        re.search(r"(?<![a-z0-9])" + re.escape(name) + r"(?![a-z0-9])", text)
+    """``name`` appears in ``text`` as whole words, singular or plural
+    ("Welder" ~ "Welders", "CDL-A Drivers" ~ "CDL A Driver"), never inside
+    another word ("RN" is not in "returns"). Both are _norm_surface'd."""
+    if not name:
+        return False
+    stem = name[:-2] if name.endswith("es") and len(name) > 4 else (
+        name[:-1] if name.endswith("s") and len(name) > 3 else name
     )
+    for base in {name, stem}:
+        if re.search(
+            r"(?<![a-z0-9])" + re.escape(base) + r"(?:s|es)?(?![a-z0-9])", text
+        ):
+            return True
+    return False
 
 
-_ROLE_ROLLUP_RES = (
-    re.compile(r"(\d+) more roles?\b(?! categor)"),
-    re.compile(r"\((?:\+|and )(\d+) more\)"),
-)
+_ROLE_ROLLUP_RE = re.compile(r"(\d+) more roles?\b(?! categor)")
+# "(+N more)" / "(and N more)" says nothing about roles by itself: it counts
+# only right after a list that names a plan role (same clause).
+_BARE_ROLLUP_RE = re.compile(r"\((?:\+|and )(\d+) more\)")
 
 
-def _deck_role_rollup(text: str) -> int:
-    """The largest role count a "+N more roles" / "(and N more)" rollup in
-    the deck stands for (0 without one)."""
-    counts = [int(m.group(1)) for rx in _ROLE_ROLLUP_RES for m in rx.finditer(text)]
+def _deck_role_rollup(text: str, role_names: list[str]) -> int:
+    """The largest role count a "+N more roles" rollup, or a bare "(+N
+    more)" / "(and N more)" right after a list naming a plan role, stands
+    for in the deck (0 without one)."""
+    counts = [int(m.group(1)) for m in _ROLE_ROLLUP_RE.finditer(text)]
+    for m in _BARE_ROLLUP_RE.finditer(text):
+        before = text[max(0, m.start() - 200) : m.start()]
+        clause = re.split(r"[.:;!?]", before)[-1]
+        if any(n and _names_role(clause, n) for n in role_names):
+            counts.append(int(m.group(1)))
     return max(counts, default=0)
 
 

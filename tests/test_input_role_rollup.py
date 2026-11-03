@@ -134,3 +134,39 @@ def test_the_standardized_title_itself_still_satisfies_an_alias():
                         ("Electrician", "Construction Worker")):
         data = {"input_roles": [typed], "target_roles": [plan]}
         assert [f for f in bundle_qa.input_role_findings(data) if f["location"] == "plan"] == [], typed
+
+
+def test_a_bare_plus_n_more_is_a_role_rollup_only_beside_named_roles():
+    roles = ["Electrician", "Welder", "Machinist"]
+    data = {"input_roles": roles, "target_roles": roles}
+    wb = " ".join(roles)
+    # "(+2 more)" after a list of markets says nothing about roles
+    unrelated = bundle_qa.input_role_findings(
+        data, deck_text="Electrician hiring. Markets: Berlin, Munich (+2 more)",
+        workbook_text=wb,
+    )
+    assert {f["location"] for f in unrelated} == {"deck"}
+    beside = bundle_qa.input_role_findings(
+        data, deck_text="Roles: Electrician (+2 more)", workbook_text=wb
+    )
+    assert beside == []
+
+
+@pytest.mark.parametrize(
+    "typed,surface",
+    [
+        ("CDL-A Drivers", "Hiring CDL-A Driver roles"),
+        ("CDL-A Driver", "Hiring CDL A Drivers"),
+        ("RN / LPN", "rn/lpn openings"),
+        ("Welder", "Welders wanted"),
+    ],
+)
+def test_surface_matching_accepts_plural_and_spacing_variants(typed, surface):
+    data = {"input_roles": [typed], "target_roles": [typed]}
+    assert bundle_qa.input_role_findings(data, deck_text=surface, workbook_text=surface) == []
+
+
+def test_variants_never_match_inside_another_word():
+    data = {"input_roles": ["RN"], "target_roles": ["RN"]}
+    found = bundle_qa.input_role_findings(data, deck_text="returns", workbook_text="RN")
+    assert [f["location"] for f in found] == ["deck"]
