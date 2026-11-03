@@ -221,9 +221,14 @@ def test_cost_analysis_never_compares_a_local_total_with_the_us_dollar_budget(wo
         for r in range(6, ws.max_row + 1)
         if ws.cell(row=r, column=2).value
     }
-    assert rows["United Kingdom"] == "Not compared (GBP)"
-    assert rows["Australia"] == "Not estimated"
-    assert rows["Switzerland"] == "Not estimated"
+    # rows abroad are labelled "City (Country, national figures)" (2026-11-03)
+    def _row(country):
+        (hit,) = [v for k, v in rows.items() if f"({country}, national figures)" in k]
+        return hit
+
+    assert _row("United Kingdom") == "Not compared (GBP)"
+    assert _row("Australia") == "Not estimated"
+    assert _row("Switzerland") == "Not estimated"
 
 
 def test_recommendation_score_leaves_out_off_scale_terms(analysis):

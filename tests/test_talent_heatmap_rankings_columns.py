@@ -81,3 +81,61 @@ def test_cost_of_living_reads_n_a_outside_the_us_and_the_score_wraps(result):
         score = ws.cell(row=r, column=headers["Recommendation Score"])
         if score.value:
             assert score.alignment.wrap_text, name
+
+
+_LABEL_SHEETS = ("Location Rankings", "Salary Comparison", "Hiring Difficulty", "Cost Analysis")
+
+
+def _wb(result):
+    return openpyxl.load_workbook(io.BytesIO(th.generate_heatmap_excel(result)))
+
+
+def test_every_sheet_names_the_foreign_city_the_same_way(result):
+    wb = _wb(result)
+    for title in _LABEL_SHEETS:
+        ws = wb[title]
+        labels = [str(ws.cell(row=r, column=2).value or "") for r in range(1, ws.max_row + 1)]
+        london = [v for v in labels if "London" in v]
+        assert london and all("national figures" in v for v in london), (title, london)
+        assert "United Kingdom" not in labels, title
+
+
+def test_no_sheet_applies_the_us_relative_cost_of_living_to_a_non_us_row(result):
+    wb = _wb(result)
+    checked = set()
+    for ws in wb.worksheets:
+        header_row = None
+        for r in range(1, 8):
+            vals = [str(ws.cell(row=r, column=c).value or "") for c in range(2, 12)]
+            if "Location" in vals:
+                header_row = r
+                break
+        if header_row is None:
+            continue
+        col_cols = [
+            c for c in range(2, 12)
+            if "CoL" in str(ws.cell(row=header_row, column=c).value or "")
+            or "Cost of Living" in str(ws.cell(row=header_row, column=c).value or "")
+        ]
+        for r in range(header_row + 1, ws.max_row + 1):
+            name = str(ws.cell(row=r, column=2).value or "")
+            if "London" not in name:
+                continue
+            for c in col_cols:
+                v = str(ws.cell(row=r, column=c).value)
+                assert v.startswith(("n/a", "—", "Not scored")), (ws.title, c, v)
+                checked.add(ws.title)
+    # both sheets with a cost-of-living column were actually checked
+    assert {"Location Rankings", "Salary Comparison"} <= checked, checked
+
+
+def test_location_cells_wrap_and_each_row_has_one_vertical_alignment(result):
+    wb = _wb(result)
+    for title in _LABEL_SHEETS:
+        ws = wb[title]
+        for r in range(6, ws.max_row + 1):
+            cells = [ws.cell(row=r, column=c) for c in range(2, 10) if ws.cell(row=r, column=c).value]
+            if len(cells) < 2:
+                continue
+            assert cells[0].alignment.wrap_text, (title, r)
+            assert len({c.alignment.vertical for c in cells}) == 1, (title, r)

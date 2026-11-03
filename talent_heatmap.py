@@ -1530,6 +1530,38 @@ def _safe_result(future):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+# Cost of living for a non-US row: the index is US-relative (SCORING_NOTE).
+COL_NA = "n/a (US-relative index)"
+
+# sheet -> its header row (data rows follow); the location sits in column B
+_LABEL_SHEET_HEADER_ROWS = {
+    "Location Rankings": 5,
+    "Salary Comparison": 4,
+    "Hiring Difficulty": 4,
+    "Cost Analysis": 5,
+}
+
+
+def _align_data_rows(wb: Any, alignment_cls: Any) -> None:
+    """One vertical alignment (top) per data row, and the location column
+    wrapped and wide enough for "City (Country, national figures)"."""
+    for title, header_row in _LABEL_SHEET_HEADER_ROWS.items():
+        if title not in wb.sheetnames:
+            continue
+        ws = wb[title]
+        ws.column_dimensions["B"].width = 40
+        for row in ws.iter_rows(min_row=header_row + 1):
+            for cell in row:
+                if cell.value is None:
+                    continue
+                cur = cell.alignment
+                cell.alignment = alignment_cls(
+                    horizontal=cur.horizontal,
+                    vertical="top",
+                    wrap_text=True if cell.column == 2 else cur.wrap_text,
+                )
+
+
 def _rankings_label(loc: Dict[str, Any]) -> str:
     """Row label for Location Rankings: a city abroad whose figures are its
     country's ("Birmingham, UK" -> "Birmingham (United Kingdom, national
@@ -1668,7 +1700,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             value=(
                 f"{col.get('index', 100)} ({col.get('rating') or ''})"
                 if col.get("scored", True)
-                else "n/a (US-relative index)"
+                else COL_NA
             ),
         ).font = data_font
         rec = loc.get("recommendation_score") or 0
@@ -1731,9 +1763,8 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             ws2.cell(row=row, column=2).fill = hdr_fill
             _group = _key
             row += 1
-        ws2.cell(
-            row=row, column=2, value=s.get("display_name", s.get("location") or "")
-        ).font = bold_font
+        ws2.cell(row=row, column=2, value=_rankings_label(s)).font = bold_font
+        _col_ok = _is_us_location(_resolve_location(str(s.get("location") or "")))
         ws2.cell(
             row=row,
             column=3,
@@ -1742,11 +1773,19 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         ws2.cell(
             row=row, column=4, value=_salary_text(s, "median_salary", "median_display")
         ).font = data_font
-        ws2.cell(row=row, column=5, value=s.get("coli", 100)).font = data_font
+        # the cost-of-living index is US-relative: applied to US rows only,
+        # as the Location Rankings score does
+        ws2.cell(
+            row=row, column=5, value=s.get("coli", 100) if _col_ok else COL_NA
+        ).font = data_font
         ws2.cell(
             row=row,
             column=6,
-            value=_salary_text(s, "adjusted_salary", "adjusted_display"),
+            value=(
+                _salary_text(s, "adjusted_salary", "adjusted_display")
+                if _col_ok
+                else COL_NA
+            ),
         ).font = data_font
         _range = s.get("range_display")
         if not _range:
@@ -1809,9 +1848,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
             ws3.cell(row=row, column=2).fill = hdr_fill
             _divided = True
             row += 1
-        ws3.cell(
-            row=row, column=2, value=d.get("display_name", d.get("location") or "")
-        ).font = bold_font
+        ws3.cell(row=row, column=2, value=_rankings_label(d)).font = bold_font
         score = d.get("difficulty_score") or 0
         cell = ws3.cell(row=row, column=3, value=f"{score}/100")
         cell.font = (
@@ -1953,9 +1990,7 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
         sal = loc.get("salary", {})
         estimated = sal.get("estimated")
         cur = str(sal.get("currency") or "USD")
-        ws5.cell(row=row, column=2, value=loc.get("display_name") or "").font = (
-            bold_font
-        )
+        ws5.cell(row=row, column=2, value=_rankings_label(loc)).font = bold_font
         if estimated in (None, "") or not sal.get("numeric", True):
             # no annual salary for this market: no cost is derived from one
             ws5.cell(
@@ -1990,6 +2025,8 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     ws5.column_dimensions["B"].width = 32
     for c in "CDEFG":
         ws5.column_dimensions[c].width = 22
+
+    _align_data_rows(wb, Alignment)
 
     buf = io.BytesIO()
     wb.save(buf)
