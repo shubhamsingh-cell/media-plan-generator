@@ -7,7 +7,7 @@
 
 ## Resume in one line
 
-Main is live at `fb89347` with nothing pending on a branch (all four slices of
+Main is live at `1c13d17` (served SHA per `/api/deploy/ready`, 2026-11-10) with nothing pending on a branch (all four slices of
 RUN 2026-11-03 shipped); next real work is the goal-metric model with a real
 install model and the metro/site split, and the owner-only list below gates
 the production switches.
@@ -17,7 +17,7 @@ the production switches.
 | Item | Value |
 |---|---|
 | URL | https://media-plan-generator.onrender.com |
-| Served SHA | `fb89347` (`/api/deploy/ready` returned `git_commit` fb89347033f875dc8e497f7a93130e293bfe3f77, `ready: true`, read 2026-11-03 at the time of writing) |
+| Served SHA | `1c13d17` (`/api/deploy/ready` served 1c13d17 as of 2026-11-10; it was `fb89347` on 2026-11-03, when the last four slices of RUN 2026-11-03 landed. Re-read the endpoint before relying on this) |
 | Deploy | Render auto-deploys from `main`. Ship only through `scripts/ship_from_worktree.sh` from a linked worktree on a feature branch (rebases, runs the full suite, waits a stability window, fast-forward pushes, never force). See `CLAUDE.md` section 11 and 12 |
 | CI | GitHub Actions workflow "Nova AI Suite CI" (`.github/workflows/ci.yml`); jobs include `nova-retrieval-eval` and `nova-retrieval-eval-live` |
 | Python | 3.11 in production (`render.yaml`) and CI; local interpreter is 3.9.6, so run anything version-sensitive in CI before trusting it |

@@ -1,5 +1,7 @@
 # Media Plan Generator — Next Session Backlog
 
+> **Historical note (added 2026-11-10):** this backlog is from 2026-05-22 and is superseded by `SESSION_HANDOFF.md` at the repo root. Treat everything below as an archive; verify against the code and `git log` before acting on it.
+
 **Date**: 2026-05-22
 **Last touched in this session**: NOT directly touched (Nova chatbot session). G4 production-validator agent independently verified **NO REGRESSION** from chatbot changes.
 

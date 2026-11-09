@@ -76,3 +76,9 @@ data/google_trends.json
 # Census source files cached here for fast idempotent re-runs. The BUILT
 # outputs (data/geo/*.tsv) are committed; this raw cache is not.
 data/.geo_build_cache/
+
+# Runtime artifacts written by nova_memory.py (default memory store) and
+# nova.py (response cache). Not source; do not commit.
+# data/.embedding_cache.json is intentionally NOT ignored here.
+data/nova_memory_default.json
+data/nova_response_cache.json
