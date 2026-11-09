@@ -1,0 +1,30 @@
+name: OpenRouter Free Routes Liveness
+
+# Daily check that every ":free" OpenRouter slug in llm_router.PROVIDER_CONFIG
+# is still listed in the public catalog at price 0. Needs network, no secrets.
+# On failure follow tests/test_model_id_audit.py (swap in a listed free model
+# of comparable class, or disable the route with a boot WARNING; never
+# substitute a paid route).
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Free route liveness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check free routes against the OpenRouter catalog
+        run: python3 scripts/check_openrouter_free_routes.py
