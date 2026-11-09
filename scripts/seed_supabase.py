@@ -264,6 +264,11 @@ def seed_nova_memory(client: Any, *, dry_run: bool = False) -> int:
     Returns:
         Number of rows seeded.
     """
+    # Same model id the router serves for its Sonnet tier (one source of truth,
+    # including the CLAUDE_SONNET_MODEL override), never a second literal.
+    import llm_router
+
+    default_model = str(llm_router.PROVIDER_CONFIG[llm_router.CLAUDE]["model"])
     rows = [
         {
             "user_id": "system",
@@ -277,8 +282,8 @@ def seed_nova_memory(client: Any, *, dry_run: bool = False) -> int:
             "user_id": "system",
             "memory_type": "preference",
             "key": "default_model",
-            "value": {"model": "claude-sonnet-4-20250514"},
-            "content": "claude-sonnet-4-20250514",
+            "value": {"model": default_model},
+            "content": default_model,
             "metadata": {"source": "seed_supabase.py", "key": "default_model"},
         },
     ]
