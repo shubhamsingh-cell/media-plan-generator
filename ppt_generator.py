@@ -30,6 +30,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+
+def _default_month() -> int:
+    """Campaign month fallback via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
 from shared_utils import (
     parse_budget_display,
     INDUSTRY_LABEL_MAP as _SHARED_INDUSTRY_LABEL_MAP,
@@ -2914,7 +2921,7 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
             current_month = (
                 campaign_month
                 if (campaign_month and 1 <= campaign_month <= 12)
-                else datetime.datetime.now().month
+                else _default_month()
             )
             # Get CPC across platforms
             cpc_vals = []

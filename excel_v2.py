@@ -104,6 +104,13 @@ import channel_funding
 
 logger = logging.getLogger(__name__)
 
+
+def _default_month() -> int:
+    """Campaign month fallback via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
 # ---------------------------------------------------------------------------
 # S3: Plan currency (mirrors the thread-local pattern in ppt_generator.py).
 # Every money figure that is the PLAN'S OWN budget/spend/CPA/CPH/allocation
@@ -8197,9 +8204,7 @@ def _build_sheet_executive_summary(
     # (the SAME per-month weights the calendar table and deck print): the
     # in-window months running highest by budget weight. No generic
     # "Q1/Q2 is N% more competitive" figures -- none has a source in the repo.
-    import datetime as _dt_risk
-
-    campaign_start = data.get("campaign_start_month") or _dt_risk.date.today().month
+    campaign_start = data.get("campaign_start_month") or _default_month()
     _cal_timeline = (
         (data.get("_gold_standard") or {}).get("activation_calendar") or {}
     ).get("timeline") or []

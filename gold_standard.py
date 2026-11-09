@@ -196,6 +196,13 @@ def _detect_subvertical(data: dict, ind_key: str) -> tuple[str, dict] | None:
 logger = logging.getLogger(__name__)
 
 
+def _default_month() -> int:
+    """Campaign month fallback via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
+
 # ---------------------------------------------------------------------------
 # 1. City-Level Supply-Demand Data
 # ---------------------------------------------------------------------------
@@ -6022,7 +6029,7 @@ def campaign_window_months(
     if weeks <= 0:
         return 12
     if not 1 <= int(start_month or 0) <= 12:
-        start_month = datetime.date.today().month  # same fallback as the calendar
+        start_month = _default_month()  # same fallback as the calendar
     start = datetime.date(year or datetime.date.today().year, int(start_month), 1)
     end = start + datetime.timedelta(days=weeks * 7 - 1)
     return max(1, min(12, (end.year - start.year) * 12 + end.month - start.month + 1))
@@ -6128,7 +6135,7 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
     """
     campaign_month = int(data.get("campaign_start_month") or 0)
     if campaign_month < 1 or campaign_month > 12:
-        campaign_month = datetime.datetime.now().month
+        campaign_month = _default_month()
 
     industry = str(data.get("industry") or "").lower()
     ind_key = _get_industry_key(industry)

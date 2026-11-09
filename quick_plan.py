@@ -1387,13 +1387,14 @@ def _get_seasonal_advice(collar_type: str) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error("Seasonal advice failed: %s", e, exc_info=True)
+        _fallback_month = _default_month()
         return {
-            "current_month": _MONTH_NAMES[datetime.now().month],
+            "current_month": _MONTH_NAMES[_fallback_month],
             "current_multiplier": 1.0,
             "current_label": "Normal",
             "adjustment_label": "No seasonal adjustment applied",
             "adjustment_pct": 0.0,
-            "quarter": f"Q{(datetime.now().month - 1) // 3 + 1}",
+            "quarter": f"Q{(_fallback_month - 1) // 3 + 1}",
             "best_months": [],
             "worst_months": [],
             "advice": "Seasonal data unavailable. Campaign timing should be based on your hiring urgency.",

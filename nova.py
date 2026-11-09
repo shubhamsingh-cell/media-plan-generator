@@ -106,6 +106,13 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+def _default_month() -> int:
+    """Campaign month fallback via the shared, test-pinnable helper (budget_engine)."""
+    import budget_engine
+
+    return budget_engine.default_campaign_month()
+
 # Channel recommender (S48)
 try:
     from channel_recommender import (
@@ -5732,9 +5739,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             _seasonal = self._data_cache.get("seasonal_hiring_trends", {})
             _patterns = _seasonal.get("seasonal_patterns", {})
             if _patterns:
-                import datetime as _dt
-
-                _cur_month = _dt.datetime.now().month
+                _cur_month = _default_month()
                 _month_names = [
                     "",
                     "Jan",
@@ -11691,11 +11696,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
         # Current benchmark
         try:
-            import datetime
-
             month = params.get("campaign_start_month") or 0
             if not month or not (1 <= month <= 12):
-                month = datetime.datetime.now().month
+                month = _default_month()
             benchmark = te.get_benchmark(
                 platform=platform,
                 industry=industry or "general_entry_level",
@@ -13660,10 +13663,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if location:
                 result["geo_cost_index"] = fs.get_geo_cost_index(location)
 
-            import datetime as _dt
-
-            result["seasonal_factor"] = fs.get_seasonal_factor(_dt.datetime.now().month)
-            result["current_month"] = _dt.datetime.now().month
+            _month_now = _default_month()
+            result["seasonal_factor"] = fs.get_seasonal_factor(_month_now)
+            result["current_month"] = _month_now
 
             if job_title and budget and location:
                 result["channel_recommendations"] = fs.get_channel_recommendations(
