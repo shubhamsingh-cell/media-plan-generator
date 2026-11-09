@@ -25568,7 +25568,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _thm_salary_data.extend(_sb_salaries)
                         if _thm_salary_data:
                             result["supabase_salary_data"] = _thm_salary_data
-                    except (urllib.error.URLError, OSError, ValueError) as sb_err:
+                    except Exception as sb_err:  # noqa: BLE001
+                        # optional enrichment: any failure (a client-library
+                        # error type included) is logged and skipped, never
+                        # the analysis
                         logger.error(
                             f"Supabase salary enrichment for heatmap failed: {sb_err}",
                             exc_info=True,
@@ -25659,7 +25662,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 logger.info(
                                     "Enriched /api/talent-heatmap with jobspy density data"
                                 )
-                    except (ValueError, TypeError, KeyError, OSError) as _jse:
+                    except Exception as _jse:  # noqa: BLE001
+                        # optional live enrichment: any failure is logged and
+                        # skipped, never the analysis
                         logger.error(
                             "JobSpy enrichment for talent-heatmap failed: %s",
                             _jse,
