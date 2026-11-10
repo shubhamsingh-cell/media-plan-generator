@@ -13,7 +13,9 @@ import hashlib
 import io
 import re
 import sys
+import types
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -26,6 +28,7 @@ import openpyxl  # noqa: E402
 import budget_engine  # noqa: E402
 import enterprise_pack as ep  # noqa: E402
 import excel_v2  # noqa: E402
+import plan_trust  # noqa: E402
 from _xl_eval import Evaluator  # noqa: E402
 
 CHANNELS = {
@@ -89,8 +92,18 @@ def make_plan(
     return data
 
 
+# The workbook stamps "Generated YYYY-MM-DD HH:MM UTC" from the wall clock
+# (plan_trust.data_asof).  Two builds compared cell by cell straddle a minute
+# boundary now and then (CI run 42777431041), so every build here pins it.
+FIXED_NOW = datetime.datetime(2026, 3, 20, 12, 0, 30, tzinfo=datetime.timezone.utc)
+
+
 def build_wb(data: dict, data_only: bool = False):
-    raw = excel_v2.generate_excel_v2(data)
+    real = plan_trust.data_asof
+    with mock.patch.object(
+        plan_trust, "data_asof", lambda *a, **k: real(*a, **{**k, "now": FIXED_NOW})
+    ):
+        raw = excel_v2.generate_excel_v2(data)
     return openpyxl.load_workbook(io.BytesIO(raw), data_only=data_only)
 
 
@@ -617,3 +630,29 @@ def test_no_client_names_in_new_files():
             if hashlib.sha256(word.encode()).hexdigest() in _BANNED_SHA256:
                 bad.append((path.name, "<redacted>"))
     assert not bad, bad
+
+
+class _TickingDatetime(datetime.datetime):
+    """A wall clock that is a minute later on every read."""
+
+    reads = 0
+
+    @classmethod
+    def now(cls, tz=None):
+        cls.reads += 1
+        return datetime.datetime(2026, 11, 10, 7, 53 + cls.reads, 30, tzinfo=tz)
+
+
+def test_toggle_comparison_survives_a_minute_boundary(monkeypatch):
+    """Regression (CI run 42777431041): the pack-off and pack-on builds read
+    the clock a minute apart and the Executive Summary stamp differed."""
+
+    clock = types.SimpleNamespace(
+        datetime=_TickingDatetime,
+        timezone=datetime.timezone,
+        date=datetime.date,
+        timedelta=datetime.timedelta,
+    )
+
+    monkeypatch.setattr(plan_trust, "datetime", clock)
+    test_toggle_on_adds_exactly_the_five_sheets_and_leaves_the_rest()
