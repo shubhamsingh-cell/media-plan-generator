@@ -1267,6 +1267,7 @@ _PERSIST_COUNTERS = (
 )
 
 _PERSIST_SAVE_INTERVAL_SEC = 300  # 5 minutes
+_PERSIST_IDLE_REFRESH_SEC = 1800  # 30 minutes
 
 
 class SupabasePersistence:
@@ -1279,7 +1280,7 @@ class SupabasePersistence:
     Lifecycle:
         1. ``load()`` -- called once at startup to restore counters.
         2. ``start_background_save()`` -- launches a daemon thread that
-           upserts the current snapshot every 5 minutes.
+           checks every 5 minutes and upserts changed snapshots.
         3. ``save()`` -- can be called manually (e.g. on graceful shutdown).
 
     All operations are thread-safe and will never crash the main application.
@@ -1294,9 +1295,15 @@ class SupabasePersistence:
     def __init__(self, collector: MetricsCollector) -> None:
         self._collector = collector
         self._lock = threading.Lock()
+        # Serialize remote writes so a background tick and an explicit save
+        # cannot both decide that the same snapshot needs persistence.
+        self._save_lock = threading.Lock()
         self._enabled: bool = False
         self._last_save_ok: bool = False
         self._last_save_ts: float = 0.0
+        self._last_save_monotonic: float = 0.0
+        self._last_saved_values: Optional[Tuple[int, ...]] = None
+        self._last_attempt_succeeded: bool = False
         self._first_save_attempted: bool = False
         self._daemon_started_ts: float = 0.0
         self._base_url: str = ""
@@ -1429,34 +1436,71 @@ class SupabasePersistence:
 
         Returns True on success, False on failure.
         """
+        return self._save_snapshot(force=True)
+
+    def _save_if_needed(self) -> bool:
+        """Persist a changed snapshot or refresh an idle one every 30 minutes.
+
+        A skipped idle tick intentionally leaves persistence health untouched:
+        ``last_save_ok`` reflects only a real Supabase response. Failed writes
+        retain the previous successful snapshot marker, so the next five-minute
+        tick retries them.
+        """
+        return self._save_snapshot(force=False)
+
+    def _save_snapshot(self, *, force: bool) -> bool:
+        """Write a snapshot, serializing concurrent save decisions and requests."""
         if not self._enabled:
             return False
-        try:
-            rows = self._build_rows()
-            payload = json.dumps(rows, default=str)
-            req = urllib.request.Request(
-                self._rest_url(),
-                data=payload.encode("utf-8"),
-                headers=self._build_headers(),
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                resp.read()  # consume response
-            with self._lock:
-                self._last_save_ok = True
-                self._last_save_ts = time.time()
-            logger.debug("Metrics snapshot saved to Supabase (%d rows)", len(rows))
-            return True
-        except (urllib.error.URLError, TimeoutError, OSError) as e:
-            with self._lock:
-                self._last_save_ok = False
-            logger.debug("Metrics save to Supabase failed (transient): %s", e)
-            return False
-        except (TypeError, ValueError) as e:
-            with self._lock:
-                self._last_save_ok = False
-            logger.warning("Metrics serialization failed: %s", e)
-            return False
+        with self._save_lock:
+            try:
+                rows = self._build_rows()
+                values = tuple(int(row["metric_value"]) for row in rows)
+                now = time.monotonic()
+                with self._lock:
+                    unchanged = values == self._last_saved_values
+                    idle_refresh_due = (
+                        self._last_save_monotonic <= 0
+                        or now - self._last_save_monotonic >= _PERSIST_IDLE_REFRESH_SEC
+                    )
+                    previous_attempt_succeeded = self._last_attempt_succeeded
+                if (
+                    not force
+                    and unchanged
+                    and previous_attempt_succeeded
+                    and not idle_refresh_due
+                ):
+                    logger.debug("Metrics snapshot unchanged; skipping Supabase upsert")
+                    return False
+                payload = json.dumps(rows, default=str)
+                req = urllib.request.Request(
+                    self._rest_url(),
+                    data=payload.encode("utf-8"),
+                    headers=self._build_headers(),
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    resp.read()  # consume response
+                with self._lock:
+                    self._last_save_ok = True
+                    self._last_save_ts = time.time()
+                    self._last_save_monotonic = time.monotonic()
+                    self._last_saved_values = values
+                    self._last_attempt_succeeded = True
+                logger.debug("Metrics snapshot saved to Supabase (%d rows)", len(rows))
+                return True
+            except (urllib.error.URLError, TimeoutError, OSError) as e:
+                with self._lock:
+                    self._last_save_ok = False
+                    self._last_attempt_succeeded = False
+                logger.debug("Metrics save to Supabase failed (transient): %s", e)
+                return False
+            except (TypeError, ValueError, OverflowError) as e:
+                with self._lock:
+                    self._last_save_ok = False
+                    self._last_attempt_succeeded = False
+                logger.warning("Metrics serialization failed: %s", e)
+                return False
 
     def _build_rows(self) -> list:
         """Build row-per-metric payload for Supabase upsert."""
@@ -1499,8 +1543,9 @@ class SupabasePersistence:
         """Periodically save metrics until the process exits.
 
         Performs an immediate first save (after a short 10s warm-up) so that
-        ``metrics_persisted`` becomes True quickly, then continues at the
-        normal 5-minute interval.
+        ``metrics_persisted`` becomes True quickly, then checks at the normal
+        5-minute interval. Idle snapshots are refreshed at least every 30
+        minutes; changed counters are saved on the next check.
         """
         time.sleep(10)  # short warm-up to let startup finish
         self._first_save_attempted = True
@@ -1513,7 +1558,7 @@ class SupabasePersistence:
         while True:
             time.sleep(_PERSIST_SAVE_INTERVAL_SEC)
             try:
-                self.save()
+                self._save_if_needed()
             except Exception as e:
                 logger.warning(
                     "Metrics persistence loop error (non-fatal): %s",
